@@ -103,23 +103,18 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card" id="padComposer">
   <h2 style="font-size:17px;margin:0 0 8px">PAD · Parte de alerta del conductor</h2>
-  <p class="small">Informá accidentes y situaciones de ruta. Cada aviso queda pendiente de verificación y solo se publica después de la aprobación de moderación.</p>
+  <p class="small">Reportá accidentes, demoras, cortes o cualquier situación importante. Tu parte queda privado mientras se revisa y solo se comparte con la comunidad cuando moderación lo aprueba.</p>
   <label for="padKind">Tipo de situación</label>
   <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="demorado">Demora</option><option value="otro">Corte, desvío u otra situación</option></select>
   <input id="padLocation" maxlength="160" placeholder="Ruta, kilómetro y localidad">
   <textarea id="padBody" maxlength="1200" placeholder="Describí lo ocurrido, sentido de circulación y referencias…"></textarea>
   <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><label class="action" for="padAudio">🎙️ Adjuntar audio</label><input id="padAudio" type="file" accept="audio/*" hidden></div>
   <p class="small" id="padFiles">Sin archivos adjuntos.</p>
-  <button class="action primary" id="sendPad">Enviar para verificar</button><p class="small" id="padMsg" aria-live="polite"></p>
+  <button class="action primary" id="sendPad">Enviar parte para revisión</button><p class="small" id="padMsg" aria-live="polite"></p>
 </div>
 <h2 class="section-title">PAD · Avisos verificados</h2><div id="padFeed"><div class="empty">Cargando avisos verificados…</div></div>
 <h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
-<h2 class="section-title">Avisos de ruta</h2>
-<div class="card">
-<label for="alertKind">Tipo de aviso</label><select id="alertKind"><option value="accidente">Accidente</option><option value="demora">Demora</option><option value="corte">Corte de ruta</option><option value="clima">Clima</option><option value="ruta">Estado de ruta</option><option value="otro">Otro</option></select>
-<input id="alertRoad" maxlength="80" placeholder="Ruta / camino (opcional)"><input id="alertLocation" maxlength="100" placeholder="Localidad o zona (opcional)">
-<textarea id="alertBody" maxlength="1000" placeholder="Contá qué está pasando…"></textarea><button class="action primary" id="sendAlert">Publicar aviso</button><p class="small" id="alertMsg"></p>
-</div><div id="alertsFeed"></div>
+<p class="small">Los avisos nuevos se envían únicamente mediante el PAD y pasan por revisión antes de hacerse visibles. Los avisos anteriores se conservan en el servidor.</p>
 </section>
 
 <section id="amigos" hidden>
@@ -245,7 +240,7 @@ function setTab(tab){
   ['muro','ruta','amigos','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
-  if(tab==='ruta'){ loadRoute(); loadAlerts(); loadPadFeed(); }
+  if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
 }
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -278,7 +273,7 @@ async function boot(){
     $('app').classList.remove('hidden');
     $('footer').textContent = 'Comunidad privada · Conexión activa';
     updateProfileUI();
-    await Promise.all([loadFeed(),loadRoute(),loadAlerts(),loadPadFeed()]);
+    await Promise.all([loadFeed(),loadRoute(),loadPadFeed()]);
     if(['owner','moderator'].includes(profile.role)){
       await Promise.all([loadModerationQueue(),loadPadModeration()]);
       updatePushStatus().catch(()=>{});
@@ -745,47 +740,6 @@ async function loadRoute(){
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
 }
-$('sendAlert').addEventListener('click',async()=>{
-  const body=$('alertBody').value.trim();
-  if(!body) return;
-  $('sendAlert').disabled=true;
-  try{
-    await api('/api/route/alerts',{method:'POST',body:{
-      kind:$('alertKind').value,
-      road:$('alertRoad').value.trim(),
-      location:$('alertLocation').value.trim(),
-      body
-    }});
-    $('alertMsg').textContent='Aviso publicado por 12 horas';
-    $('alertBody').value='';
-    await loadAlerts();
-  }catch(error){ $('alertMsg').textContent=error.message || String(error); }
-  finally{ $('sendAlert').disabled=false; }
-});
-async function loadAlerts(){
-  const box=$('alertsFeed');
-  try{
-    const result=await api('/api/route/alerts');
-    const alerts=result.alerts || [];
-    if(!alerts.length){ box.innerHTML='<div class="empty">Todavía no hay avisos vigentes.</div>'; return; }
-    box.replaceChildren();
-    alerts.forEach(alertItem=>{
-      const card=document.createElement('div');
-      card.className='card notice';
-      const title=document.createElement('div');
-      title.className='name';
-      title.textContent=(alertItem.kind || 'AVISO').toUpperCase()+' · '+(alertItem.road || 'Ruta sin especificar');
-      const meta=document.createElement('div');
-      meta.className='meta';
-      meta.textContent=(alertItem.nickname || 'Compañero')+' · '+(alertItem.location_label || 'Zona no indicada')+' · '+time(alertItem.created_at);
-      const body=document.createElement('div');
-      body.className='post';
-      body.textContent=alertItem.body || '';
-      card.append(title,meta,body);
-      box.append(card);
-    });
-  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los avisos: '+esc(error.message || String(error))+'</div>'; }
-}
 
 let padPhotoFile=null, padAudioFile=null;
 $('padPhoto').addEventListener('change',()=>{padPhotoFile=$('padPhoto').files?.[0]||null;syncPadFiles();});
@@ -813,7 +767,7 @@ $('sendPad').addEventListener('click',async()=>{
   const result=await api('/api/activity',{method:'POST',body:form});
   if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
   $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
-  $('padMsg').textContent='Parte recibido. Estado: Accidente pendiente de verificar.';
+  $('padMsg').textContent='Tu parte quedó recibido y pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
  }catch(error){$('padMsg').textContent=error.message||String(error);}
  finally{button.disabled=false;}
 });
@@ -1089,7 +1043,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden || !profile) return;
   api('/api/me').then(result=>{if(result.profile)profile={...profile,...result.profile};}).catch(()=>{});
   if(currentTab==='muro') loadFeed();
-  if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='amigos') loadFriends();
   if(currentTab==='moderacion') loadModerationQueue();
 });
