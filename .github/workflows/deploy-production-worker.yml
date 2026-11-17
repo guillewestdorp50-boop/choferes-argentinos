@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   deploy-production:
-    if: ${{ inputs.confirm_production == 'DEPLOY-PRODUCTION' }}
+    if: ${{ github.ref == 'refs/heads/production-cutover-prep' && inputs.confirm_production == 'DEPLOY-PRODUCTION' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
