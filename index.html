@@ -472,7 +472,7 @@ async function loadFeed(){
       head.className = 'row';
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.textContent = initials(post.nickname);
+      avatar.textContent = avatarGlyph(post.avatar_key,post.nickname);
       const who = document.createElement('div');
       const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
       who.innerHTML = '<button type="button" class="profile-link">'+esc(post.nickname || 'Compañero')+'</button><div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
