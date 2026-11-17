@@ -602,16 +602,25 @@ export default {
         if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return fail("Formato no permitido. Usá JPG, PNG o WebP.", 415, cors);
         if (file.size > 1024 * 1024) return fail("La imagen supera 1 MB. Reducila antes de subirla.", 413, cors);
         const mediaId = id(), bytes = new Uint8Array(await file.arrayBuffer());
+        if (!bytes.byteLength) return fail("La imagen llegó vacía al servidor; no se guardó.", 400, cors);
         await env.DB.prepare("INSERT INTO media(id,community_id,profile_id,mime_type,data,created_at) VALUES(?,?,?,?,?,?)")
           .bind(mediaId, user.community_id, user.profile_id, file.type, bytes, now()).run();
-        return json({ media_id: mediaId }, 201, cors);
+        return json({ media_id: mediaId, bytes: bytes.byteLength }, 201, cors);
       }
 
       const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
       if (request.method === "GET" && mediaMatch) {
-        const row = await env.DB.prepare("SELECT mime_type,data FROM media WHERE id=? AND community_id=?").bind(mediaMatch[1], user.community_id).first();
+        const row = await env.DB.prepare("SELECT mime_type,data,length(data) AS byte_length FROM media WHERE id=? AND community_id=?").bind(mediaMatch[1], user.community_id).first();
         if (!row) return fail("Imagen no encontrada.", 404, cors);
-        return new Response(row.data, { status: 200, headers: { ...cors, "content-type": row.mime_type, "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" } });
+        const storedBytes = Number(row.byte_length || 0);
+        const bytes = row.data instanceof ArrayBuffer
+          ? new Uint8Array(row.data)
+          : ArrayBuffer.isView(row.data)
+            ? new Uint8Array(row.data.buffer, row.data.byteOffset, row.data.byteLength)
+            : new Uint8Array(row.data || 0);
+        if (!storedBytes || !bytes.byteLength) return fail("La imagen existe, pero quedó guardada sin contenido (0 bytes).", 500, cors);
+        if (bytes.byteLength !== storedBytes) return fail("La imagen quedó incompleta en la base de datos: se esperaban " + storedBytes + " bytes y se recuperaron " + bytes.byteLength + ".", 500, cors);
+        return new Response(bytes, { status: 200, headers: { ...cors, "content-type": row.mime_type, "content-length": String(bytes.byteLength), "x-media-bytes": String(bytes.byteLength), "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
       }
 
       if (request.method === "GET" && path === "/api/comments") {
