@@ -17,3 +17,7 @@ Esta primera entrega es una PWA de demostración. Todavía no incluye backend co
 ## Publicación
 
 Preparado para desplegar como sitio estático cuando se incorporen los archivos de la interfaz.
+
+## Instalación en Android
+
+La PWA incluye manifest, iconos de aplicación y service worker. Abrir el sitio con Chrome y elegir «Instalar aplicación» cuando el navegador lo ofrezca.
