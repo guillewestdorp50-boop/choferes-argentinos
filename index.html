@@ -101,65 +101,331 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </main>
 <footer id="footer">Conectando con la comunidad…</footer>
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.0';
-const SUPABASE_URL='https://wihbxfebobfmohmqqhkt.supabase.co';
-const SUPABASE_KEY='sb_publishable_CmPT-xSeIUUtTUArdIYDgA_jhXY8nuZ';
-const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let user=null, profile=null, selectedStatus='libre', channel=null;
-const $=id=>document.getElementById(id);
-const initials=name=>(name||'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const time=s=>new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
-function showError(id,msg){$(id).textContent=msg||''}
-function setTab(tab){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));['muro','ruta','amigos','perfil'].forEach(id=>$(id).hidden=id!==tab);if(tab==='amigos')loadFriends();if(tab==='ruta'){loadRoute();loadAlerts()}}
+const API_BASE = 'https://choferes-argentinos-api.chazoncba.workers.dev';
+const TOKEN_KEY = 'ca_device_token_v1';
+let token = '';
+try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
+let profile = null, selectedStatus = 'libre', currentTab = 'muro';
+const $ = id => document.getElementById(id);
+const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const time = s => s ? new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'}) : '';
+function showError(id,msg){ $(id).textContent = msg || ''; }
+function saveToken(value){
+  token = value || '';
+  try { if(token) localStorage.setItem(TOKEN_KEY,token); else localStorage.removeItem(TOKEN_KEY); }
+  catch { throw new Error('El navegador no permitió guardar la sesión de este dispositivo.'); }
+}
+async function api(path, options = {}){
+  const headers = new Headers(options.headers || {});
+  if(token) headers.set('Authorization','Bearer '+token);
+  let body = options.body;
+  if(body !== undefined && !(body instanceof FormData)){
+    headers.set('Content-Type','application/json');
+    body = JSON.stringify(body);
+  }
+  const response = await fetch(API_BASE + path,{method:options.method || 'GET',headers,body,cache:'no-store'});
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if(!response.ok){
+    const error = new Error(data.error || ('Error de conexión ('+response.status+').'));
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+function showOnboarding(message){
+  $('onboarding').classList.remove('hidden');
+  $('nav').classList.add('hidden');
+  $('app').classList.add('hidden');
+  $('footer').textContent = 'Perfil todavía no vinculado';
+  if(message) showError('joinError',message);
+}
+function setTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  ['muro','ruta','amigos','perfil'].forEach(id=>$(id).hidden=id!==tab);
+  if(tab==='amigos') loadFriends();
+  if(tab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(tab==='muro') loadFeed();
+}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
-$('joinMode').addEventListener('change',()=>{$('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');$('joinHelp').textContent=$('joinMode').value==='community'?'El primer ingreso crea tu perfil.':$('joinMode').value==='friend'?'La invitación crea tu perfil y conecta ambos compañeros.':'Este código vincula el segundo teléfono al mismo perfil.'});
-async function ensureAuth(){let {data,error}=await db.auth.getSession();if(error)throw error;user=data.session?.user||null;if(!user){const r=await db.auth.signInAnonymously();if(r.error)throw r.error;user=r.data.user}}
+$('joinMode').addEventListener('change',()=>{
+  $('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');
+  $('joinHelp').textContent = $('joinMode').value==='community'
+    ? 'El primer ingreso crea tu perfil.'
+    : $('joinMode').value==='friend'
+      ? 'La invitación crea tu perfil y conecta ambos compañeros.'
+      : 'Este código vincula el segundo teléfono al mismo perfil.';
+});
 async function boot(){
- try{await ensureAuth();const {data:device,error}=await db.from('ca_devices').select('profile_id').eq('user_id',user.id).maybeSingle();if(error)throw error;
-  if(!device){$('onboarding').classList.remove('hidden');$('nav').classList.add('hidden');$('app').classList.add('hidden');$('footer').textContent='Perfil todavía no vinculado';return}
-  const r=await db.from('ca_profiles').select('*').eq('id',device.profile_id).single();if(r.error)throw r.error;profile=r.data;
-  $('onboarding').classList.add('hidden');$('nav').classList.remove('hidden');$('app').classList.remove('hidden');$('footer').textContent='Comunidad privada · Conexión activa';
-  updateProfileUI();await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
-  if(channel)db.removeChannel(channel);
-  channel=db.channel('ca-live-'+profile.id).on('postgres_changes',{event:'*',schema:'public',table:'ca_posts'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_reactions'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_status'},()=>loadRoute()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_alerts'},()=>loadAlerts()).subscribe();
- }catch(e){$('footer').textContent='No se pudo conectar';$('onboarding').classList.remove('hidden');showError('joinError',e.message||String(e))}
+  if(!token){ showOnboarding(); return; }
+  try{
+    const result = await api('/api/me');
+    profile = result.profile || null;
+    if(!profile) throw new Error('El servidor no devolvió el perfil del dispositivo.');
+    profile.id = profile.profile_id;
+    $('onboarding').classList.add('hidden');
+    $('nav').classList.remove('hidden');
+    $('app').classList.remove('hidden');
+    $('footer').textContent = 'Comunidad privada · Conexión activa';
+    updateProfileUI();
+    await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
+  }catch(error){
+    if(error.status===401){
+      saveToken('');
+      profile = null;
+      showOnboarding('La sesión de este dispositivo venció. Volvé a vincularlo con un código.');
+    }else{
+      $('footer').textContent = 'No se pudo conectar con la comunidad';
+      showError('joinError',error.message || String(error));
+      $('onboarding').classList.remove('hidden');
+    }
+  }
 }
 $('joinBtn').addEventListener('click',async()=>{
- const code=$('joinCode').value.trim(),nick=$('joinNick').value.trim(),mode=$('joinMode').value;
- showError('joinError','');if(!code){showError('joinError','Pegá el código de invitación.');return}
- if(mode!=='device'&&nick.length<2){showError('joinError','Escribí un apodo de al menos 2 caracteres.');return}
- $('joinBtn').disabled=true;$('joinBtn').textContent='Vinculando…';
- try{let result;
-  if(mode==='community')result=await db.rpc('ca_join_community',{p_code:code,p_nickname:nick});
-  else result=await db.rpc('ca_redeem_invite',{p_code:code,p_nickname:mode==='device'?null:nick});
-  if(result.error)throw result.error;$('joinCode').value='';await boot();
- }catch(e){showError('joinError',e.message||String(e))}
- finally{$('joinBtn').disabled=false;$('joinBtn').textContent='Vincularme'}
+  const code = $('joinCode').value.trim();
+  const nickname = $('joinNick').value.trim();
+  const mode = $('joinMode').value;
+  showError('joinError','');
+  if(!code){ showError('joinError','Pegá el código de invitación.'); return; }
+  if(mode!=='device' && nickname.length<2){ showError('joinError','Escribí un apodo de al menos 2 caracteres.'); return; }
+  $('joinBtn').disabled = true;
+  $('joinBtn').textContent = 'Vinculando…';
+  try{
+    const result = mode==='device'
+      ? await api('/api/link-device',{method:'POST',body:{code}})
+      : await api('/api/join',{method:'POST',body:{code,nickname}});
+    if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
+    saveToken(result.token);
+    $('joinCode').value = '';
+    await boot();
+  }catch(error){ showError('joinError',error.message || String(error)); }
+  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent='Vincularme'; }
 });
-function updateProfileUI(){const n=profile.nickname;$('composerName').textContent='Compartí con la comunidad';$('myAvatar').textContent=initials(n);$('profileAvatar').textContent=initials(n);$('profileName').textContent=n;$('editNick').value=n}
-async function loadFeed(){
- const box=$('feed');const {data:posts,error}=await db.from('ca_posts').select('id,profile_id,body,photo_url,created_at,profile:ca_profiles!ca_posts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).order('created_at',{ascending:false}).limit(60);
- if(error){box.innerHTML='<div class="empty">No se pudo cargar el muro.</div>';return}
- if(!posts.length){box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>';return}
- const {data:reactions}=await db.from('ca_reactions').select('post_id,profile_id,reaction').eq('reaction','like').limit(1000);
- const counts={};const mine={};(reactions||[]).forEach(r=>{counts[r.post_id]=(counts[r.post_id]||0)+1;if(r.profile_id===profile.id)mine[r.post_id]=true});
- box.replaceChildren();
- posts.forEach(p=>{const article=document.createElement('article');article.className='card';const head=document.createElement('div');head.className='row';const av=document.createElement('div');av.className='avatar';av.textContent=initials(p.profile?.nickname);const who=document.createElement('div');who.innerHTML='<div class="name">'+esc(p.profile?.nickname||'Compañero')+'</div><div class="meta">'+time(p.created_at)+'</div>';head.append(av,who);const body=document.createElement('div');body.className='post';body.textContent=p.body;const actions=document.createElement('div');actions.className='actions';const like=document.createElement('button');like.className='action';like.textContent=(mine[p.id]?'♥':'♡')+' Me gusta · '+(counts[p.id]||0);if(mine[p.id])like.style.borderColor='var(--cyan)';like.addEventListener('click',()=>toggleLike(p.id,!!mine[p.id]));actions.append(like);article.append(head,body,actions);box.append(article)});
+function updateProfileUI(){
+  const nickname = profile.nickname || 'Compañero';
+  $('composerName').textContent = 'Compartí con la comunidad';
+  $('myAvatar').textContent = initials(nickname);
+  $('profileAvatar').textContent = initials(nickname);
+  $('profileName').textContent = nickname;
+  $('editNick').value = nickname;
 }
-async function toggleLike(postId,liked){let r;if(liked)r=await db.from('ca_reactions').delete().eq('post_id',postId).eq('profile_id',profile.id).eq('reaction','like');else r=await db.from('ca_reactions').insert({post_id:postId,profile_id:profile.id,reaction:'like'});if(r.error)alert(r.error.message);else loadFeed()}
-$('publish').addEventListener('click',async()=>{const body=$('postText').value.trim();if(!body)return;$('publish').disabled=true;const r=await db.from('ca_posts').insert({community_id:profile.community_id,profile_id:profile.id,body});$('publish').disabled=false;if(r.error){$('publishMsg').textContent=r.error.message;return}$('postText').value='';$('publishMsg').textContent='Publicado en la comunidad';setTimeout(()=>$('publishMsg').textContent='',2500);loadFeed()});
-$('statusChoices').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{selectedStatus=b.dataset.status;$('statusChoices').querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b))}));
-$('saveStatus').addEventListener('click',async()=>{const r=await db.from('ca_route_status').upsert({profile_id:profile.id,community_id:profile.community_id,status:selectedStatus,location_label:$('routeLocation').value.trim()||null,note:$('routeNote').value.trim(),expires_at:new Date(Date.now()+24*3600*1000).toISOString(),updated_at:new Date().toISOString()},{onConflict:'profile_id'});$('statusMsg').textContent=r.error?r.error.message:'Estado compartido por 24 horas';if(!r.error)loadRoute()});
-async function loadRoute(){const {data,error}=await db.from('ca_route_status').select('profile_id,status,location_label,note,updated_at,expires_at,profile:ca_profiles!ca_route_status_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('updated_at',{ascending:false});const box=$('routeFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los estados.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay estados compartidos.</div>';return}data.forEach(s=>{const d=document.createElement('div');d.className='card';d.innerHTML='<div class="name">'+esc(s.profile?.nickname||'Compañero')+' · '+esc(s.status)+'</div><div class="meta">'+esc(s.location_label||'Ubicación no indicada')+' · '+time(s.updated_at)+'</div><div class="post">'+esc(s.note||'')+'</div>';box.append(d)})}
-$('sendAlert').addEventListener('click',async()=>{const body=$('alertBody').value.trim();if(!body)return;$('sendAlert').disabled=true;const r=await db.from('ca_route_alerts').insert({community_id:profile.community_id,profile_id:profile.id,kind:$('alertKind').value,road:$('alertRoad').value.trim()||null,location_label:$('alertLocation').value.trim()||null,body,expires_at:new Date(Date.now()+12*3600*1000).toISOString()});$('sendAlert').disabled=false;$('alertMsg').textContent=r.error?r.error.message:'Aviso publicado por 12 horas';if(!r.error){$('alertBody').value='';loadAlerts()}});
-async function loadAlerts(){const {data,error}=await db.from('ca_route_alerts').select('id,kind,road,location_label,body,created_at,expires_at,profile:ca_profiles!ca_route_alerts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(30);const box=$('alertsFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los avisos.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay avisos vigentes.</div>';return}data.forEach(a=>{const d=document.createElement('div');d.className='card notice';d.innerHTML='<div class="name">'+esc(a.kind.toUpperCase())+' · '+esc(a.road||'Ruta sin especificar')+'</div><div class="meta">'+esc(a.profile?.nickname||'Compañero')+' · '+esc(a.location_label||'Zona no indicada')+' · '+time(a.created_at)+'</div><div class="post">'+esc(a.body)+'</div>';box.append(d)})}
-async function createCode(kind,target){const {data,error}=await db.rpc('ca_create_invite',{p_kind:kind});if(error){$(target).textContent=error.message;return}const area=$(target);area.innerHTML='<div class="code">'+esc(data)+'</div><div class="small">Código de un solo uso · vence en 24 horas</div><button class="action" id="copyInvite">Copiar código</button>';area.querySelector('#copyInvite').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(data);area.querySelector('#copyInvite').textContent='Copiado'}catch{area.querySelector('#copyInvite').textContent='Seleccioná y copiá el código'}})}
+async function loadFeed(){
+  const box = $('feed');
+  try{
+    const result = await api('/api/posts?limit=60');
+    const posts = result.posts || [];
+    if(!posts.length){ box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>'; return; }
+    box.replaceChildren();
+    posts.forEach(post=>{
+      const article = document.createElement('article');
+      article.className = 'card';
+      const head = document.createElement('div');
+      head.className = 'row';
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = initials(post.nickname);
+      const who = document.createElement('div');
+      who.innerHTML = '<div class="name">'+esc(post.nickname || 'Compañero')+'</div><div class="meta">'+time(post.created_at)+'</div>';
+      head.append(avatar,who);
+      const body = document.createElement('div');
+      body.className = 'post';
+      body.textContent = post.body || '';
+      article.append(head,body);
+      if(post.media_id){
+        const photo = document.createElement('img');
+        photo.alt = 'Imagen compartida por '+(post.nickname || 'un compañero');
+        photo.loading = 'lazy';
+        photo.style.cssText = 'display:block;max-width:100%;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px';
+        loadMedia(post.media_id).then(url=>{ if(url) photo.src=url; }).catch(()=>{});
+        article.append(photo);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const like = document.createElement('button');
+      like.className = 'action';
+      like.textContent = (post.liked_by_me ? '♥' : '♡')+' Me gusta · '+(post.likes || 0);
+      if(post.liked_by_me) like.style.borderColor='var(--cyan)';
+      like.addEventListener('click',async()=>{
+        like.disabled=true;
+        try{ await api('/api/reactions',{method:'POST',body:{post_id:post.id}}); await loadFeed(); }
+        catch(error){ alert(error.message || String(error)); like.disabled=false; }
+      });
+      actions.append(like);
+      article.append(actions);
+      box.append(article);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudo cargar el muro: '+esc(error.message || String(error))+'</div>'; }
+}
+async function loadMedia(mediaId){
+  const response = await fetch(API_BASE+'/api/media/'+encodeURIComponent(mediaId),{
+    headers: token ? {Authorization:'Bearer '+token} : {},
+    cache:'no-store'
+  });
+  if(!response.ok) return '';
+  return URL.createObjectURL(await response.blob());
+}
+$('publish').addEventListener('click',async()=>{
+  const body = $('postText').value.trim();
+  if(!body) return;
+  $('publish').disabled=true;
+  try{
+    await api('/api/posts',{method:'POST',body:{body}});
+    $('postText').value='';
+    $('publishMsg').textContent='Publicado en la comunidad';
+    await loadFeed();
+  }catch(error){ $('publishMsg').textContent=error.message || String(error); }
+  finally{ $('publish').disabled=false; }
+});
+$('statusChoices').querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{
+  selectedStatus=button.dataset.status;
+  $('statusChoices').querySelectorAll('button').forEach(item=>item.classList.toggle('selected',item===button));
+}));
+$('saveStatus').addEventListener('click',async()=>{
+  $('saveStatus').disabled=true;
+  try{
+    await api('/api/route/status',{method:'PUT',body:{
+      status:selectedStatus,
+      location:$('routeLocation').value.trim(),
+      note:$('routeNote').value.trim()
+    }});
+    $('statusMsg').textContent='Estado compartido por 24 horas';
+    await loadRoute();
+  }catch(error){ $('statusMsg').textContent=error.message || String(error); }
+  finally{ $('saveStatus').disabled=false; }
+});
+async function loadRoute(){
+  const box=$('routeFeed');
+  try{
+    const result=await api('/api/route/status');
+    const statuses=result.statuses || [];
+    if(!statuses.length){ box.innerHTML='<div class="empty">Todavía no hay estados compartidos.</div>'; return; }
+    box.replaceChildren();
+    statuses.forEach(status=>{
+      const card=document.createElement('div');
+      card.className='card';
+      const name=document.createElement('div');
+      name.className='name';
+      name.textContent=(status.nickname || 'Compañero')+' · '+status.status;
+      const meta=document.createElement('div');
+      meta.className='meta';
+      meta.textContent=(status.location_label || 'Ubicación no indicada')+' · '+time(status.updated_at);
+      const note=document.createElement('div');
+      note.className='post';
+      note.textContent=status.note || '';
+      card.append(name,meta,note);
+      box.append(card);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
+}
+$('sendAlert').addEventListener('click',async()=>{
+  const body=$('alertBody').value.trim();
+  if(!body) return;
+  $('sendAlert').disabled=true;
+  try{
+    await api('/api/route/alerts',{method:'POST',body:{
+      kind:$('alertKind').value,
+      road:$('alertRoad').value.trim(),
+      location:$('alertLocation').value.trim(),
+      body
+    }});
+    $('alertMsg').textContent='Aviso publicado por 12 horas';
+    $('alertBody').value='';
+    await loadAlerts();
+  }catch(error){ $('alertMsg').textContent=error.message || String(error); }
+  finally{ $('sendAlert').disabled=false; }
+});
+async function loadAlerts(){
+  const box=$('alertsFeed');
+  try{
+    const result=await api('/api/route/alerts');
+    const alerts=result.alerts || [];
+    if(!alerts.length){ box.innerHTML='<div class="empty">Todavía no hay avisos vigentes.</div>'; return; }
+    box.replaceChildren();
+    alerts.forEach(alertItem=>{
+      const card=document.createElement('div');
+      card.className='card notice';
+      const title=document.createElement('div');
+      title.className='name';
+      title.textContent=(alertItem.kind || 'AVISO').toUpperCase()+' · '+(alertItem.road || 'Ruta sin especificar');
+      const meta=document.createElement('div');
+      meta.className='meta';
+      meta.textContent=(alertItem.nickname || 'Compañero')+' · '+(alertItem.location_label || 'Zona no indicada')+' · '+time(alertItem.created_at);
+      const body=document.createElement('div');
+      body.className='post';
+      body.textContent=alertItem.body || '';
+      card.append(title,meta,body);
+      box.append(card);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los avisos: '+esc(error.message || String(error))+'</div>'; }
+}
+async function createCode(kind,target){
+  const area=$(target);
+  area.textContent='Generando código…';
+  try{
+    const result=await api('/api/invites',{method:'POST',body:{kind}});
+    const code=result.code;
+    if(!code) throw new Error('El servidor no devolvió un código.');
+    area.innerHTML='<div class="code">'+esc(code)+'</div><div class="small">Código de un solo uso · vence '+time(result.expires_at)+'</div><button class="action" id="copyInvite">Copiar código</button>';
+    area.querySelector('#copyInvite').addEventListener('click',async()=>{
+      try{ await navigator.clipboard.writeText(code); area.querySelector('#copyInvite').textContent='Copiado'; }
+      catch{ area.querySelector('#copyInvite').textContent='Seleccioná y copiá el código'; }
+    });
+  }catch(error){ area.textContent=error.message || String(error); }
+}
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
 $('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
-async function loadFriends(){const box=$('friendsList');const {data,error}=await db.from('ca_friend_links').select('friend_profile_id').eq('profile_id',profile.id);if(error){box.innerHTML='<div class="empty">No se pudieron cargar los compañeros.</div>';return}if(!data.length){box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>';return}const ids=data.map(x=>x.friend_profile_id);const r=await db.from('ca_profiles').select('id,nickname,bio').in('id',ids);box.replaceChildren();(r.data||[]).forEach(p=>{const d=document.createElement('div');d.className='card row';d.innerHTML='<div class="avatar">'+esc(initials(p.nickname))+'</div><div><div class="name">'+esc(p.nickname)+'</div><div class="meta">'+esc(p.bio||'Compañero de ruta')+'</div></div>';box.append(d)})}
-$('saveNick').addEventListener('click',async()=>{const nickname=$('editNick').value.trim();if(nickname.length<2){$('profileMsg').textContent='El apodo debe tener al menos 2 caracteres';return}const r=await db.from('ca_profiles').update({nickname,updated_at:new Date().toISOString()}).eq('id',profile.id);$('profileMsg').textContent=r.error?r.error.message:'Perfil actualizado';if(!r.error){profile.nickname=nickname;updateProfileUI()}});
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+async function loadFriends(){
+  const box=$('friendsList');
+  try{
+    const result=await api('/api/friends');
+    const friends=result.friends || [];
+    if(!friends.length){ box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>'; return; }
+    box.replaceChildren();
+    friends.forEach(friend=>{
+      const card=document.createElement('div');
+      card.className='card row';
+      const avatar=document.createElement('div');
+      avatar.className='avatar';
+      avatar.textContent=initials(friend.nickname);
+      const info=document.createElement('div');
+      const name=document.createElement('div');
+      name.className='name';
+      name.textContent=friend.nickname || 'Compañero';
+      const bio=document.createElement('div');
+      bio.className='meta';
+      bio.textContent=friend.bio || 'Compañero de ruta';
+      info.append(name,bio);
+      card.append(avatar,info);
+      box.append(card);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los compañeros: '+esc(error.message || String(error))+'</div>'; }
+}
+$('saveNick').addEventListener('click',async()=>{
+  const nickname=$('editNick').value.trim();
+  if(nickname.length<2){ $('profileMsg').textContent='El apodo debe tener al menos 2 caracteres'; return; }
+  $('saveNick').disabled=true;
+  try{
+    const result=await api('/api/profile',{method:'PATCH',body:{nickname}});
+    profile.nickname=result.nickname || nickname;
+    updateProfileUI();
+    $('profileMsg').textContent='Perfil actualizado';
+  }catch(error){ $('profileMsg').textContent=error.message || String(error); }
+  finally{ $('saveNick').disabled=false; }
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden || !profile) return;
+  if(currentTab==='muro') loadFeed();
+  if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(currentTab==='amigos') loadFriends();
+});
+setInterval(()=>{
+  if(document.hidden || !profile) return;
+  if(currentTab==='muro') loadFeed();
+  if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
+},45000);
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 await boot();
 </script>
 </body></html>
