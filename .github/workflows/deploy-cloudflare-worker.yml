@@ -1,4 +1,4 @@
-name: Provision isolated Choferes Argentinos preview D1
+name: Deploy isolated Choferes Argentinos preview Worker
 
 on:
   workflow_dispatch:
@@ -6,34 +6,35 @@ on:
     branches:
       - cloudflare-backend-prep
     paths:
+      - "cloudflare/**"
       - ".github/workflows/deploy-cloudflare-worker.yml"
 
 permissions:
   contents: read
 
 jobs:
-  create:
-    name: Create preview-only D1 database
+  deploy-preview:
+    name: Apply preview D1 migrations and deploy preview Worker
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Create preview D1 database
-        id: create_d1
+      - name: Apply preview D1 migrations only
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
           workingDirectory: cloudflare
-          command: d1 create choferes-argentinos-preview
+          command: d1 migrations apply choferes-argentinos-preview --remote --env preview
 
-      - name: Publish database creation details
-        env:
-          RESULT: ${{ steps.create_d1.outputs.command-output }}
-        run: |
-          echo '### Preview D1 database created' >> "$GITHUB_STEP_SUMMARY"
-          echo 'This database is separate from the production database.' >> "$GITHUB_STEP_SUMMARY"
-          printf '%s\n' "$RESULT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Deploy preview Worker only
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: deploy --env preview
