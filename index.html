@@ -468,7 +468,7 @@ function renderPublicWall(posts){
       const photo=document.createElement('img');
       photo.alt='Foto publicada por '+($('publicName').textContent||'un compañero');
       photo.loading='lazy';
-      photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(()=>photo.replaceWith(imageLoadError()));
+      photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(error=>photo.replaceWith(imageLoadError(error)));
       article.append(photo);
     }
     wall.append(article);
@@ -515,7 +515,7 @@ async function loadFeed(){
         const photo = document.createElement('img');
         photo.alt = 'Imagen compartida por '+(post.nickname || 'un compañero');
         photo.loading = 'lazy';
-        photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(()=>photo.replaceWith(imageLoadError()));
+        photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(error=>photo.replaceWith(imageLoadError(error)));
         article.append(photo);
       }
       const actions = document.createElement('div');
@@ -561,15 +561,32 @@ async function loadFeed(){
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudo cargar el muro: '+esc(error.message || String(error))+'</div>'; }
 }
-function imageLoadError(){const note=document.createElement('div');note.className='photo-load-error';note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada; revisaremos la carga de la imagen.';return note;}
+function imageLoadError(error){
+  const note=document.createElement('div');
+  note.className='photo-load-error';
+  const detail=error?.message ? ' Detalle: '+error.message : '';
+  note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada.'+detail;
+  return note;
+}
 async function loadMedia(mediaId){
-  const response = await fetch(API_BASE+'/api/media/'+encodeURIComponent(mediaId),{
-    headers: token ? {Authorization:'Bearer '+token} : {},
-    cache:'no-store'
-  });
-  if(!response.ok) throw new Error('No se pudo recuperar la imagen ('+response.status+').');
+  let response;
+  try{
+    response=await fetch(API_BASE+'/api/media/'+encodeURIComponent(mediaId),{
+      headers: token ? {Authorization:'Bearer '+token} : {},
+      cache:'no-store'
+    });
+  }catch(error){
+    throw new Error('No se pudo conectar con el servidor de imágenes. Revisá la conexión y el acceso a la API.');
+  }
+  if(!response.ok){
+    let detail='';
+    try{const data=await response.clone().json();detail=data.error || '';}catch{}
+    throw new Error('El servidor respondió '+response.status+(detail?': '+detail:'.'));
+  }
+  const contentType=response.headers.get('content-type') || '';
+  if(!contentType.startsWith('image/')) throw new Error('La API respondió, pero no entregó un archivo de imagen.');
   const blob=await response.blob();
-  if(!blob.size || !blob.type.startsWith('image/')) throw new Error('El servidor no devolvió un archivo de imagen válido.');
+  if(!blob.size) throw new Error('El servidor devolvió una imagen vacía.');
   return URL.createObjectURL(blob);
 }
 function syncPublishButton(){
@@ -787,7 +804,7 @@ async function loadModerationQueue(){
         photo.loading='lazy';
         photo.className='feed-photo';
         photo.decoding='async';
-        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError());}}).catch(()=>photo.replaceWith(imageLoadError()));
+        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError());}}).catch(error=>photo.replaceWith(imageLoadError(error)));
         card.append(photo);
       }
       const actions=document.createElement('div');
