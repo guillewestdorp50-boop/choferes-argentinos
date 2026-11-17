@@ -385,6 +385,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/posts") {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
+        const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
         const result = await env.DB.prepare(
           `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
@@ -392,8 +393,9 @@ export default {
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
              EXISTS(SELECT 1 FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? AND r.reaction='like') AS liked_by_me
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
-           WHERE p.community_id=? AND p.status='approved' ORDER BY p.created_at DESC LIMIT ?`
-        ).bind(user.profile_id, user.community_id, limit).all();
+           WHERE p.community_id=? AND p.status='approved' AND (? IS NULL OR p.profile_id=?)
+           ORDER BY p.created_at DESC LIMIT ?`
+        ).bind(user.profile_id, user.community_id, targetProfileId, targetProfileId, limit).all();
         return json({ posts: result.results || [] }, 200, cors);
       }
 
