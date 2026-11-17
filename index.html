@@ -781,7 +781,8 @@ $('enablePush').addEventListener('click',async()=>{
     $('pushStatus').textContent=error.message || String(error);
   }finally{
     $('enablePush').disabled=false;
-    updatePushStatus().catch(()=>{});
+    // No borrar el error de activación: updatePushStatus solo debe refrescar
+    // el estado después de una suscripción exitosa.
   }
 });
 $('testAlarm').addEventListener('click',async()=>{
