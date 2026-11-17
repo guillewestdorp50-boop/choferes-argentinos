@@ -101,6 +101,18 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <input id="routeNote" maxlength="500" placeholder="Detalle breve (opcional)">
 <button class="action primary" id="saveStatus">Compartir mi estado</button><p class="small" id="statusMsg"></p>
 </div>
+<div class="card" id="padComposer">
+  <h2 style="font-size:17px;margin:0 0 8px">PAD · Parte de alerta del conductor</h2>
+  <p class="small">Informá accidentes y situaciones de ruta. Cada aviso queda pendiente de verificación y solo se publica después de la aprobación de moderación.</p>
+  <label for="padKind">Tipo de situación</label>
+  <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="demorado">Demora</option><option value="corte">Corte / desvío</option><option value="otro">Otra situación</option></select>
+  <input id="padLocation" maxlength="160" placeholder="Ruta, kilómetro y localidad">
+  <textarea id="padBody" maxlength="1200" placeholder="Describí lo ocurrido, sentido de circulación y referencias…"></textarea>
+  <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><label class="action" for="padAudio">🎙️ Adjuntar audio</label><input id="padAudio" type="file" accept="audio/*" hidden></div>
+  <p class="small" id="padFiles">Sin archivos adjuntos.</p>
+  <button class="action primary" id="sendPad">Enviar para verificar</button><p class="small" id="padMsg" aria-live="polite"></p>
+</div>
+<h2 class="section-title">PAD · Avisos verificados</h2><div id="padFeed"><div class="empty">Cargando avisos verificados…</div></div>
 <h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
 <h2 class="section-title">Avisos de ruta</h2>
 <div class="card">
@@ -171,6 +183,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small" id="pushStatus">Comprobando notificaciones…</p>
 </div>
 <div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
+<h2 class="section-title">PAD · Partes pendientes de verificar</h2>
+<div id="pendingPad"><div class="empty">Cargando partes del PAD…</div></div>
 </section>
 </div>
 </main>
@@ -230,8 +244,8 @@ function setTab(tab){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   ['muro','ruta','amigos','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
-  if(tab==='moderacion') loadModerationQueue();
-  if(tab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
+  if(tab==='ruta'){ loadRoute(); loadAlerts(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
 }
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -264,9 +278,9 @@ async function boot(){
     $('app').classList.remove('hidden');
     $('footer').textContent = 'Comunidad privada · Conexión activa';
     updateProfileUI();
-    await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
+    await Promise.all([loadFeed(),loadRoute(),loadAlerts(),loadPadFeed()]);
     if(['owner','moderator'].includes(profile.role)){
-      await loadModerationQueue();
+      await Promise.all([loadModerationQueue(),loadPadModeration()]);
       updatePushStatus().catch(()=>{});
     }
   }catch(error){
@@ -773,6 +787,77 @@ async function loadAlerts(){
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los avisos: '+esc(error.message || String(error))+'</div>'; }
 }
 
+let padPhotoFile=null, padAudioFile=null;
+$('padPhoto').addEventListener('change',()=>{padPhotoFile=$('padPhoto').files?.[0]||null;syncPadFiles();});
+$('padAudio').addEventListener('change',()=>{padAudioFile=$('padAudio').files?.[0]||null;syncPadFiles();});
+function syncPadFiles(){
+ const parts=[]; if(padPhotoFile)parts.push('Foto: '+padPhotoFile.name); if(padAudioFile)parts.push('Audio: '+padAudioFile.name);
+ $('padFiles').textContent=parts.join(' · ')||'Sin archivos adjuntos.';
+}
+$('sendPad').addEventListener('click',async()=>{
+ const body=$('padBody').value.trim(), location=$('padLocation').value.trim(), kind=$('padKind').value;
+ if(!body&&!location&&!padPhotoFile&&!padAudioFile){$('padMsg').textContent='Agregá una descripción, ubicación o archivo.';return;}
+ const button=$('sendPad'); button.disabled=true; $('padMsg').textContent='Enviando parte al servidor…';
+ try{
+  let mediaId='';
+  if(padPhotoFile){
+   const prepared=await optimizePhoto(padPhotoFile);
+   const fd=new FormData(); fd.append('file',prepared,'pad-foto.webp');
+   const uploaded=await api('/api/media',{method:'POST',body:fd});
+   if(!uploaded.media_id||!uploaded.bytes)throw new Error('El servidor no confirmó el guardado de la fotografía.');
+   mediaId=uploaded.media_id;
+  }
+  const form=new FormData(); form.append('kind',kind);form.append('body',body);form.append('location',location);
+  if(mediaId)form.append('media_id',mediaId);
+  if(padAudioFile)form.append('audio',padAudioFile,padAudioFile.name);
+  const result=await api('/api/activity',{method:'POST',body:form});
+  if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
+  $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
+  $('padMsg').textContent='Parte recibido. Estado: Accidente pendiente de verificar.';
+ }catch(error){$('padMsg').textContent=error.message||String(error);}
+ finally{button.disabled=false;}
+});
+async function loadPadFeed(){
+ const box=$('padFeed');try{
+  const result=await api('/api/activity');const items=result.activities||[];
+  if(!items.length){box.innerHTML='<div class="empty">Todavía no hay partes verificados.</div>';return;}
+  box.replaceChildren();
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='card notice';
+   const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.location_label||'Ubicación no indicada');
+   const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.nickname||'Compañero')+' · '+time(item.created_at);
+   const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
+   card.append(head,meta,body);
+   if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Fotografía del parte verificado';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
+   if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
+   box.append(card);
+  });
+ }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los partes: '+esc(error.message||String(error))+'</div>';}
+}
+async function loadPadModeration(){
+ if(!profile||!['owner','moderator'].includes(profile.role))return;
+ const box=$('pendingPad');try{
+  const result=await api('/api/moderation/activity');const items=result.activities||[];
+  if(!items.length){box.innerHTML='<div class="empty">No hay partes del PAD pendientes de verificar.</div>';return;}
+  box.replaceChildren();
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='card';card.id='pad-pending-'+item.id;
+   const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.nickname||'Compañero');
+   const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.location_label||'Ubicación no indicada')+' · '+time(item.created_at);
+   const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
+   card.append(head,meta,body);
+   if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Foto adjunta al parte pendiente';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
+   if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
+   const actions=document.createElement('div');actions.className='actions';
+   for(const [action,label,primary] of [['approve','Verificar y publicar',true],['reject','Rechazar',false]]){
+    const btn=document.createElement('button');btn.className='action'+(primary?' primary':'');btn.textContent=label;
+    btn.addEventListener('click',async()=>{actions.querySelectorAll('button').forEach(b=>b.disabled=true);try{await api('/api/moderation/activity/'+encodeURIComponent(item.id),{method:'PATCH',body:{action}});await Promise.all([loadPadModeration(),loadPadFeed()]);}catch(error){$('pushStatus').textContent=error.message||String(error);actions.querySelectorAll('button').forEach(b=>b.disabled=false);}});
+    actions.append(btn);
+   }
+   card.append(actions);box.append(card);
+  });
+ }catch(error){box.innerHTML='<div class="empty">No se pudo cargar la cola del PAD: '+esc(error.message||String(error))+'</div>';}
+}
 async function loadModerationQueue(){
   if(!profile || !['owner','moderator'].includes(profile.role)) return;
   const box=$('pendingPosts');
