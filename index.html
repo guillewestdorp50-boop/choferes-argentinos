@@ -468,7 +468,7 @@ function renderPublicWall(posts){
       const photo=document.createElement('img');
       photo.alt='Foto publicada por '+($('publicName').textContent||'un compañero');
       photo.loading='lazy';
-      photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(error=>photo.replaceWith(imageLoadError(error)));
+      photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
       article.append(photo);
     }
     wall.append(article);
@@ -515,7 +515,7 @@ async function loadFeed(){
         const photo = document.createElement('img');
         photo.alt = 'Imagen compartida por '+(post.nickname || 'un compañero');
         photo.loading = 'lazy';
-        photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError());}).catch(error=>photo.replaceWith(imageLoadError(error)));
+        photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
         article.append(photo);
       }
       const actions = document.createElement('div');
@@ -804,7 +804,7 @@ async function loadModerationQueue(){
         photo.loading='lazy';
         photo.className='feed-photo';
         photo.decoding='async';
-        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError());}}).catch(error=>photo.replaceWith(imageLoadError(error)));
+        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}}).catch(error=>photo.replaceWith(imageLoadError(error)));
         card.append(photo);
       }
       const actions=document.createElement('div');
