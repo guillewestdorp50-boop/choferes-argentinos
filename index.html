@@ -128,7 +128,7 @@ const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
 let profile = null, selectedStatus = 'libre', currentTab = 'muro';
-let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false;
+let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
 const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -341,7 +341,7 @@ async function loadMedia(mediaId){
   return URL.createObjectURL(await response.blob());
 }
 function syncPublishButton(){
-  $('publish').disabled = publishingPost || (!$('postText').value.trim() && !selectedPhoto);
+  $('publish').disabled = publishingPost || preparingPhoto || (!$('postText').value.trim() && !selectedPhoto);
 }
 function clearSelectedPhoto(){
   if(selectedPhotoUrl) URL.revokeObjectURL(selectedPhotoUrl);
@@ -384,7 +384,9 @@ $('choosePhoto').addEventListener('click',()=>$('postPhoto').click());
 $('postPhoto').addEventListener('change',async()=>{
   const file=$('postPhoto').files?.[0];
   if(!file) return;
+  preparingPhoto=true;
   $('choosePhoto').disabled=true;
+  syncPublishButton();
   $('photoHint').textContent='Preparando foto…';
   try{
     const prepared=await optimizePhoto(file);
@@ -399,7 +401,7 @@ $('postPhoto').addEventListener('change',async()=>{
   }catch(error){
     clearSelectedPhoto();
     $('photoHint').textContent=error.message || 'No se pudo preparar la foto.';
-  }finally{ $('choosePhoto').disabled=false; }
+  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; syncPublishButton(); }
 });
 $('removePhoto').addEventListener('click',clearSelectedPhoto);
 $('postText').addEventListener('input',syncPublishButton);
