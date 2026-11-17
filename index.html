@@ -386,6 +386,7 @@ $('postPhoto').addEventListener('change',async()=>{
   if(!file) return;
   preparingPhoto=true;
   $('choosePhoto').disabled=true;
+  $('removePhoto').disabled=true;
   syncPublishButton();
   $('photoHint').textContent='Preparando foto…';
   try{
@@ -401,7 +402,7 @@ $('postPhoto').addEventListener('change',async()=>{
   }catch(error){
     clearSelectedPhoto();
     $('photoHint').textContent=error.message || 'No se pudo preparar la foto.';
-  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; syncPublishButton(); }
+  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('removePhoto').disabled=false; syncPublishButton(); }
 });
 $('removePhoto').addEventListener('click',clearSelectedPhoto);
 $('postText').addEventListener('input',syncPublishButton);
