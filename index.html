@@ -25,6 +25,20 @@ textarea{min-height:90px;resize:vertical}.status-grid{display:grid;grid-template
 .notice{border-left:4px solid var(--cyan)}.small{font-size:12px;color:var(--muted)}
 footer{text-align:center;color:var(--muted);font-size:12px;padding:15px}
 @media(min-width:650px){main{padding-top:24px}.status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Interfaz táctil: evitar selección accidental; conservar edición en campos */
+html, body, body * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"], [contenteditable=""],
+input *, textarea *, [contenteditable="true"] * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+button, a, nav, .action { -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -62,5 +76,15 @@ document.querySelectorAll('.like').forEach(b=>b.addEventListener('click',()=>{co
 document.getElementById('publish').addEventListener('click',()=>{const t=document.getElementById('postText');if(!t.value.trim())return;const a=document.createElement('article');a.className='card';a.innerHTML='<div class="row"><div class="avatar">YO</div><div><div class="name">Tu publicación</div><div class="meta">Ahora · Solo en esta demo</div></div></div>';const p=document.createElement('div');p.className='post';p.textContent=t.value;a.append(p);document.querySelector('#muro').insertBefore(a,document.querySelector('#muro').children[2]);t.value=''}));
 document.getElementById('saveNick').addEventListener('click',()=>{document.getElementById('nickMsg').textContent='Apodo de demostración: '+(document.getElementById('nick').value.trim()||'sin definir')+'. No se sincroniza.'});
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+// Evitar el menú de copiar/seleccionar al mantener pulsado fuera de campos editables.
+document.addEventListener('contextmenu', event => {
+  const editable = event.target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+  if (!editable) event.preventDefault();
+});
+document.addEventListener('selectstart', event => {
+  const editable = event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""]');
+  if (!editable) event.preventDefault();
+});
 </script>
 </body></html>
