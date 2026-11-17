@@ -39,7 +39,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
 </header>
 <nav id="nav" class="hidden" aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button>
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
 </nav>
 <main>
 <section id="onboarding" class="card">
@@ -119,6 +119,20 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <label for="editNick">Apodo</label><input id="editNick" maxlength="32"><button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
 <div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
 </section>
+
+<section id="moderacion" hidden>
+<h1 class="section-title">Moderación</h1>
+<div class="card notice" id="pushSetupCard">
+  <div class="name">Alertas prioritarias para el administrador</div>
+  <p class="small">Activá las notificaciones en este teléfono para enterarte apenas un chofer envíe una publicación a revisión. Si la app está abierta, también sonará una alarma fuerte.</p>
+  <div class="actions">
+    <button class="action primary" id="enablePush">Activar notificaciones urgentes</button>
+    <button class="action" id="testAlarm">Probar sonido</button>
+  </div>
+  <p class="small" id="pushStatus">Comprobando notificaciones…</p>
+</div>
+<div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
+</section>
 </div>
 </main>
 <footer id="footer">Conectando con la comunidad…</footer>
@@ -168,8 +182,9 @@ function showOnboarding(message){
 function setTab(tab){
   currentTab = tab;
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  ['muro','ruta','amigos','perfil'].forEach(id=>$(id).hidden=id!==tab);
+  ['muro','ruta','amigos','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
+  if(tab==='moderacion') loadModerationQueue();
   if(tab==='ruta'){ loadRoute(); loadAlerts(); }
   if(tab==='muro') loadFeed();
 }
@@ -204,6 +219,10 @@ async function boot(){
     $('footer').textContent = 'Comunidad privada · Conexión activa';
     updateProfileUI();
     await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
+    if(['owner','moderator'].includes(profile.role)){
+      await loadModerationQueue();
+      updatePushStatus().catch(()=>{});
+    }
   }catch(error){
     if(error.status===401){
       saveToken('');
@@ -283,7 +302,9 @@ function updateProfileUI(){
   $('profileAvatar').textContent = initials(nickname);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
-  $('addCommunityInvite').classList.toggle('hidden',!['owner','moderator'].includes(profile.role));
+  const canModerate=['owner','moderator'].includes(profile.role);
+  $('addCommunityInvite').classList.toggle('hidden',!canModerate);
+  $('moderationNav').classList.toggle('hidden',!canModerate);
 }
 async function loadFeed(){
   const box = $('feed');
@@ -424,10 +445,12 @@ $('publish').addEventListener('click',async()=>{
       uploadedPhotoId=uploaded.media_id;
     }
     $('publishMsg').textContent='Publicando…';
-    await api('/api/posts',{method:'POST',body:{body,media_id:uploadedPhotoId || null}});
+    const created=await api('/api/posts',{method:'POST',body:{body,media_id:uploadedPhotoId || null}});
     $('postText').value='';
     clearSelectedPhoto();
-    $('publishMsg').textContent='Publicado en la comunidad';
+    $('publishMsg').textContent=created.status==='pending'
+      ? 'Enviado a revisión. Te avisaremos cuando sea aprobado.'
+      : 'Publicado en la comunidad';
     await loadFeed();
   }catch(error){ $('publishMsg').textContent=error.message || String(error); }
   finally{
@@ -521,6 +544,158 @@ async function loadAlerts(){
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los avisos: '+esc(error.message || String(error))+'</div>'; }
 }
+
+async function loadModerationQueue(){
+  if(!profile || !['owner','moderator'].includes(profile.role)) return;
+  const box=$('pendingPosts');
+  try{
+    const result=await api('/api/moderation/posts');
+    const posts=result.posts || [];
+    $('pendingBadge').textContent=String(posts.length);
+    if(!posts.length){ box.innerHTML='<div class="empty">No hay publicaciones pendientes. ¡Todo al día!</div>'; return; }
+    box.replaceChildren();
+    posts.forEach(post=>{
+      const card=document.createElement('article');
+      card.className='card';
+      card.id='pending-'+post.id;
+      const head=document.createElement('div');
+      head.className='row';
+      const avatar=document.createElement('div');
+      avatar.className='avatar';
+      avatar.textContent=initials(post.nickname);
+      const who=document.createElement('div');
+      who.innerHTML='<div class="name">'+esc(post.nickname || 'Compañero')+'</div><div class="meta">Enviado '+time(post.created_at)+'</div>';
+      head.append(avatar,who);
+      const body=document.createElement('div');
+      body.className='post';
+      body.textContent=post.body || '';
+      card.append(head,body);
+      if(post.media_id){
+        const photo=document.createElement('img');
+        photo.alt='Foto adjunta a la publicación pendiente';
+        photo.loading='lazy';
+        photo.style.cssText='display:block;max-width:100%;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px';
+        loadMedia(post.media_id).then(url=>{if(url)photo.src=url;}).catch(()=>{});
+        card.append(photo);
+      }
+      const actions=document.createElement('div');
+      actions.className='actions';
+      const approve=document.createElement('button');
+      approve.className='action primary';
+      approve.textContent='Aprobar y publicar';
+      const reject=document.createElement('button');
+      reject.className='action';
+      reject.textContent='Rechazar';
+      const decide=async(action,button)=>{
+        approve.disabled=true; reject.disabled=true;
+        try{
+          await api('/api/moderation/posts/'+encodeURIComponent(post.id),{method:'PATCH',body:{action}});
+          await Promise.all([loadModerationQueue(),loadFeed()]);
+        }catch(error){
+          $('pushStatus').textContent=error.message || String(error);
+          approve.disabled=false; reject.disabled=false;
+        }
+      };
+      approve.addEventListener('click',()=>decide('approve',approve));
+      reject.addEventListener('click',()=>decide('reject',reject));
+      actions.append(approve,reject);
+      card.append(actions);
+      box.append(card);
+    });
+    const target=new URLSearchParams(location.search).get('post');
+    if(target){ const item=$('pending-'+target); if(item)item.scrollIntoView({behavior:'smooth',block:'center'}); }
+  }catch(error){
+    box.innerHTML='<div class="empty">No se pudo cargar la moderación: '+esc(error.message || String(error))+'</div>';
+  }
+}
+let alarmAudioContext=null;
+async function unlockAlarmAudio(){
+  const AudioContextClass=window.AudioContext || window.webkitAudioContext;
+  if(!AudioContextClass) throw new Error('Este navegador no permite reproducir la alarma dentro de la app.');
+  if(!alarmAudioContext) alarmAudioContext=new AudioContextClass();
+  if(alarmAudioContext.state==='suspended') await alarmAudioContext.resume();
+}
+function playModerationAlarm(){
+  if(!alarmAudioContext || document.hidden) return;
+  const context=alarmAudioContext;
+  const start=context.currentTime+0.03;
+  for(let i=0;i<4;i++){
+    const at=start+i*0.48;
+    const oscillator=context.createOscillator();
+    const gain=context.createGain();
+    oscillator.type='square';
+    oscillator.frequency.setValueAtTime(i%2===0?880:660,at);
+    gain.gain.setValueAtTime(0.0001,at);
+    gain.gain.exponentialRampToValueAtTime(0.72,at+0.025);
+    gain.gain.setValueAtTime(0.72,at+0.23);
+    gain.gain.exponentialRampToValueAtTime(0.0001,at+0.31);
+    oscillator.connect(gain); gain.connect(context.destination);
+    oscillator.start(at); oscillator.stop(at+0.33);
+  }
+}
+async function updatePushStatus(){
+  if(!profile || !['owner','moderator'].includes(profile.role)) return;
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    $('pushStatus').textContent='Este navegador no admite notificaciones push. Abrí la PWA instalada en Chrome para Android.';
+    $('enablePush').disabled=true;
+    return;
+  }
+  if(Notification.permission==='denied'){
+    $('pushStatus').textContent='Las notificaciones están bloqueadas en Android. Habilitalas en los ajustes de la aplicación.';
+    return;
+  }
+  try{
+    const registration=await navigator.serviceWorker.ready;
+    const subscription=await registration.pushManager.getSubscription();
+    $('pushStatus').textContent=subscription
+      ? 'Alertas activadas en este teléfono. El sistema avisará cuando llegue una publicación.'
+      : 'Todavía no activaste las alertas en este teléfono.';
+    $('enablePush').textContent=subscription?'Alertas activadas':'Activar notificaciones urgentes';
+  }catch{
+    $('pushStatus').textContent='No se pudo comprobar el estado de las notificaciones.';
+  }
+}
+$('enablePush').addEventListener('click',async()=>{
+  $('enablePush').disabled=true;
+  try{
+    await unlockAlarmAudio();
+    const keyResult=await api('/api/push/public-key');
+    if(!keyResult.enabled || !keyResult.public_key) throw new Error('Las alertas del servidor todavía necesitan su clave de seguridad. La dejamos preparada y falta configurar esa clave.');
+    let permission=Notification.permission;
+    if(permission==='default') permission=await Notification.requestPermission();
+    if(permission!=='granted') throw new Error('No se concedió permiso para mostrar notificaciones.');
+    const registration=await navigator.serviceWorker.ready;
+    const existing=await registration.pushManager.getSubscription();
+    const subscription=existing || await registration.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:(()=>{
+        const value=keyResult.public_key.replace(/-/g,'+').replace(/_/g,'/');
+        const binary=atob(value.padEnd(Math.ceil(value.length/4)*4,'='));
+        return Uint8Array.from(binary,char=>char.charCodeAt(0));
+      })()
+    });
+    await api('/api/push/subscribe',{method:'POST',body:subscription.toJSON()});
+    $('pushStatus').textContent='¡Listo! Este teléfono recibirá alertas de moderación.';
+    $('enablePush').textContent='Alertas activadas';
+  }catch(error){
+    $('pushStatus').textContent=error.message || String(error);
+  }finally{
+    $('enablePush').disabled=false;
+    updatePushStatus().catch(()=>{});
+  }
+});
+$('testAlarm').addEventListener('click',async()=>{
+  try{ await unlockAlarmAudio(); playModerationAlarm(); $('pushStatus').textContent='Probando la alarma de este teléfono.'; }
+  catch(error){ $('pushStatus').textContent=error.message || String(error); }
+});
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message',event=>{
+    if(event.data?.type==='CA_NEW_PENDING_POST'){
+      playModerationAlarm();
+      if(profile && ['owner','moderator'].includes(profile.role)) loadModerationQueue();
+    }
+  });
+}
 async function createCode(kind,target){
   const area=$(target);
   area.textContent='Generando código…';
@@ -581,13 +756,17 @@ document.addEventListener('visibilitychange',()=>{
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
   if(currentTab==='amigos') loadFriends();
+  if(currentTab==='moderacion') loadModerationQueue();
 });
 setInterval(()=>{
   if(document.hidden || !profile) return;
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(currentTab==='moderacion') loadModerationQueue();
 },45000);
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 await boot();
+const requestedTab=new URLSearchParams(location.search).get('tab');
+if(requestedTab==='moderacion' && profile && ['owner','moderator'].includes(profile.role)) setTab('moderacion');
 </script>
 </body></html>
