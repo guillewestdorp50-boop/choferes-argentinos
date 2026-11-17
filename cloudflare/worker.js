@@ -441,7 +441,7 @@ export default {
         return json({ id: postId, status, notifications_sent: notificationsSent }, 201, cors);
       }
 
-      const postMatch = path.match(/^\\/api\\/posts\\/([0-9a-f-]{36})$/i);
+      const postMatch = path.match(/^\/api\/posts\/([0-9a-f-]{36})$/i);
       if (request.method === "PATCH" && postMatch) {
         const input = await bodyJson(request);
         const body = cleanText(input?.body, 2000);
