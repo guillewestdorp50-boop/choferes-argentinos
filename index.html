@@ -580,7 +580,7 @@ async function loadMedia(mediaId){
   }
   if(!response.ok){
     let detail='';
-    try{const data=await response.clone().json();detail=data.error || '';}catch{}
+    try{const data=await response.clone().json();detail=[data.error,data.detail].filter(Boolean).join(' — ');}catch{}
     throw new Error('El servidor respondió '+response.status+(detail?': '+detail:'.'));
   }
   const contentType=response.headers.get('content-type') || '';
