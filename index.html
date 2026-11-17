@@ -95,7 +95,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div class="card">
 <h2 style="font-size:17px;margin:0 0 10px">Mi estado</h2>
 <div class="status-grid" id="statusChoices">
-<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button>
+<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button><button data-status="demorado">⏳ Demorado</button><button data-status="accidente">🚨 Accidente</button><button data-status="deposito">📦 En depósito</button><button data-status="planta">🏭 En planta</button><button data-status="base">🏢 En la base</button><button data-status="casa">🏠 En mi casa</button><button data-status="descansando">😴 Descansando</button><button data-status="cafe">☕ Tomando un café</button><button data-status="ypf">⛽ En la YPF</button><button data-status="repostando">🛢️ Repostando</button>
 </div>
 <input id="routeLocation" maxlength="100" placeholder="Localidad o ubicación (opcional)">
 <input id="routeNote" maxlength="500" placeholder="Detalle breve (opcional)">
@@ -728,7 +728,8 @@ async function loadRoute(){
       card.className='card';
       const name=document.createElement('div');
       name.className='name';
-      name.textContent=(status.nickname || 'Compañero')+' · '+status.status;
+      const statusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
+      name.textContent=(status.nickname || 'Compañero')+' · '+(statusLabels[status.status]||status.status);
       const meta=document.createElement('div');
       meta.className='meta';
       meta.textContent=(status.location_label || 'Ubicación no indicada')+' · '+time(status.updated_at);
