@@ -6,39 +6,31 @@
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.svg">
 <title>Choferes Argentinos</title>
 <style>
-:root{--bg:#10191c;--panel:#1a282c;--panel2:#223338;--ink:#f1f2ed;--muted:#aebdc0;--cyan:#58d2d1;--line:#34474b}
+:root{--bg:#10191c;--panel:#1a282c;--panel2:#223338;--ink:#f1f2ed;--muted:#aebdc0;--cyan:#58d2d1;--line:#34474b;--danger:#e59a8c}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
-header{padding:18px max(18px,env(safe-area-inset-left));background:#e9e8df;color:#172326;display:flex;align-items:center;gap:14px}
-.logo{width:58px;height:58px;flex:none}.brand{font-weight:850;letter-spacing:.06em;font-size:clamp(17px,4vw,22px)}.sub{font-size:11px;letter-spacing:.17em;color:#52666a}
-nav{display:flex;gap:8px;padding:12px 14px;overflow:auto;background:#152125;position:sticky;top:0;z-index:3}
-nav button,.action{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:10px 15px;font:inherit;white-space:nowrap}
-nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:700}
-main{max-width:780px;margin:auto;padding:16px 14px 40px}.section-title{font-size:20px;margin:4px 0 14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 14px}
-.row{display:flex;align-items:center;gap:10px}.avatar{width:40px;height:40px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800}
-.name{font-weight:750}.meta{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap}
-.photo{height:180px;border-radius:12px;background:linear-gradient(135deg,#34545a,#17282c 55%,#6b7770);display:grid;place-items:center;color:#d7e5e2;font-weight:700;letter-spacing:.08em}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.action{padding:8px 13px;font-size:14px}
-input,textarea{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;margin:7px 0}
-textarea{min-height:90px;resize:vertical}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.status-grid button{padding:13px 8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;font:inherit}
-.notice{border-left:4px solid var(--cyan)}.small{font-size:12px;color:var(--muted)}
-footer{text-align:center;color:var(--muted);font-size:12px;padding:15px}
-@media(min-width:650px){main{padding-top:24px}.status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-
-/* Interfaz táctil: evitar selección accidental; conservar edición en campos */
-html, body, body * {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-input, textarea, select, [contenteditable="true"], [contenteditable=""],
-input *, textarea *, [contenteditable="true"] * {
-  -webkit-user-select: text;
-  user-select: text;
-  -webkit-touch-callout: default;
-}
-button, a, nav, .action { -webkit-tap-highlight-color: transparent; }
+header{padding:16px max(18px,env(safe-area-inset-left));background:#e9e8df;color:#172326;display:flex;align-items:center;gap:14px}
+.logo{width:54px;height:54px;flex:none}.brand{font-weight:850;letter-spacing:.06em;font-size:clamp(17px,4vw,22px)}.sub{font-size:11px;letter-spacing:.17em;color:#52666a}
+nav{display:flex;gap:7px;padding:11px 12px;overflow:auto;background:#152125;position:sticky;top:0;z-index:3}
+nav button,.action{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:9px 14px;font:inherit;white-space:nowrap}
+nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:750}
+main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size:20px;margin:4px 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none}
+.name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}
+input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
+textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.status-grid button{padding:12px 7px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:11px;font:inherit}
+.status-grid button.selected{border-color:var(--cyan);background:#244347}
+.notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
+.hidden{display:none!important}.error{color:var(--danger);font-size:13px;white-space:pre-wrap}.success{color:var(--cyan);font-size:13px;white-space:pre-wrap}
+.code{font:700 19px ui-monospace,monospace;letter-spacing:.09em;overflow-wrap:anywhere;background:#101a1d;border:1px dashed var(--cyan);border-radius:10px;padding:13px;margin:10px 0}
+label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:16px}
+@media(min-width:650px){main{padding-top:22px}.status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+html,body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,select,input *,textarea *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -46,45 +38,128 @@ button, a, nav, .action { -webkit-tap-highlight-color: transparent; }
 <svg class="logo" viewBox="0 0 100 100" aria-label="Monograma CA"><path d="M46 17C17 8 8 28 8 51s13 39 39 31" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round"/><path d="M48 82 68 18 94 82M57 56H82" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M57 56H82" stroke="#58bfc2" stroke-width="7" stroke-linecap="round"/><path d="M69 56h-8" stroke="#e9e8df" stroke-width="2" stroke-dasharray="3 3"/></svg>
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
 </header>
-<nav aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="perfil">Mi perfil</button>
+<nav id="nav" class="hidden" aria-label="Secciones">
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button>
 </nav>
 <main>
+<section id="onboarding" class="card">
+<h1 class="section-title">Entrá a la comunidad</h1>
+<p class="small">Tu apodo será tu identidad. No pedimos DNI, teléfono ni agenda de contactos.</p>
+<label for="joinMode">¿Qué código tenés?</label>
+<select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option></select>
+<label for="joinCode">Código de invitación</label><input id="joinCode" autocomplete="off" autocapitalize="none" placeholder="Pegá acá el código">
+<div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" placeholder="Ej.: El Cordobés"></div>
+<button class="action primary" id="joinBtn">Vincularme</button>
+<p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
+</section>
+
+<div id="app" class="hidden">
 <section id="muro">
 <h1 class="section-title">La comunidad</h1>
-<div class="card"><div class="row"><div class="avatar">YO</div><div><div class="name">Compartí con la comunidad</div><div class="meta">Tu publicación la verán los miembros vinculados</div></div></div>
-<textarea id="postText" placeholder="¿Qué querés compartir, compañero?"></textarea><button class="action primary" id="publish">Publicar en mi muro</button><div class="small">Demo local: las publicaciones no se envían ni se guardan en un servidor.</div></div>
-<article class="card"><div class="row"><div class="avatar">MG</div><div><div class="name">Marcos G.</div><div class="meta">Hace 18 min · En ruta</div></div></div><div class="post">Buen día, gente. Ya descargué y quedé libre por la zona de Villa María. ¡Buen viaje para todos!</div><div class="actions"><button class="action like">♥ Me gusta · <span>44</span></button><button class="action">Comentar · 3</button></div></article>
-<article class="card"><div class="row"><div class="avatar">LR</div><div><div class="name">Leo R.</div><div class="meta">Ayer · Mi muro</div></div></div><div class="post">Una parada y seguimos. Cuídense mucho en la ruta, compañeros.</div><div class="photo">FOTO DE LA RUTA · DEMO</div><div class="actions"><button class="action like">♥ Me gusta · <span>39</span></button><button class="action">Comentar · 6</button></div></article>
+<div class="card">
+<div class="row"><div class="avatar" id="myAvatar">YO</div><div><div class="name" id="composerName">Compartí con la comunidad</div><div class="meta">Tu publicación llega a los miembros vinculados</div></div></div>
+<textarea id="postText" maxlength="2000" placeholder="¿Qué querés compartir, compañero?"></textarea>
+<button class="action primary" id="publish">Publicar</button><span class="small" id="publishMsg"></span>
+</div>
+<div id="feed"><div class="empty">Cargando publicaciones…</div></div>
 </section>
+
 <section id="ruta" hidden>
 <h1 class="section-title">En la ruta</h1>
-<div class="card"><h2 style="font-size:17px;margin-top:0">Mi estado</h2><div class="status-grid"><button>🟢 Libre</button><button>🟡 Cargando</button><button>🔵 Cargado</button><button>🟠 Descargando</button></div><input placeholder="Localidad o ubicación (opcional)"><button class="action primary">Compartir estado (demo)</button></div>
-<h2 class="section-title">Avisos de compañeros</h2>
-<div class="card notice"><div class="name">RN 9 · Atención</div><div class="post">Demora por trabajos viales. Circular con precaución.</div><div class="meta">Aviso de demostración · Ejemplo sin ubicación verificada</div></div>
-<div class="card notice"><div class="name">Condiciones de ruta</div><div class="post">Compartí accidentes, cortes, clima o demoras para ayudar a los demás.</div><div class="meta">Los avisos reales deberán tener fecha, hora y vencimiento.</div></div>
+<div class="card">
+<h2 style="font-size:17px;margin:0 0 10px">Mi estado</h2>
+<div class="status-grid" id="statusChoices">
+<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button>
+</div>
+<input id="routeLocation" maxlength="100" placeholder="Localidad o ubicación (opcional)">
+<input id="routeNote" maxlength="500" placeholder="Detalle breve (opcional)">
+<button class="action primary" id="saveStatus">Compartir mi estado</button><p class="small" id="statusMsg"></p>
+</div>
+<h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
+<h2 class="section-title">Avisos de ruta</h2>
+<div class="card">
+<label for="alertKind">Tipo de aviso</label><select id="alertKind"><option value="accidente">Accidente</option><option value="demora">Demora</option><option value="corte">Corte de ruta</option><option value="clima">Clima</option><option value="ruta">Estado de ruta</option><option value="otro">Otro</option></select>
+<input id="alertRoad" maxlength="80" placeholder="Ruta / camino (opcional)"><input id="alertLocation" maxlength="100" placeholder="Localidad o zona (opcional)">
+<textarea id="alertBody" maxlength="1000" placeholder="Contá qué está pasando…"></textarea><button class="action primary" id="sendAlert">Publicar aviso</button><p class="small" id="alertMsg"></p>
+</div><div id="alertsFeed"></div>
 </section>
-<section id="perfil" hidden>
-<h1 class="section-title">Mi perfil</h1><div class="card"><div class="row"><div class="avatar">YO</div><div><div class="name">Tu identidad en la comunidad</div><div class="meta">Sin DNI ni teléfono en esta demo</div></div></div><label for="nick">Apodo</label><input id="nick" placeholder="¿Cómo te conocen en la ruta?"><button class="action primary" id="saveNick">Guardar en esta demo</button><p class="small" id="nickMsg">El perfil todavía no está vinculado a una cuenta compartida.</p></div>
-<div class="card"><div class="name">Privacidad de la comunidad</div><p class="small">La idea es que solo los perfiles vinculados puedan ver los muros y avisos. Al desvincular tu perfil, podrás exportar tu propio historial, no el contenido privado de los demás.</p></div></section>
-</main>
-<footer>PROTOTIPO NAVEGABLE · CONTENIDO DE MUESTRA · SIN CUENTAS NI DATOS COMPARTIDOS</footer>
-<script>
-const tabs=[...document.querySelectorAll('nav button')];
-tabs.forEach(b=>b.addEventListener('click',()=>{tabs.forEach(x=>x.classList.toggle('active',x===b));['muro','ruta','perfil'].forEach(id=>document.getElementById(id).hidden=id!==b.dataset.tab)}));
-document.querySelectorAll('.like').forEach(b=>b.addEventListener('click',()=>{const s=b.querySelector('span');s.textContent=String(Math.max(1,Number(s.textContent)+(Math.random()>.5?1:-1)));b.style.borderColor='var(--cyan)'}));
-document.getElementById('publish').addEventListener('click',()=>{const t=document.getElementById('postText');if(!t.value.trim())return;const a=document.createElement('article');a.className='card';a.innerHTML='<div class="row"><div class="avatar">YO</div><div><div class="name">Tu publicación</div><div class="meta">Ahora · Solo en esta demo</div></div></div>';const p=document.createElement('div');p.className='post';p.textContent=t.value;a.append(p);document.querySelector('#muro').insertBefore(a,document.querySelector('#muro').children[2]);t.value=''}));
-document.getElementById('saveNick').addEventListener('click',()=>{document.getElementById('nickMsg').textContent='Apodo de demostración: '+(document.getElementById('nick').value.trim()||'sin definir')+'. No se sincroniza.'});
-if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 
-// Evitar el menú de copiar/seleccionar al mantener pulsado fuera de campos editables.
-document.addEventListener('contextmenu', event => {
-  const editable = event.target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
-  if (!editable) event.preventDefault();
+<section id="amigos" hidden>
+<h1 class="section-title">Compañeros</h1>
+<div class="card"><div class="row" style="justify-content:space-between"><div><div class="name">Tu red de ruta</div><div class="meta">Conectá compañeros con invitaciones privadas</div></div><button class="action primary" id="addFriend">＋ Agregar nuevo amigo</button></div></div>
+<div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
+<div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
+</section>
+
+<section id="perfil" hidden>
+<h1 class="section-title">Mi perfil</h1>
+<div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
+<label for="editNick">Apodo</label><input id="editNick" maxlength="32"><button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
+<div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
+</section>
+</div>
+</main>
+<footer id="footer">Conectando con la comunidad…</footer>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.0';
+const SUPABASE_URL='https://wihbxfebobfmohmqqhkt.supabase.co';
+const SUPABASE_KEY='sb_publishable_CmPT-xSeIUUtTUArdIYDgA_jhXY8nuZ';
+const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let user=null, profile=null, selectedStatus='libre', channel=null;
+const $=id=>document.getElementById(id);
+const initials=name=>(name||'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const time=s=>new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
+function showError(id,msg){$(id).textContent=msg||''}
+function setTab(tab){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));['muro','ruta','amigos','perfil'].forEach(id=>$(id).hidden=id!==tab);if(tab==='amigos')loadFriends();if(tab==='ruta'){loadRoute();loadAlerts()}}
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+$('joinMode').addEventListener('change',()=>{$('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');$('joinHelp').textContent=$('joinMode').value==='community'?'El primer ingreso crea tu perfil.':$('joinMode').value==='friend'?'La invitación crea tu perfil y conecta ambos compañeros.':'Este código vincula el segundo teléfono al mismo perfil.'});
+async function ensureAuth(){let {data,error}=await db.auth.getSession();if(error)throw error;user=data.session?.user||null;if(!user){const r=await db.auth.signInAnonymously();if(r.error)throw r.error;user=r.data.user}}
+async function boot(){
+ try{await ensureAuth();const {data:device,error}=await db.from('ca_devices').select('profile_id').eq('user_id',user.id).maybeSingle();if(error)throw error;
+  if(!device){$('onboarding').classList.remove('hidden');$('nav').classList.add('hidden');$('app').classList.add('hidden');$('footer').textContent='Perfil todavía no vinculado';return}
+  const r=await db.from('ca_profiles').select('*').eq('id',device.profile_id).single();if(r.error)throw r.error;profile=r.data;
+  $('onboarding').classList.add('hidden');$('nav').classList.remove('hidden');$('app').classList.remove('hidden');$('footer').textContent='Comunidad privada · Conexión activa';
+  updateProfileUI();await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
+  if(channel)db.removeChannel(channel);
+  channel=db.channel('ca-live-'+profile.id).on('postgres_changes',{event:'*',schema:'public',table:'ca_posts'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_reactions'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_status'},()=>loadRoute()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_alerts'},()=>loadAlerts()).subscribe();
+ }catch(e){$('footer').textContent='No se pudo conectar';$('onboarding').classList.remove('hidden');showError('joinError',e.message||String(e))}
+}
+$('joinBtn').addEventListener('click',async()=>{
+ const code=$('joinCode').value.trim(),nick=$('joinNick').value.trim(),mode=$('joinMode').value;
+ showError('joinError','');if(!code){showError('joinError','Pegá el código de invitación.');return}
+ if(mode!=='device'&&nick.length<2){showError('joinError','Escribí un apodo de al menos 2 caracteres.');return}
+ $('joinBtn').disabled=true;$('joinBtn').textContent='Vinculando…';
+ try{let result;
+  if(mode==='community')result=await db.rpc('ca_join_community',{p_code:code,p_nickname:nick});
+  else result=await db.rpc('ca_redeem_invite',{p_code:code,p_nickname:mode==='device'?null:nick});
+  if(result.error)throw result.error;$('joinCode').value='';await boot();
+ }catch(e){showError('joinError',e.message||String(e))}
+ finally{$('joinBtn').disabled=false;$('joinBtn').textContent='Vincularme'}
 });
-document.addEventListener('selectstart', event => {
-  const editable = event.target.closest('input, textarea, [contenteditable="true"], [contenteditable=""]');
-  if (!editable) event.preventDefault();
-});
+function updateProfileUI(){const n=profile.nickname;$('composerName').textContent='Compartí con la comunidad';$('myAvatar').textContent=initials(n);$('profileAvatar').textContent=initials(n);$('profileName').textContent=n;$('editNick').value=n}
+async function loadFeed(){
+ const box=$('feed');const {data:posts,error}=await db.from('ca_posts').select('id,profile_id,body,photo_url,created_at,profile:ca_profiles!ca_posts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).order('created_at',{ascending:false}).limit(60);
+ if(error){box.innerHTML='<div class="empty">No se pudo cargar el muro.</div>';return}
+ if(!posts.length){box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>';return}
+ const {data:reactions}=await db.from('ca_reactions').select('post_id,profile_id,reaction').eq('reaction','like').limit(1000);
+ const counts={};const mine={};(reactions||[]).forEach(r=>{counts[r.post_id]=(counts[r.post_id]||0)+1;if(r.profile_id===profile.id)mine[r.post_id]=true});
+ box.replaceChildren();
+ posts.forEach(p=>{const article=document.createElement('article');article.className='card';const head=document.createElement('div');head.className='row';const av=document.createElement('div');av.className='avatar';av.textContent=initials(p.profile?.nickname);const who=document.createElement('div');who.innerHTML='<div class="name">'+esc(p.profile?.nickname||'Compañero')+'</div><div class="meta">'+time(p.created_at)+'</div>';head.append(av,who);const body=document.createElement('div');body.className='post';body.textContent=p.body;const actions=document.createElement('div');actions.className='actions';const like=document.createElement('button');like.className='action';like.textContent=(mine[p.id]?'♥':'♡')+' Me gusta · '+(counts[p.id]||0);if(mine[p.id])like.style.borderColor='var(--cyan)';like.addEventListener('click',()=>toggleLike(p.id,!!mine[p.id]));actions.append(like);article.append(head,body,actions);box.append(article)});
+}
+async function toggleLike(postId,liked){let r;if(liked)r=await db.from('ca_reactions').delete().eq('post_id',postId).eq('profile_id',profile.id).eq('reaction','like');else r=await db.from('ca_reactions').insert({post_id:postId,profile_id:profile.id,reaction:'like'});if(r.error)alert(r.error.message);else loadFeed()}
+$('publish').addEventListener('click',async()=>{const body=$('postText').value.trim();if(!body)return;$('publish').disabled=true;const r=await db.from('ca_posts').insert({community_id:profile.community_id,profile_id:profile.id,body});$('publish').disabled=false;if(r.error){$('publishMsg').textContent=r.error.message;return}$('postText').value='';$('publishMsg').textContent='Publicado en la comunidad';setTimeout(()=>$('publishMsg').textContent='',2500);loadFeed()});
+$('statusChoices').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{selectedStatus=b.dataset.status;$('statusChoices').querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b))}));
+$('saveStatus').addEventListener('click',async()=>{const r=await db.from('ca_route_status').upsert({profile_id:profile.id,community_id:profile.community_id,status:selectedStatus,location_label:$('routeLocation').value.trim()||null,note:$('routeNote').value.trim(),expires_at:new Date(Date.now()+24*3600*1000).toISOString(),updated_at:new Date().toISOString()},{onConflict:'profile_id'});$('statusMsg').textContent=r.error?r.error.message:'Estado compartido por 24 horas';if(!r.error)loadRoute()});
+async function loadRoute(){const {data,error}=await db.from('ca_route_status').select('profile_id,status,location_label,note,updated_at,expires_at,profile:ca_profiles!ca_route_status_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('updated_at',{ascending:false});const box=$('routeFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los estados.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay estados compartidos.</div>';return}data.forEach(s=>{const d=document.createElement('div');d.className='card';d.innerHTML='<div class="name">'+esc(s.profile?.nickname||'Compañero')+' · '+esc(s.status)+'</div><div class="meta">'+esc(s.location_label||'Ubicación no indicada')+' · '+time(s.updated_at)+'</div><div class="post">'+esc(s.note||'')+'</div>';box.append(d)})}
+$('sendAlert').addEventListener('click',async()=>{const body=$('alertBody').value.trim();if(!body)return;$('sendAlert').disabled=true;const r=await db.from('ca_route_alerts').insert({community_id:profile.community_id,profile_id:profile.id,kind:$('alertKind').value,road:$('alertRoad').value.trim()||null,location_label:$('alertLocation').value.trim()||null,body,expires_at:new Date(Date.now()+12*3600*1000).toISOString()});$('sendAlert').disabled=false;$('alertMsg').textContent=r.error?r.error.message:'Aviso publicado por 12 horas';if(!r.error){$('alertBody').value='';loadAlerts()}});
+async function loadAlerts(){const {data,error}=await db.from('ca_route_alerts').select('id,kind,road,location_label,body,created_at,expires_at,profile:ca_profiles!ca_route_alerts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(30);const box=$('alertsFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los avisos.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay avisos vigentes.</div>';return}data.forEach(a=>{const d=document.createElement('div');d.className='card notice';d.innerHTML='<div class="name">'+esc(a.kind.toUpperCase())+' · '+esc(a.road||'Ruta sin especificar')+'</div><div class="meta">'+esc(a.profile?.nickname||'Compañero')+' · '+esc(a.location_label||'Zona no indicada')+' · '+time(a.created_at)+'</div><div class="post">'+esc(a.body)+'</div>';box.append(d)})}
+async function createCode(kind,target){const {data,error}=await db.rpc('ca_create_invite',{p_kind:kind});if(error){$(target).textContent=error.message;return}const area=$(target);area.innerHTML='<div class="code">'+esc(data)+'</div><div class="small">Código de un solo uso · vence en 24 horas</div><button class="action" id="copyInvite">Copiar código</button>';area.querySelector('#copyInvite').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(data);area.querySelector('#copyInvite').textContent='Copiado'}catch{area.querySelector('#copyInvite').textContent='Seleccioná y copiá el código'}})}
+$('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
+$('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
+async function loadFriends(){const box=$('friendsList');const {data,error}=await db.from('ca_friend_links').select('friend_profile_id').eq('profile_id',profile.id);if(error){box.innerHTML='<div class="empty">No se pudieron cargar los compañeros.</div>';return}if(!data.length){box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>';return}const ids=data.map(x=>x.friend_profile_id);const r=await db.from('ca_profiles').select('id,nickname,bio').in('id',ids);box.replaceChildren();(r.data||[]).forEach(p=>{const d=document.createElement('div');d.className='card row';d.innerHTML='<div class="avatar">'+esc(initials(p.nickname))+'</div><div><div class="name">'+esc(p.nickname)+'</div><div class="meta">'+esc(p.bio||'Compañero de ruta')+'</div></div>';box.append(d)})}
+$('saveNick').addEventListener('click',async()=>{const nickname=$('editNick').value.trim();if(nickname.length<2){$('profileMsg').textContent='El apodo debe tener al menos 2 caracteres';return}const r=await db.from('ca_profiles').update({nickname,updated_at:new Date().toISOString()}).eq('id',profile.id);$('profileMsg').textContent=r.error?r.error.message:'Perfil actualizado';if(!r.error){profile.nickname=nickname;updateProfileUI()}});
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+await boot();
 </script>
 </body></html>
