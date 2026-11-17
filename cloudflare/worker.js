@@ -296,8 +296,6 @@ export default {
         if (!targetId || !badge || !BADGE_LEVELS.includes(level)) return fail("Elegí un compañero, una insignia y un nivel válidos.",400,cors);
         const target = await env.DB.prepare("SELECT id,nickname FROM profiles WHERE id=? AND community_id=?").bind(targetId,user.community_id).first();
         if (!target) return fail("Ese compañero no pertenece a esta comunidad.",404,cors);
-        const existing = await env.DB.prepare("SELECT level FROM badge_awards WHERE profile_id=? AND badge_key=?").bind(targetId,badge.key).first();
-        if (existing && badgeRank(level)<badgeRank(existing.level)) return fail("Una insignia no puede bajar de categoría.",409,cors);
         const timestamp=now();
         await env.DB.prepare(
           `INSERT INTO badge_awards(id,community_id,profile_id,badge_key,level,awarded_by_profile_id,awarded_at)
@@ -311,6 +309,19 @@ export default {
         return json({ok:true,announcement,level,badge},201,cors);
       }
 
+
+      if (request.method === "POST" && path === "/api/badges/remove") {
+        if (!["owner","moderator"].includes(user.role)) return fail("Solo administración puede retirar insignias.",403,cors);
+        const input = await bodyJson(request);
+        const targetId = cleanText(input?.profile_id,64);
+        const badge = BADGE_CATALOG.find(item=>item.key===input?.badge_key);
+        if (!targetId || !badge) return fail("Elegí un compañero y una insignia válidos.",400,cors);
+        const target = await env.DB.prepare("SELECT id FROM profiles WHERE id=? AND community_id=?").bind(targetId,user.community_id).first();
+        if (!target) return fail("Ese compañero no pertenece a esta comunidad.",404,cors);
+        const result = await env.DB.prepare("DELETE FROM badge_awards WHERE community_id=? AND profile_id=? AND badge_key=?").bind(user.community_id,targetId,badge.key).run();
+        if (!result.success) return fail("No se pudo retirar la insignia. Intentá nuevamente.",500,cors);
+        return json({ok:true,removed:result.meta?.changes===1},200,cors);
+      }
 
       if (request.method === "POST" && path === "/api/push/subscribe") {
         if (!["owner", "moderator"].includes(user.role)) return fail("Solo un administrador puede activar estas alertas.", 403, cors);
