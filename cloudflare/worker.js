@@ -34,7 +34,7 @@ function corsHeaders(request, env) {
   if (origin && origin !== allowed) return null;
   return {
     "access-control-allow-origin": origin || allowed,
-    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers": "Authorization,Content-Type,X-Setup-Secret",
     "access-control-max-age": "86400",
     "vary": "Origin"
@@ -414,7 +414,7 @@ export default {
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
              EXISTS(SELECT 1 FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? AND r.reaction='like') AS liked_by_me
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
-           WHERE p.community_id=? AND p.status='approved' AND (? IS NULL OR p.profile_id=?)
+           WHERE p.community_id=? AND p.status='approved' AND p.deleted_at IS NULL AND (? IS NULL OR p.profile_id=?)
            ORDER BY p.created_at DESC LIMIT ?`
         ).bind(user.profile_id, user.community_id, targetProfileId, targetProfileId, limit).all();
         return json({ posts: result.results || [] }, 200, cors);
@@ -439,6 +439,36 @@ export default {
           try { notificationsSent = await notifyModerators(env, user.community_id, postId, user.nickname); } catch {}
         }
         return json({ id: postId, status, notifications_sent: notificationsSent }, 201, cors);
+      }
+
+      const postMatch = path.match(/^\\/api\\/posts\\/([0-9a-f-]{36})$/i);
+      if (request.method === "PATCH" && postMatch) {
+        const input = await bodyJson(request);
+        const body = cleanText(input?.body, 2000);
+        const mediaId = input?.media_id ? cleanText(input.media_id, 64) : null;
+        if (!body && !mediaId) return fail("La publicación no puede quedar vacía.",400,cors);
+        if (mediaId) {
+          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();
+          if (!media) return fail("La imagen no está disponible.",400,cors);
+        }
+        const post = await env.DB.prepare("SELECT id,profile_id,status FROM posts WHERE id=? AND community_id=? AND deleted_at IS NULL").bind(postMatch[1],user.community_id).first();
+        if (!post) return fail("Publicación no encontrada.",404,cors);
+        if (post.profile_id !== user.profile_id) return fail("Solo podés editar tus propias publicaciones.",403,cors);
+        const autoApprove = ["owner","moderator"].includes(user.role);
+        const status = autoApprove ? "approved" : "pending";
+        await env.DB.prepare("UPDATE posts SET body=?,media_id=?,status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND profile_id=? AND community_id=?")
+          .bind(body,mediaId,status,autoApprove?user.profile_id:null,autoApprove?now():null,post.id,user.profile_id,user.community_id).run();
+        if (!autoApprove) { try { await notifyModerators(env,user.community_id,post.id,user.nickname); } catch {} }
+        return json({ok:true,status},200,cors);
+      }
+
+      if (request.method === "DELETE" && postMatch) {
+        const post = await env.DB.prepare("SELECT id,profile_id FROM posts WHERE id=? AND community_id=? AND deleted_at IS NULL").bind(postMatch[1],user.community_id).first();
+        if (!post) return fail("Publicación no encontrada.",404,cors);
+        if (post.profile_id !== user.profile_id) return fail("Solo podés eliminar tus propias publicaciones.",403,cors);
+        await env.DB.prepare("UPDATE posts SET deleted_at=? WHERE id=? AND profile_id=? AND community_id=?")
+          .bind(now(),post.id,user.profile_id,user.community_id).run();
+        return json({ok:true},200,cors);
       }
 
       // Driver PAD: all activity reports are held for moderator approval.
