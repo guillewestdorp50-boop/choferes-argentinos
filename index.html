@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10191c"><meta name="description" content="Comunidad privada Choferes Argentinos">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Choferes Argentinos</title>
+<style>
+:root{--bg:#10191c;--panel:#1a282c;--panel2:#223338;--ink:#f1f2ed;--muted:#aebdc0;--cyan:#58d2d1;--line:#34474b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:18px max(18px,env(safe-area-inset-left));background:#e9e8df;color:#172326;display:flex;align-items:center;gap:14px}
+.logo{width:58px;height:58px;flex:none}.brand{font-weight:850;letter-spacing:.06em;font-size:clamp(17px,4vw,22px)}.sub{font-size:11px;letter-spacing:.17em;color:#52666a}
+nav{display:flex;gap:8px;padding:12px 14px;overflow:auto;background:#152125;position:sticky;top:0;z-index:3}
+nav button,.action{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:10px 15px;font:inherit;white-space:nowrap}
+nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:700}
+main{max-width:780px;margin:auto;padding:16px 14px 40px}.section-title{font-size:20px;margin:4px 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 14px}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:40px;height:40px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800}
+.name{font-weight:750}.meta{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap}
+.photo{height:180px;border-radius:12px;background:linear-gradient(135deg,#34545a,#17282c 55%,#6b7770);display:grid;place-items:center;color:#d7e5e2;font-weight:700;letter-spacing:.08em}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.action{padding:8px 13px;font-size:14px}
+input,textarea{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;margin:7px 0}
+textarea{min-height:90px;resize:vertical}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.status-grid button{padding:13px 8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;font:inherit}
+.notice{border-left:4px solid var(--cyan)}.small{font-size:12px;color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:15px}
+@media(min-width:650px){main{padding-top:24px}.status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header>
+<svg class="logo" viewBox="0 0 100 100" aria-label="Monograma CA"><path d="M46 17C17 8 8 28 8 51s13 39 39 31" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round"/><path d="M48 82 68 18 94 82M57 56H82" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M57 56H82" stroke="#58bfc2" stroke-width="7" stroke-linecap="round"/><path d="M69 56h-8" stroke="#e9e8df" stroke-width="2" stroke-dasharray="3 3"/></svg>
+<div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
+</header>
+<nav aria-label="Secciones">
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="perfil">Mi perfil</button>
+</nav>
+<main>
+<section id="muro">
+<h1 class="section-title">La comunidad</h1>
+<div class="card"><div class="row"><div class="avatar">YO</div><div><div class="name">Compartí con la comunidad</div><div class="meta">Tu publicación la verán los miembros vinculados</div></div></div>
+<textarea id="postText" placeholder="¿Qué querés compartir, compañero?"></textarea><button class="action primary" id="publish">Publicar en mi muro</button><div class="small">Demo local: las publicaciones no se envían ni se guardan en un servidor.</div></div>
+<article class="card"><div class="row"><div class="avatar">MG</div><div><div class="name">Marcos G.</div><div class="meta">Hace 18 min · En ruta</div></div></div><div class="post">Buen día, gente. Ya descargué y quedé libre por la zona de Villa María. ¡Buen viaje para todos!</div><div class="actions"><button class="action like">♥ Me gusta · <span>44</span></button><button class="action">Comentar · 3</button></div></article>
+<article class="card"><div class="row"><div class="avatar">LR</div><div><div class="name">Leo R.</div><div class="meta">Ayer · Mi muro</div></div></div><div class="post">Una parada y seguimos. Cuídense mucho en la ruta, compañeros.</div><div class="photo">FOTO DE LA RUTA · DEMO</div><div class="actions"><button class="action like">♥ Me gusta · <span>39</span></button><button class="action">Comentar · 6</button></div></article>
+</section>
+<section id="ruta" hidden>
+<h1 class="section-title">En la ruta</h1>
+<div class="card"><h2 style="font-size:17px;margin-top:0">Mi estado</h2><div class="status-grid"><button>🟢 Libre</button><button>🟡 Cargando</button><button>🔵 Cargado</button><button>🟠 Descargando</button></div><input placeholder="Localidad o ubicación (opcional)"><button class="action primary">Compartir estado (demo)</button></div>
+<h2 class="section-title">Avisos de compañeros</h2>
+<div class="card notice"><div class="name">RN 9 · Atención</div><div class="post">Demora por trabajos viales. Circular con precaución.</div><div class="meta">Aviso de demostración · Ejemplo sin ubicación verificada</div></div>
+<div class="card notice"><div class="name">Condiciones de ruta</div><div class="post">Compartí accidentes, cortes, clima o demoras para ayudar a los demás.</div><div class="meta">Los avisos reales deberán tener fecha, hora y vencimiento.</div></div>
+</section>
+<section id="perfil" hidden>
+<h1 class="section-title">Mi perfil</h1><div class="card"><div class="row"><div class="avatar">YO</div><div><div class="name">Tu identidad en la comunidad</div><div class="meta">Sin DNI ni teléfono en esta demo</div></div></div><label for="nick">Apodo</label><input id="nick" placeholder="¿Cómo te conocen en la ruta?"><button class="action primary" id="saveNick">Guardar en esta demo</button><p class="small" id="nickMsg">El perfil todavía no está vinculado a una cuenta compartida.</p></div>
+<div class="card"><div class="name">Privacidad de la comunidad</div><p class="small">La idea es que solo los perfiles vinculados puedan ver los muros y avisos. Al desvincular tu perfil, podrás exportar tu propio historial, no el contenido privado de los demás.</p></div></section>
+</main>
+<footer>PROTOTIPO NAVEGABLE · CONTENIDO DE MUESTRA · SIN CUENTAS NI DATOS COMPARTIDOS</footer>
+<script>
+const tabs=[...document.querySelectorAll('nav button')];
+tabs.forEach(b=>b.addEventListener('click',()=>{tabs.forEach(x=>x.classList.toggle('active',x===b));['muro','ruta','perfil'].forEach(id=>document.getElementById(id).hidden=id!==b.dataset.tab)}));
+document.querySelectorAll('.like').forEach(b=>b.addEventListener('click',()=>{const s=b.querySelector('span');s.textContent=String(Math.max(1,Number(s.textContent)+(Math.random()>.5?1:-1)));b.style.borderColor='var(--cyan)'}));
+document.getElementById('publish').addEventListener('click',()=>{const t=document.getElementById('postText');if(!t.value.trim())return;const a=document.createElement('article');a.className='card';a.innerHTML='<div class="row"><div class="avatar">YO</div><div><div class="name">Tu publicación</div><div class="meta">Ahora · Solo en esta demo</div></div></div>';const p=document.createElement('div');p.className='post';p.textContent=t.value;a.append(p);document.querySelector('#muro').insertBefore(a,document.querySelector('#muro').children[2]);t.value=''}));
+document.getElementById('saveNick').addEventListener('click',()=>{document.getElementById('nickMsg').textContent='Apodo de demostración: '+(document.getElementById('nick').value.trim()||'sin definir')+'. No se sincroniza.'});
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script>
+</body></html>
