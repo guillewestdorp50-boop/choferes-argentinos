@@ -2,6 +2,12 @@ name: Deploy Choferes Argentinos Worker (manual)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - cloudflare-backend-prep
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/deploy-cloudflare-worker.yml"
 
 permissions:
   contents: read
