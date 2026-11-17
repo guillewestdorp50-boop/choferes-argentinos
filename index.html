@@ -340,7 +340,7 @@ async function loadFeed(){
       actions.className = 'actions';
       const like = document.createElement('button');
       like.className = 'action';
-      like.textContent = (post.liked_by_me ? '♥' : '♡')+' Me gusta · '+(post.likes || 0);
+      like.textContent = (post.liked_by_me ? '❤️' : '🤍')+' Me gusta · '+(post.likes || 0);
       if(post.liked_by_me) like.style.borderColor='var(--cyan)';
       like.addEventListener('click',async()=>{
         like.disabled=true;
