@@ -658,11 +658,13 @@ async function updatePushStatus(){
 $('enablePush').addEventListener('click',async()=>{
   $('enablePush').disabled=true;
   try{
+    const permissionPromise=Notification.permission==='default'
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
     await unlockAlarmAudio();
     const keyResult=await api('/api/push/public-key');
     if(!keyResult.enabled || !keyResult.public_key) throw new Error('Las alertas del servidor todavía necesitan su clave de seguridad. La dejamos preparada y falta configurar esa clave.');
-    let permission=Notification.permission;
-    if(permission==='default') permission=await Notification.requestPermission();
+    const permission=await permissionPromise;
     if(permission!=='granted') throw new Error('No se concedió permiso para mostrar notificaciones.');
     const registration=await navigator.serviceWorker.ready;
     const existing=await registration.pushManager.getSubscription();
