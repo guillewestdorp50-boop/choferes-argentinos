@@ -430,6 +430,79 @@ export default {
         return json({ id: postId, status, notifications_sent: notificationsSent }, 201, cors);
       }
 
+      // Driver PAD: all activity reports are held for moderator approval.
+      if (request.method === "GET" && path === "/api/activity") {
+        const result = await env.DB.prepare(
+          `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
+                  pr.nickname,pr.avatar_key
+           FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
+           WHERE a.community_id=? AND a.status='approved'
+           ORDER BY a.created_at DESC LIMIT 100`
+        ).bind(user.community_id).all();
+        return json({ activities: result.results || [] }, 200, cors);
+      }
+
+      if (request.method === "POST" && path === "/api/activity") {
+        const form = await request.formData();
+        const kind = cleanText(form.get("kind"), 24);
+        const allowedKinds = ["libre","cargando","cargado","descargando","demorado","accidente","deposito","planta","base","casa","descansando","cafe","ypf","repostando","otro"];
+        if (!allowedKinds.includes(kind)) return fail("Elegí una situación válida.", 400, cors);
+        const body = cleanText(form.get("body"), 1200);
+        const location = cleanText(form.get("location"), 160) || null;
+        const mediaId = cleanText(form.get("media_id"), 64) || null;
+        if (!body && !location && !mediaId && kind === "otro") return fail("Agregá una descripción para esta situación.", 400, cors);
+        if (mediaId) {
+          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();
+          if (!media) return fail("La foto no está disponible.", 400, cors);
+        }
+        const audio = form.get("audio");
+        let audioMime = null, audioBytes = null;
+        if (audio && typeof audio.arrayBuffer === "function" && audio.size > 0) {
+          const allowedAudio = ["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/aac"];
+          if (!allowedAudio.includes(audio.type)) return fail("Formato de audio no permitido.", 415, cors);
+          if (audio.size > 3 * 1024 * 1024) return fail("El audio supera 3 MB.", 413, cors);
+          audioMime = audio.type;
+          audioBytes = new Uint8Array(await audio.arrayBuffer());
+        }
+        const activityId = id();
+        await env.DB.prepare(
+          "INSERT INTO driver_activity(id,community_id,profile_id,kind,location_label,body,media_id,audio_mime_type,audio_data,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,'pending',?)"
+        ).bind(activityId,user.community_id,user.profile_id,kind,location,body,mediaId,audioMime,audioBytes,now()).run();
+        return json({ id: activityId, status: "pending" }, 201, cors);
+      }
+
+      if (request.method === "GET" && path === "/api/moderation/activity") {
+        if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar avisos del PAD.",403,cors);
+        const result = await env.DB.prepare(
+          `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
+                  pr.nickname
+           FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
+           WHERE a.community_id=? AND a.status='pending'
+           ORDER BY a.created_at ASC LIMIT 100`
+        ).bind(user.community_id).all();
+        return json({ activities: result.results || [] },200,cors);
+      }
+
+      const activityModerationMatch = path.match(/^\\/api\\/moderation\\/activity\\/([0-9a-f-]{36})$/i);
+      if (request.method === "PATCH" && activityModerationMatch) {
+        if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar avisos del PAD.",403,cors);
+        const input = await bodyJson(request);
+        if (!["approve","reject"].includes(input?.action)) return fail("Acción de moderación inválida.",400,cors);
+        const status = input.action === "approve" ? "approved" : "rejected";
+        const result = await env.DB.prepare(
+          "UPDATE driver_activity SET status=?,moderated_by_profile_id=?,moderated_at=?,rejection_reason=? WHERE id=? AND community_id=? AND status='pending'"
+        ).bind(status,user.profile_id,now(),status === "rejected" ? cleanText(input?.reason,240) || "El aviso necesita algunos cambios para cumplir las normas de convivencia." : null,activityModerationMatch[1],user.community_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("El aviso ya no está pendiente o no existe.",404,cors);
+        return json({ok:true,status},200,cors);
+      }
+
+      const activityAudioMatch = path.match(/^\\/api\\/activity\\/([0-9a-f-]{36})\\/audio$/i);
+      if (request.method === "GET" && activityAudioMatch) {
+        const row = await env.DB.prepare("SELECT audio_mime_type,audio_data,status,profile_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityAudioMatch[1],user.community_id).first();
+        if (!row || !row.audio_data || (row.status !== "approved" && row.profile_id !== user.profile_id && !["owner","moderator"].includes(user.role))) return fail("Audio no disponible.",404,cors);
+        return new Response(row.audio_data,{status:200,headers:{...cors,"content-type":row.audio_mime_type,"cache-control":"private, max-age=300","x-content-type-options":"nosniff"}});
+      }
+
       if (request.method === "POST" && path === "/api/reactions") {
         const input = await bodyJson(request);
         const postId = cleanText(input?.post_id, 64);
