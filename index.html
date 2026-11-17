@@ -767,7 +767,7 @@ $('sendPad').addEventListener('click',async()=>{
   const result=await api('/api/activity',{method:'POST',body:form});
   if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
   $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
-  $('padMsg').textContent='Tu parte fue recibido y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
+  $('padMsg').textContent='Tu parte fue recibida y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
  }catch(error){$('padMsg').textContent=error.message||String(error);}
  finally{button.disabled=false;}
 });
