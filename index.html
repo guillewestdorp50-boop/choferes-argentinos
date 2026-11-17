@@ -146,6 +146,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p id="publicBio" class="small"></p>
   <div class="name" style="margin-top:14px">Insignias obtenidas</div>
   <div id="publicBadges" class="badge-list"></div>
+  <div class="name" style="margin-top:18px">Muro de este compañero</div>
+  <div id="publicWall"><div class="empty">Cargando publicaciones…</div></div>
 </div>
 <div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
 </section>
@@ -381,13 +383,51 @@ async function openPublicProfile(profileId){
   $('publicName').textContent='Cargando perfil…';
   $('publicBio').textContent='';
   $('publicBadges').replaceChildren();
+  $('publicWall').replaceChildren();
   try{
-    const result=await api('/api/badges?profile_id='+encodeURIComponent(profileId));
+    const [result,wall]=await Promise.all([
+      api('/api/badges?profile_id='+encodeURIComponent(profileId)),
+      api('/api/posts?profile_id='+encodeURIComponent(profileId)+'&limit=60')
+    ]);
     $('publicName').textContent=result.profile.nickname||'Compañero';
     $('publicAvatar').textContent=initials(result.profile.nickname);
     $('publicBio').textContent=result.profile.bio||'Este compañero todavía no agregó una biografía.';
     renderBadges($('publicBadges'),result.awards||[]);
-  }catch(error){$('publicName').textContent=error.message||String(error);}
+    renderPublicWall(wall.posts||[]);
+  }catch(error){
+    $('publicName').textContent=error.message||String(error);
+    $('publicWall').innerHTML='<div class="empty">No se pudo cargar el muro.</div>';
+  }
+}
+function renderPublicWall(posts){
+  const wall=$('publicWall');
+  wall.replaceChildren();
+  if(!posts.length){
+    wall.innerHTML='<div class="empty">Todavía no tiene publicaciones en su muro.</div>';
+    return;
+  }
+  posts.forEach(post=>{
+    const article=document.createElement('article');
+    article.className='card';
+    article.style.margin='10px 0 0';
+    const date=document.createElement('div');
+    date.className='meta';
+    date.textContent=time(post.created_at);
+    const body=document.createElement('div');
+    body.className='post';
+    body.textContent=post.body||'';
+    article.append(date);
+    if(post.body)article.append(body);
+    if(post.media_id){
+      const photo=document.createElement('img');
+      photo.alt='Foto publicada por '+($('publicName').textContent||'un compañero');
+      photo.loading='lazy';
+      photo.style.cssText='display:block;max-width:100%;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px';
+      loadMedia(post.media_id).then(url=>{if(url)photo.src=url;}).catch(()=>{});
+      article.append(photo);
+    }
+    wall.append(article);
+  });
 }
 $('closePublicProfile').addEventListener('click',()=>$('publicProfileCard').classList.add('hidden'));
 $('awardBadge').addEventListener('click',async()=>{
