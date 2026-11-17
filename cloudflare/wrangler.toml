@@ -10,5 +10,5 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "choferes-argentinos"
-database_id = "REEMPLAZAR_CON_EL_ID_DE_D1"
+database_id = "054da478-3bbf-4e05-8615-62e17405d345"
 migrations_dir = "migrations"
