@@ -1,0 +1,56 @@
+name: Deploy Choferes Argentinos production Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: "Type DEPLOY-PRODUCTION to apply migrations and deploy production"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: choferes-argentinos-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    if: ${{ inputs.confirm_production == 'DEPLOY-PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Apply production D1 migrations
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 migrations apply choferes-argentinos --remote
+
+      - name: Deploy production Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PRODUCTION_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: deploy
+
+      - name: Verify production Worker health
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error https://choferes-argentinos-api.chazoncba.workers.dev/api/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Production Worker health check failed."
+          exit 1
