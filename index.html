@@ -51,9 +51,25 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" placeholder="Ej.: El Cordobés"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
 <p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
+<div style="margin-top:14px"><button type="button" class="action" id="ownerToggle">Soy el administrador · Inicializar comunidad</button></div>
+<div id="ownerPanel" class="card hidden" style="margin-top:12px">
+  <h2 class="section-title">Crear la comunidad</h2>
+  <p class="small">Este paso es solo para quien administra Choferes Argentinos. El secreto se envía directamente al servidor de prueba y no se guarda en este teléfono.</p>
+  <label for="ownerSecret">Secreto de configuración</label><input id="ownerSecret" type="password" autocomplete="new-password" autocapitalize="none" placeholder="Pegá el valor de SETUP_SECRET">
+  <label for="ownerNick">Tu apodo de administrador</label><input id="ownerNick" maxlength="32" placeholder="Ej.: El Cordobés">
+  <button class="action primary" id="ownerBootstrap">Crear mi cuenta de administrador</button>
+  <p class="error" id="ownerError"></p>
+</div>
 </section>
 
 <div id="app" class="hidden">
+<section id="ownerWelcome" class="card notice hidden">
+  <h2 class="section-title">¡Comunidad inicializada!</h2>
+  <p class="small">Este es el primer código para invitar a los choferes a Choferes Argentinos. Guardalo y compartilo solo con personas de confianza.</p>
+  <div class="code" id="ownerInviteCode"></div>
+  <button class="action" id="copyOwnerInvite">Copiar código de invitación</button>
+  <p class="small" id="ownerInviteMsg"></p>
+</section>
 <section id="muro">
 <h1 class="section-title">La comunidad</h1>
 <div class="card">
@@ -86,7 +102,10 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 
 <section id="amigos" hidden>
 <h1 class="section-title">Compañeros</h1>
-<div class="card"><div class="row" style="justify-content:space-between"><div><div class="name">Tu red de ruta</div><div class="meta">Conectá compañeros con invitaciones privadas</div></div><button class="action primary" id="addFriend">＋ Agregar nuevo amigo</button></div></div>
+<div class="card">
+  <div class="row" style="justify-content:space-between;flex-wrap:wrap"><div><div class="name">Tu red de ruta</div><div class="meta">Conectá compañeros con invitaciones privadas</div></div><button class="action primary" id="addFriend">＋ Agregar nuevo amigo</button></div>
+  <div style="margin-top:12px"><button class="action hidden" id="addCommunityInvite">＋ Invitar a toda la comunidad</button><div id="communityCodeArea"></div></div>
+</div>
 <div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
 <div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
 </section>
@@ -159,6 +178,15 @@ $('joinMode').addEventListener('change',()=>{
       ? 'La invitación crea tu perfil y conecta ambos compañeros.'
       : 'Este código vincula el segundo teléfono al mismo perfil.';
 });
+$('ownerToggle').addEventListener('click',()=>{
+  $('ownerPanel').classList.toggle('hidden');
+  showError('ownerError','');
+});
+$('copyOwnerInvite').addEventListener('click',async()=>{
+  const code=$('ownerInviteCode').textContent;
+  try{ await navigator.clipboard.writeText(code); $('ownerInviteMsg').textContent='Código copiado. Guardalo en un lugar seguro.'; }
+  catch{ $('ownerInviteMsg').textContent='No se pudo copiar automáticamente; mantené presionado el código para copiarlo.'; }
+});
 async function boot(){
   if(!token){ showOnboarding(); return; }
   try{
@@ -204,6 +232,46 @@ $('joinBtn').addEventListener('click',async()=>{
   }catch(error){ showError('joinError',error.message || String(error)); }
   finally{ $('joinBtn').disabled=false; $('joinBtn').textContent='Vincularme'; }
 });
+$('ownerBootstrap').addEventListener('click',async()=>{
+  const setupSecret=$('ownerSecret').value;
+  const nickname=$('ownerNick').value.trim();
+  showError('ownerError','');
+  if(!setupSecret){ showError('ownerError','Pegá el valor del secreto SETUP_SECRET.'); return; }
+  if(nickname.length<2){ showError('ownerError','Escribí un apodo de al menos 2 caracteres.'); return; }
+  $('ownerBootstrap').disabled=true;
+  $('ownerBootstrap').textContent='Creando comunidad…';
+  try{
+    try{
+      const testKey='ca_storage_check';
+      localStorage.setItem(testKey,'1');
+      localStorage.removeItem(testKey);
+    }catch{ throw new Error('El navegador no permite guardar la sesión. Habilitá el almacenamiento del sitio y volvé a intentar.'); }
+    const response=await fetch(API_BASE+'/api/bootstrap',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Setup-Secret':setupSecret},
+      body:JSON.stringify({community_name:'Choferes Argentinos',nickname}),
+      cache:'no-store'
+    });
+    let result={};
+    try{ result=await response.json(); }catch{}
+    if(!response.ok) throw new Error(result.error || ('No se pudo inicializar la comunidad ('+response.status+').'));
+    if(!result.token || !result.invite_code) throw new Error('El servidor no devolvió el acceso y el código de invitación.');
+    saveToken(result.token);
+    $('ownerSecret').value='';
+    $('ownerPanel').classList.add('hidden');
+    await boot();
+    if(!profile) throw new Error('La comunidad se creó, pero no se pudo abrir la sesión. No vuelvas a inicializarla; avisame para recuperar el acceso.');
+    $('ownerInviteCode').textContent=result.invite_code;
+    $('ownerWelcome').classList.remove('hidden');
+    $('ownerWelcome').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(error){
+    $('ownerSecret').value='';
+    showError('ownerError',error.message || String(error));
+  }finally{
+    $('ownerBootstrap').disabled=false;
+    $('ownerBootstrap').textContent='Crear mi cuenta de administrador';
+  }
+});
 function updateProfileUI(){
   const nickname = profile.nickname || 'Compañero';
   $('composerName').textContent = 'Compartí con la comunidad';
@@ -211,6 +279,7 @@ function updateProfileUI(){
   $('profileAvatar').textContent = initials(nickname);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
+  $('addCommunityInvite').classList.toggle('hidden',!['owner','moderator'].includes(profile.role));
 }
 async function loadFeed(){
   const box = $('feed');
@@ -376,6 +445,7 @@ async function createCode(kind,target){
   }catch(error){ area.textContent=error.message || String(error); }
 }
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
+$('addCommunityInvite').addEventListener('click',()=>createCode('community','communityCodeArea'));
 $('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
 async function loadFriends(){
   const box=$('friendsList');
