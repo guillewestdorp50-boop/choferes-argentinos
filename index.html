@@ -532,6 +532,32 @@ async function loadFeed(){
         catch(error){ alert(error.message || String(error)); like.disabled=false; }
       });
       actions.append(like);
+      if(profile && post.profile_id===profile.id){
+        const edit=document.createElement('button');
+        edit.className='action';
+        edit.textContent='Editar';
+        edit.addEventListener('click',async()=>{
+          const revised=prompt('Editá el texto de tu publicación:',post.body||'');
+          if(revised===null)return;
+          if(!revised.trim() && !post.media_id){alert('La publicación no puede quedar vacía.');return;}
+          edit.disabled=true;
+          try{
+            const updated=await api('/api/posts/'+encodeURIComponent(post.id),{method:'PATCH',body:{body:revised.trim(),media_id:post.media_id||null}});
+            alert(updated.status==='pending'?'Cambios enviados a moderación.':'Publicación actualizada.');
+            await loadFeed();
+          }catch(error){alert(error.message||String(error));edit.disabled=false;}
+        });
+        const remove=document.createElement('button');
+        remove.className='action';
+        remove.textContent='Eliminar';
+        remove.addEventListener('click',async()=>{
+          if(!confirm('¿Eliminar definitivamente tu publicación del muro?'))return;
+          remove.disabled=true;
+          try{await api('/api/posts/'+encodeURIComponent(post.id),{method:'DELETE'});await loadFeed();}
+          catch(error){alert(error.message||String(error));remove.disabled=false;}
+        });
+        actions.append(edit,remove);
+      }
       article.append(actions);
       box.append(article);
     });
