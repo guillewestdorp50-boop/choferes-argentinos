@@ -352,7 +352,7 @@ export default {
         const result = await env.DB.prepare(
           `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
-           WHERE p.community_id=? AND p.status='pending'
+           WHERE p.community_id=? AND p.status='pending' AND p.deleted_at IS NULL
            ORDER BY p.created_at ASC LIMIT 100`
         ).bind(user.community_id).all();
         return json({ posts: result.results || [] }, 200, cors);
@@ -366,7 +366,7 @@ export default {
         if (!["approve", "reject"].includes(action)) return fail("Acción de moderación inválida.", 400, cors);
         const status = action === "approve" ? "approved" : "rejected";
         const result = await env.DB.prepare(
-          "UPDATE posts SET status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND community_id=? AND status='pending'"
+          "UPDATE posts SET status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND community_id=? AND status='pending' AND deleted_at IS NULL"
         ).bind(status, user.profile_id, now(), moderationMatch[1], user.community_id).run();
         if (!result.success || result.meta.changes !== 1) return fail("La publicación ya no está pendiente o no existe.", 404, cors);
         return json({ ok: true, status }, 200, cors);
