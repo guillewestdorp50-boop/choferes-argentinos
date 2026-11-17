@@ -1,0 +1,52 @@
+name: Validate Choferes Argentinos PWA
+
+on:
+  push:
+    branches:
+      - cloudflare-backend-prep
+    paths:
+      - "index.html"
+      - "sw.js"
+      - "manifest.webmanifest"
+      - ".github/workflows/validate-pwa.yml"
+  pull_request:
+    branches:
+      - cloudflare-backend-prep
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate frontend JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Extract and check the PWA module
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("index.html").read_text(encoding="utf-8")
+          match = re.search(r'<script type="module">([\\s\\S]*?)</script>', html)
+          if not match:
+              raise SystemExit("No se encontró el módulo JavaScript de la PWA.")
+          Path("/tmp/choferes-pwa.mjs").write_text(match.group(1), encoding="utf-8")
+          PY
+          node --check /tmp/choferes-pwa.mjs
+
+      - name: Ensure the frontend no longer imports Supabase
+        run: |
+          if grep -qi "supabase" index.html; then
+            echo "La PWA todavía contiene referencias a Supabase."
+            exit 1
+          fi
+          echo "Correcto: la PWA ya no contiene referencias a Supabase."
