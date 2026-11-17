@@ -101,7 +101,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </main>
 <footer id="footer">Conectando con la comunidad…</footer>
 <script type="module">
-const API_BASE = 'https://choferes-argentinos-api.chazoncba.workers.dev';
+const API_BASE = 'PENDIENTE_CONFIGURAR_API_DE_PRUEBA';
 const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
@@ -117,6 +117,7 @@ function saveToken(value){
   catch { throw new Error('El navegador no permitió guardar la sesión de este dispositivo.'); }
 }
 async function api(path, options = {}){
+  if(!API_BASE.startsWith('https://')) throw new Error('La API aislada de pruebas todavía no está configurada.');
   const headers = new Headers(options.headers || {});
   if(token) headers.set('Authorization','Bearer '+token);
   let body = options.body;
