@@ -1,0 +1,89 @@
+name: Inspect production D1 schema (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_read_only:
+        description: "Type INSPECT-PRODUCTION to inspect the production database without changing it"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: choferes-argentinos-production-inspection
+  cancel-in-progress: false
+
+jobs:
+  inspect-production-d1:
+    if: ${{ github.ref == 'refs/heads/production-cutover-prep' && inputs.confirm_read_only == 'INSPECT-PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Verify production database tables
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;" --json
+
+      - name: Read applied migration history
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT * FROM d1_migrations ORDER BY id;" --json
+
+      - name: Inspect route status columns
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "PRAGMA table_info(route_status);" --json
+
+      - name: Inspect driver activity columns
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "PRAGMA table_info(driver_activity);" --json
+
+      - name: Inspect posts columns
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "PRAGMA table_info(posts);" --json
+
+      - name: Inspect profile columns
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "PRAGMA table_info(profiles);" --json
+
+      - name: Check feature tables
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('push_subscriptions','badge_awards') ORDER BY name;" --json
