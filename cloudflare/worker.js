@@ -46,11 +46,11 @@ async function auth(request, env) {
   if (!token || token.length !== 64) return null;
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT d.id AS device_id, d.last_seen_at, p.id AS profile_id, p.community_id, p.nickname, p.role, p.bio
+    `SELECT d.id AS device_id, d.last_seen_at, p.id AS profile_id, p.community_id, p.nickname, p.role, p.bio, p.avatar_key
      FROM devices d JOIN profiles p ON p.id=d.profile_id
      WHERE d.token_hash=? AND d.revoked_at IS NULL LIMIT 1`
   ).bind(tokenHash).first();
-  if (row && Date.now() - Date.parse(row.last_seen_at) > 300000) {
+  if (row && Date.now() - Date.parse(row.last_seen_at) > 60000) {
     await env.DB.prepare("UPDATE devices SET last_seen_at=? WHERE id=?").bind(now(), row.device_id).run();
   }
   return row || null;
@@ -266,7 +266,12 @@ export default {
 
       if (request.method === "GET" && path === "/api/badges") {
         const targetId = cleanText(url.searchParams.get("profile_id") || user.profile_id, 64);
-        const target = await env.DB.prepare("SELECT id,nickname,bio,role FROM profiles WHERE id=? AND community_id=?").bind(targetId,user.community_id).first();
+        const target = await env.DB.prepare(
+          `SELECT p.id,p.nickname,p.bio,p.role,p.avatar_key,
+             (SELECT COUNT(*) FROM friend_links f WHERE f.profile_id=p.id) AS friend_count,
+             EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online
+           FROM profiles p WHERE p.id=? AND p.community_id=?`
+        ).bind(targetId,user.community_id).first();
         if (!target) return fail("Perfil no encontrado en esta comunidad.",404,cors);
         const result = await env.DB.prepare(
           `SELECT badge_key,level,awarded_at FROM badge_awards WHERE community_id=? AND profile_id=? ORDER BY awarded_at DESC`
@@ -360,10 +365,13 @@ export default {
         const input = await bodyJson(request);
         const nickname = cleanText(input?.nickname, 32);
         const bio = cleanText(input?.bio, 160);
+        const avatarKey = cleanText(input?.avatar_key || user.avatar_key || "truck", 24);
+        const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus"];
         if (nickname.length < 2) return fail("El apodo debe tener al menos 2 caracteres.", 400, cors);
-        await env.DB.prepare("UPDATE profiles SET nickname=?,bio=?,updated_at=? WHERE id=? AND community_id=?")
-          .bind(nickname, bio, now(), user.profile_id, user.community_id).run();
-        return json({ ok: true, nickname, bio }, 200, cors);
+        if (!allowedAvatars.includes(avatarKey)) return fail("Avatar no válido.", 400, cors);
+        await env.DB.prepare("UPDATE profiles SET nickname=?,bio=?,avatar_key=?,updated_at=? WHERE id=? AND community_id=?")
+          .bind(nickname, bio, avatarKey, now(), user.profile_id, user.community_id).run();
+        return json({ ok: true, nickname, bio, avatar_key: avatarKey }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/invites") {
@@ -377,7 +385,9 @@ export default {
 
       if (request.method === "GET" && path === "/api/friends") {
         const result = await env.DB.prepare(
-          `SELECT p.id,p.nickname,p.bio FROM friend_links f JOIN profiles p ON p.id=f.friend_profile_id
+          `SELECT p.id,p.nickname,p.bio,p.avatar_key,
+             EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online
+           FROM friend_links f JOIN profiles p ON p.id=f.friend_profile_id
            WHERE f.profile_id=? AND p.community_id=? ORDER BY p.nickname LIMIT 200`
         ).bind(user.profile_id, user.community_id).all();
         return json({ friends: result.results || [] }, 200, cors);
