@@ -876,6 +876,10 @@ async function loadFriends(){
       bio.textContent=friend.bio || 'Compañero de ruta';
       info.append(name,bio);
       card.append(avatar,info);
+      card.style.cursor='pointer';
+      card.setAttribute('role','button');
+      card.setAttribute('aria-label','Ver perfil de '+(friend.nickname||'Compañero'));
+      card.addEventListener('click',()=>openPublicProfile(friend.id));
       box.append(card);
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los compañeros: '+esc(error.message || String(error))+'</div>'; }
