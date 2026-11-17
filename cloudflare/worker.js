@@ -567,7 +567,7 @@ export default {
       if (request.method === "PUT" && path === "/api/route/status") {
         const input = await bodyJson(request);
         const status = cleanText(input?.status, 20);
-        if (!["libre", "cargando", "cargado", "descargando"].includes(status)) return fail("Estado inválido.", 400, cors);
+        if (!["libre", "cargando", "cargado", "descargando", "demorado", "accidente", "deposito", "planta", "base", "casa", "descansando", "cafe", "ypf", "repostando"].includes(status)) return fail("Estado inválido.", 400, cors);
         const timestamp = now(), expires = new Date(Date.now() + 86400000).toISOString();
         await env.DB.prepare(
           `INSERT INTO route_status(profile_id,community_id,status,location_label,note,updated_at,expires_at)
