@@ -15,7 +15,7 @@ nav button,.action{border:1px solid var(--line);background:var(--panel);color:va
 nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:750}
 main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size:20px;margin:4px 0 14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
-.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
 .name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}
 input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
@@ -124,7 +124,11 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Mi perfil</h1>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
 <label for="editNick">Apodo</label><input id="editNick" maxlength="32">
+<label for="editAvatar">Elegí tu avatar camionero</label><select id="editAvatar">
+<option value="truck">🚛 Camión</option><option value="truck2">🚚 Camión de reparto</option><option value="tractor">🚜 Tractor</option><option value="wheel">🛞 Rueda</option><option value="road">🛣️ Ruta</option><option value="gear">⚙️ Volante y mecánica</option><option value="flag">🏁 Bandera rutera</option><option value="fuel">⛽ Estación de servicio</option><option value="wrench">🔧 Mecánico</option><option value="construction">🚧 Ruta en obra</option><option value="pickup">🛻 Camioneta</option><option value="bus">🚌 Transporte</option>
+</select>
 <label for="editBio">Mi biografía</label><textarea id="editBio" maxlength="160" placeholder="Contá lo que quieras sobre vos…"></textarea>
+<p class="small">📢 Importante: todo lo que escribas en tu biografía será público y podrán verlo los integrantes de Choferes Argentinos al entrar a tu perfil. No publiques teléfonos, domicilios ni información privada.</p>
 <button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
 
 <div class="card" id="myBadgesCard">
@@ -142,7 +146,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card hidden" id="publicProfileCard">
   <div class="row" style="justify-content:space-between"><div class="name">Perfil del compañero</div><button class="action" id="closePublicProfile">Volver a mi perfil</button></div>
-  <div class="row" style="margin-top:12px"><div class="avatar" id="publicAvatar">CA</div><div><div class="name" id="publicName"></div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
+  <div class="row" style="margin-top:12px"><div class="avatar" id="publicAvatar">🚛</div><div><div class="name" id="publicName"></div><div class="meta">Miembro de Choferes Argentinos</div><div class="presence" id="publicPresence"><span class="presence-dot"></span><span id="publicPresenceText">OFFLINE</span></div></div></div>
+  <div class="profile-stats"><div><strong id="publicFriendCount">0</strong> <span class="small">amigos</span></div><div><strong id="publicBadgeCount">0</strong> <span class="small">insignias</span></div></div>
   <p id="publicBio" class="small"></p>
   <div class="name" style="margin-top:14px">Insignias obtenidas</div>
   <div id="publicBadges" class="badge-list"></div>
@@ -177,6 +182,13 @@ let profile = null, selectedStatus = 'libre', currentTab = 'muro';
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
 const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const avatarGlyphs = {truck:'🚛',truck2:'🚚',tractor:'🚜',wheel:'🛞',road:'🛣️',gear:'⚙️',flag:'🏁',fuel:'⛽',wrench:'🔧',construction:'🚧',pickup:'🛻',bus:'🚌'};
+const avatarGlyph = (key,name) => avatarGlyphs[key] || initials(name);
+function setPresence(elementId,textId,isOnline){
+  const el=$(elementId); if(!el)return;
+  el.classList.toggle('online',!!isOnline);
+  $(textId).textContent=isOnline?'ONLINE':'OFFLINE';
+}
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = s => s ? new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'}) : '';
 function showError(id,msg){ $(id).textContent = msg || ''; }
@@ -330,10 +342,11 @@ $('ownerBootstrap').addEventListener('click',async()=>{
 function updateProfileUI(){
   const nickname = profile.nickname || 'Compañero';
   $('composerName').textContent = 'Compartí con la comunidad';
-  $('myAvatar').textContent = initials(nickname);
-  $('profileAvatar').textContent = initials(nickname);
+  $('myAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
+  $('profileAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
+  $('editAvatar').value = profile.avatar_key || 'truck';
   $('editBio').value = profile.bio || '';
   const canModerate=['owner','moderator'].includes(profile.role);
   $('addCommunityInvite').classList.toggle('hidden',!canModerate);
@@ -390,7 +403,10 @@ async function openPublicProfile(profileId){
       api('/api/posts?profile_id='+encodeURIComponent(profileId)+'&limit=60')
     ]);
     $('publicName').textContent=result.profile.nickname||'Compañero';
-    $('publicAvatar').textContent=initials(result.profile.nickname);
+    $('publicAvatar').textContent=avatarGlyph(result.profile.avatar_key,result.profile.nickname);
+    $('publicFriendCount').textContent=String(result.profile.friend_count||0);
+    $('publicBadgeCount').textContent=String((result.awards||[]).length);
+    setPresence('publicPresence','publicPresenceText',!!result.profile.is_online);
     $('publicBio').textContent=result.profile.bio||'Este compañero todavía no agregó una biografía.';
     renderBadges($('publicBadges'),result.awards||[]);
     renderPublicWall(wall.posts||[]);
@@ -866,7 +882,7 @@ async function loadFriends(){
       card.className='card row';
       const avatar=document.createElement('div');
       avatar.className='avatar';
-      avatar.textContent=initials(friend.nickname);
+      avatar.textContent=avatarGlyph(friend.avatar_key,friend.nickname);
       const info=document.createElement('div');
       const name=document.createElement('div');
       name.className='name';
@@ -874,7 +890,12 @@ async function loadFriends(){
       const bio=document.createElement('div');
       bio.className='meta';
       bio.textContent=friend.bio || 'Compañero de ruta';
-      info.append(name,bio);
+      const presence=document.createElement('div');
+      presence.className='presence'+(friend.is_online?' online':'');
+      const dot=document.createElement('span');dot.className='presence-dot';
+      const state=document.createElement('span');state.textContent=friend.is_online?'ONLINE':'OFFLINE';
+      presence.append(dot,state);
+      info.append(name,bio,presence);
       card.append(avatar,info);
       card.style.cursor='pointer';
       card.setAttribute('role','button');
@@ -892,14 +913,21 @@ $('saveNick').addEventListener('click',async()=>{
     const bio=$('editBio').value.trim();
     const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio}});
     profile.nickname=result.nickname || nickname;
-    profile.bio=result.bio || bio;
+    profile.bio=result.bio ?? bio;
+    profile.avatar_key=result.avatar_key || avatar_key;
     updateProfileUI();
     $('profileMsg').textContent='Perfil actualizado';
   }catch(error){ $('profileMsg').textContent=error.message || String(error); }
   finally{ $('saveNick').disabled=false; }
 });
+setInterval(async()=>{
+  if(!profile || document.hidden) return;
+  try{const result=await api('/api/me');if(result.profile)profile={...profile,...result.profile};}
+  catch{}
+},60000);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden || !profile) return;
+  api('/api/me').then(result=>{if(result.profile)profile={...profile,...result.profile};}).catch(()=>{});
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
   if(currentTab==='amigos') loadFriends();
