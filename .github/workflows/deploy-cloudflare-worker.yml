@@ -1,8 +1,13 @@
-name: Manually deploy isolated Choferes Argentinos preview Worker
+name: Deploy isolated Choferes Argentinos preview Worker
 
 on:
-  # Deliberately manual: commits on cloudflare-backend-prep must not deploy
-  # or alter the preview Worker/D1 until the owner explicitly starts this workflow.
+  # Preview only: automatically apply pending migrations and deploy when this branch changes.
+  push:
+    branches:
+      - cloudflare-backend-prep
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/deploy-cloudflare-worker.yml"
   workflow_dispatch:
 
 permissions:
