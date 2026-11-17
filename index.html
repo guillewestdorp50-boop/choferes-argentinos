@@ -140,6 +140,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <div class="name">Entregar una insignia</div>
   <p class="small">Solo administración puede reconocer méritos y subir categorías. Una misma insignia se actualiza, no se duplica.</p>
   <label for="badgeMember">Compañero</label><select id="badgeMember"><option value="">Cargando miembros…</option></select>
+  <div class="name" style="margin-top:12px">Insignias actuales de este compañero</div>
+  <div id="badgeMemberCurrent" class="badge-list"><span class="small">Elegí un compañero para revisar sus insignias.</span></div>
   <label for="badgeType">Reconocimiento</label><select id="badgeType"></select>
   <label for="badgeLevel">Categoría</label><select id="badgeLevel"><option>Bronce</option><option>Plata</option><option>Oro</option><option>Platino</option><option>Diamante</option></select>
   <button class="action primary" id="awardBadge">Entregar insignia</button><p class="small" id="badgeAwardMsg"></p>
@@ -387,8 +389,36 @@ async function loadBadgeAdmin(){
     $('badgeMember').replaceChildren();
     (members.members||[]).forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.nickname;$('badgeMember').append(option);});
     if(!members.members?.length){const option=document.createElement('option');option.value='';option.textContent='No hay miembros';$('badgeMember').append(option);}
+    await loadMemberBadges();
   }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);}
 }
+async function loadMemberBadges(){
+  const targetId=$('badgeMember').value, box=$('badgeMemberCurrent');
+  if(!targetId){box.innerHTML='<span class="small">Elegí un compañero para revisar sus insignias.</span>';return;}
+  box.innerHTML='<span class="small">Cargando insignias…</span>';
+  try{
+    const result=await api('/api/badges?profile_id='+encodeURIComponent(targetId));
+    const awards=result.awards||[];
+    box.replaceChildren();
+    if(!awards.length){box.innerHTML='<span class="small">Este compañero todavía no tiene insignias.</span>';return;}
+    awards.forEach(award=>{
+      const item=document.createElement('div');item.className='badge-item';
+      const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key)+' · '+award.level;
+      const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Quitar insignia';
+      remove.addEventListener('click',async()=>{
+        if(!confirm('¿Quitar '+badgeLabel(award.badge_key)+' del perfil de este compañero?'))return;
+        remove.disabled=true;
+        try{
+          await api('/api/badges/remove',{method:'POST',body:{profile_id:targetId,badge_key:award.badge_key}});
+          $('badgeAwardMsg').textContent='Insignia retirada del perfil.';
+          await Promise.all([loadMemberBadges(),loadOwnBadges(),loadFeed()]);
+        }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);remove.disabled=false;}
+      });
+      item.append(title,remove);box.append(item);
+    });
+  }catch(error){box.textContent=error.message||String(error);}
+}
+$('badgeMember').addEventListener('change',loadMemberBadges);
 async function openPublicProfile(profileId){
   if(!profileId)return;
   setTab('perfil');
