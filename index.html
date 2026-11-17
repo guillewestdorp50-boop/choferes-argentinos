@@ -114,7 +114,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <h2 class="section-title">PAD · Avisos verificados</h2><div id="padFeed"><div class="empty">Cargando avisos verificados…</div></div>
 <h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
-<p class="small">Los avisos nuevos se envían únicamente mediante el PAD y pasan por revisión antes de hacerse visibles. Los avisos anteriores se conservan en el servidor.</p>
+<p class="small">Todos los reportes nuevos se envían por el PAD y requieren aprobación antes de publicarse.</p>
 </section>
 
 <section id="amigos" hidden>
@@ -767,7 +767,7 @@ $('sendPad').addEventListener('click',async()=>{
   const result=await api('/api/activity',{method:'POST',body:form});
   if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
   $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
-  $('padMsg').textContent='Tu parte quedó recibido y pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
+  $('padMsg').textContent='Tu parte fue recibido y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
  }catch(error){$('padMsg').textContent=error.message||String(error);}
  finally{button.disabled=false;}
 });
@@ -1050,7 +1050,7 @@ document.addEventListener('visibilitychange',()=>{
 setInterval(()=>{
   if(document.hidden || !profile) return;
   if(currentTab==='muro') loadFeed();
-  if(currentTab==='ruta'){ loadRoute(); loadAlerts(); }
+  if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='moderacion') loadModerationQueue();
 },45000);
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
