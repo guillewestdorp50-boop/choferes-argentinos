@@ -2,6 +2,10 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const encoder = new TextEncoder();
+const BADGE_CATALOG = [{"key":"rueda_nueva","name":"Rueda Nueva","description":"Primeros pasos y adaptación a la vida camionera."},{"key":"volante_firme","name":"Volante Firme","description":"Experiencia, responsabilidad y criterio al volante."},{"key":"kilometro_de_oro","name":"Kilómetro de Oro","description":"Trayectoria y constancia demostradas en la ruta."},{"key":"senor_de_las_rutas","name":"Señor de las Rutas","description":"Referente respetado por su experiencia y conducta."},{"key":"mano_camionera","name":"Mano Camionera","description":"Ayuda concreta y compañerismo con otros camioneros."},{"key":"ojo_rutero","name":"Ojo Rutero","description":"Avisos de ruta útiles, oportunos y comprobados."},{"key":"rey_de_la_noche","name":"Rey de la Noche","description":"Experiencia y responsabilidad en recorridos nocturnos."},{"key":"mecanico_de_emergencia","name":"Mecánico de Emergencia","description":"Conocimientos y asistencia mecánica que ayudan en ruta."},{"key":"companero_solidario","name":"Compañero Solidario","description":"Apoyo real a colegas ante una necesidad."},{"key":"veterano_del_volante","name":"Veterano del Volante","description":"Años de oficio y experiencia camionera reconocida."},{"key":"carga_segura","name":"Carga Segura","description":"Compromiso demostrado con el cuidado de la carga y la seguridad."}];
+const BADGE_LEVELS = ["Bronce","Plata","Oro","Platino","Diamante"];
+const badgeRank = level => BADGE_LEVELS.indexOf(level);
+
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...JSON_HEADERS, ...headers } });
@@ -256,6 +260,52 @@ export default {
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
+      if (request.method === "GET" && path === "/api/badges/catalog") {
+        return json({ badges: BADGE_CATALOG, levels: BADGE_LEVELS }, 200, cors);
+      }
+
+      if (request.method === "GET" && path === "/api/badges") {
+        const targetId = cleanText(url.searchParams.get("profile_id") || user.profile_id, 64);
+        const target = await env.DB.prepare("SELECT id,nickname,bio,role FROM profiles WHERE id=? AND community_id=?").bind(targetId,user.community_id).first();
+        if (!target) return fail("Perfil no encontrado en esta comunidad.",404,cors);
+        const result = await env.DB.prepare(
+          `SELECT badge_key,level,awarded_at FROM badge_awards WHERE community_id=? AND profile_id=? ORDER BY awarded_at DESC`
+        ).bind(user.community_id,targetId).all();
+        return json({ profile: target, awards: result.results || [] },200,cors);
+      }
+
+      if (request.method === "GET" && path === "/api/community/members") {
+        if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para ver esta lista.",403,cors);
+        const result = await env.DB.prepare(
+          "SELECT id,nickname FROM profiles WHERE community_id=? ORDER BY nickname LIMIT 500"
+        ).bind(user.community_id).all();
+        return json({ members: result.results || [] },200,cors);
+      }
+
+      if (request.method === "POST" && path === "/api/badges/award") {
+        if (!["owner","moderator"].includes(user.role)) return fail("Solo administración puede entregar insignias.",403,cors);
+        const input = await bodyJson(request);
+        const targetId = cleanText(input?.profile_id,64);
+        const badge = BADGE_CATALOG.find(item=>item.key===input?.badge_key);
+        const level = cleanText(input?.level,16);
+        if (!targetId || !badge || !BADGE_LEVELS.includes(level)) return fail("Elegí un compañero, una insignia y un nivel válidos.",400,cors);
+        const target = await env.DB.prepare("SELECT id,nickname FROM profiles WHERE id=? AND community_id=?").bind(targetId,user.community_id).first();
+        if (!target) return fail("Ese compañero no pertenece a esta comunidad.",404,cors);
+        const existing = await env.DB.prepare("SELECT level FROM badge_awards WHERE profile_id=? AND badge_key=?").bind(targetId,badge.key).first();
+        if (existing && badgeRank(level)<badgeRank(existing.level)) return fail("Una insignia no puede bajar de categoría.",409,cors);
+        const timestamp=now();
+        await env.DB.prepare(
+          `INSERT INTO badge_awards(id,community_id,profile_id,badge_key,level,awarded_by_profile_id,awarded_at)
+           VALUES(?,?,?,?,?,?,?)
+           ON CONFLICT(profile_id,badge_key) DO UPDATE SET level=excluded.level,awarded_by_profile_id=excluded.awarded_by_profile_id,awarded_at=excluded.awarded_at`
+        ).bind(id(),user.community_id,targetId,badge.key,level,user.profile_id,timestamp).run();
+        const announcement = target.nickname+" recibió la insignia "+badge.name+" — "+level+". "+badge.description;
+        await env.DB.prepare(
+          "INSERT INTO posts(id,community_id,profile_id,body,created_at,status,moderated_by_profile_id,moderated_at) VALUES(?,?,?,?,?,'approved',?,?)"
+        ).bind(id(),user.community_id,user.profile_id,announcement,timestamp,user.profile_id,timestamp).run();
+        return json({ok:true,announcement,level,badge},201,cors);
+      }
+
 
       if (request.method === "POST" && path === "/api/push/subscribe") {
         if (!["owner", "moderator"].includes(user.role)) return fail("Solo un administrador puede activar estas alertas.", 403, cors);
