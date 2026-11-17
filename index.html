@@ -23,6 +23,13 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .status-grid button{padding:12px 7px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:11px;font:inherit}
 .status-grid button.selected{border-color:var(--cyan);background:#244347}
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
+.profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
+.profile-link:active{color:var(--cyan)}
+.badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
+.badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
+.badge-item .small{margin-top:4px}
+
 .hidden{display:none!important}.error{color:var(--danger);font-size:13px;white-space:pre-wrap}.success{color:var(--cyan);font-size:13px;white-space:pre-wrap}
 .code{font:700 19px ui-monospace,monospace;letter-spacing:.09em;overflow-wrap:anywhere;background:#101a1d;border:1px dashed var(--cyan);border-radius:10px;padding:13px;margin:10px 0}
 label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
@@ -117,6 +124,27 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Mi perfil</h1>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
 <label for="editNick">Apodo</label><input id="editNick" maxlength="32"><button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
+
+<div class="card" id="myBadgesCard">
+  <div class="name">Mis insignias camioneras</div>
+  <p class="small">Reconocimientos por méritos reales en la ruta. Cada insignia evoluciona de Bronce a Diamante.</p>
+  <div id="myBadges" class="badge-list"><span class="small">Cargando insignias…</span></div>
+</div>
+<div class="card hidden" id="badgeAdminCard">
+  <div class="name">Entregar una insignia</div>
+  <p class="small">Solo administración puede reconocer méritos y subir categorías. Una misma insignia se actualiza, no se duplica.</p>
+  <label for="badgeMember">Compañero</label><select id="badgeMember"><option value="">Cargando miembros…</option></select>
+  <label for="badgeType">Reconocimiento</label><select id="badgeType"></select>
+  <label for="badgeLevel">Categoría</label><select id="badgeLevel"><option>Bronce</option><option>Plata</option><option>Oro</option><option>Platino</option><option>Diamante</option></select>
+  <button class="action primary" id="awardBadge">Entregar insignia</button><p class="small" id="badgeAwardMsg"></p>
+</div>
+<div class="card hidden" id="publicProfileCard">
+  <div class="row" style="justify-content:space-between"><div class="name">Perfil del compañero</div><button class="action" id="closePublicProfile">Volver a mi perfil</button></div>
+  <div class="row" style="margin-top:12px"><div class="avatar" id="publicAvatar">CA</div><div><div class="name" id="publicName"></div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
+  <p id="publicBio" class="small"></p>
+  <div class="name" style="margin-top:14px">Insignias obtenidas</div>
+  <div id="publicBadges" class="badge-list"></div>
+</div>
 <div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
 </section>
 
@@ -305,7 +333,67 @@ function updateProfileUI(){
   const canModerate=['owner','moderator'].includes(profile.role);
   $('addCommunityInvite').classList.toggle('hidden',!canModerate);
   $('moderationNav').classList.toggle('hidden',!canModerate);
+  loadOwnBadges();
+  if(canModerate) loadBadgeAdmin();
 }
+function badgeLabel(key){
+  const labels={rueda_nueva:'Rueda Nueva',volante_firme:'Volante Firme',kilometro_de_oro:'Kilómetro de Oro',senor_de_las_rutas:'Señor de las Rutas',mano_camionera:'Mano Camionera',ojo_rutero:'Ojo Rutero',rey_de_la_noche:'Rey de la Noche',mecanico_de_emergencia:'Mecánico de Emergencia',companero_solidario:'Compañero Solidario',veterano_del_volante:'Veterano del Volante',carga_segura:'Carga Segura'};
+  return labels[key] || key;
+}
+function renderBadges(container,awards){
+  container.replaceChildren();
+  if(!awards?.length){container.innerHTML='<span class="small">Todavía no recibió insignias.</span>';return;}
+  awards.forEach(award=>{
+    const item=document.createElement('div');item.className='badge-item';
+    const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key);
+    const level=document.createElement('div');level.className='badge-chip';level.textContent=award.level;
+    item.append(title,level);container.append(item);
+  });
+}
+async function loadOwnBadges(){
+  try{const result=await api('/api/badges');renderBadges($('myBadges'),result.awards||[]);}
+  catch(error){$('myBadges').textContent=error.message||String(error);}
+}
+async function loadBadgeAdmin(){
+  if(!profile || !['owner','moderator'].includes(profile.role))return;
+  $('badgeAdminCard').classList.remove('hidden');
+  try{
+    const [catalog,members]=await Promise.all([api('/api/badges/catalog'),api('/api/community/members')]);
+    $('badgeType').replaceChildren();
+    (catalog.badges||[]).forEach(b=>{const option=document.createElement('option');option.value=b.key;option.textContent=b.name+' · '+b.description;$('badgeType').append(option);});
+    $('badgeMember').replaceChildren();
+    (members.members||[]).forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.nickname;$('badgeMember').append(option);});
+    if(!members.members?.length){const option=document.createElement('option');option.value='';option.textContent='No hay miembros';$('badgeMember').append(option);}
+  }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);}
+}
+async function openPublicProfile(profileId){
+  if(!profileId)return;
+  setTab('perfil');
+  $('publicProfileCard').classList.remove('hidden');
+  $('publicName').textContent='Cargando perfil…';
+  $('publicBio').textContent='';
+  $('publicBadges').replaceChildren();
+  try{
+    const result=await api('/api/badges?profile_id='+encodeURIComponent(profileId));
+    $('publicName').textContent=result.profile.nickname||'Compañero';
+    $('publicAvatar').textContent=initials(result.profile.nickname);
+    $('publicBio').textContent=result.profile.bio||'Este compañero todavía no agregó una biografía.';
+    renderBadges($('publicBadges'),result.awards||[]);
+  }catch(error){$('publicName').textContent=error.message||String(error);}
+}
+$('closePublicProfile').addEventListener('click',()=>$('publicProfileCard').classList.add('hidden'));
+$('awardBadge').addEventListener('click',async()=>{
+  const profileId=$('badgeMember').value,badge_key=$('badgeType').value,level=$('badgeLevel').value;
+  if(!profileId||!badge_key){$('badgeAwardMsg').textContent='Elegí un compañero y una insignia.';return;}
+  $('awardBadge').disabled=true;
+  try{
+    const result=await api('/api/badges/award',{method:'POST',body:{profile_id:profileId,badge_key,level}});
+    $('badgeAwardMsg').textContent='¡Insignia entregada! El reconocimiento ya se publicó en el muro.';
+    await Promise.all([loadOwnBadges(),loadFeed()]);
+  }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);}
+  finally{$('awardBadge').disabled=false;}
+});
+
 async function loadFeed(){
   const box = $('feed');
   try{
@@ -322,7 +410,9 @@ async function loadFeed(){
       avatar.className = 'avatar';
       avatar.textContent = initials(post.nickname);
       const who = document.createElement('div');
-      who.innerHTML = '<div class="name">'+esc(post.nickname || 'Compañero')+'</div><div class="meta">'+time(post.created_at)+'</div>';
+      const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
+      who.innerHTML = '<button type="button" class="profile-link">'+esc(post.nickname || 'Compañero')+'</button><div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
+      who.querySelector('.profile-link').addEventListener('click',()=>openPublicProfile(post.profile_id));
       head.append(avatar,who);
       const body = document.createElement('div');
       body.className = 'post';
