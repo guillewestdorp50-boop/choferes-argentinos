@@ -17,7 +17,7 @@ main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
 .row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
 .name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}.feed-photo{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#0b1214;border-radius:13px;margin-top:10px;cursor:zoom-in}.photo-load-error{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px}
 input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
 textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .status-grid button{padding:12px 7px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:11px;font:inherit}
@@ -563,13 +563,16 @@ async function loadFeed(){
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudo cargar el muro: '+esc(error.message || String(error))+'</div>'; }
 }
+function imageLoadError(){const note=document.createElement('div');note.className='photo-load-error';note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada; revisaremos la carga de la imagen.';return note;}
 async function loadMedia(mediaId){
   const response = await fetch(API_BASE+'/api/media/'+encodeURIComponent(mediaId),{
     headers: token ? {Authorization:'Bearer '+token} : {},
     cache:'no-store'
   });
-  if(!response.ok) return '';
-  return URL.createObjectURL(await response.blob());
+  if(!response.ok) throw new Error('No se pudo recuperar la imagen ('+response.status+').');
+  const blob=await response.blob();
+  if(!blob.size || !blob.type.startsWith('image/')) throw new Error('El servidor no devolvió un archivo de imagen válido.');
+  return URL.createObjectURL(blob);
 }
 function syncPublishButton(){
   $('publish').disabled = publishingPost || preparingPhoto || (!$('postText').value.trim() && !selectedPhoto);
@@ -784,8 +787,9 @@ async function loadModerationQueue(){
         const photo=document.createElement('img');
         photo.alt='Foto adjunta a la publicación pendiente';
         photo.loading='lazy';
-        photo.style.cssText='display:block;max-width:100%;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px';
-        loadMedia(post.media_id).then(url=>{if(url)photo.src=url;}).catch(()=>{});
+        photo.className='feed-photo';
+        photo.decoding='async';
+        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError());}}).catch(()=>photo.replaceWith(imageLoadError()));
         card.append(photo);
       }
       const actions=document.createElement('div');
