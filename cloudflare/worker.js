@@ -337,7 +337,7 @@ export default {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const result = await env.DB.prepare(
           `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,
-             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
+             (SELECT COUNT(*) * 5 FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
              EXISTS(SELECT 1 FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? AND r.reaction='like') AS liked_by_me
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
            WHERE p.community_id=? AND p.status='approved' ORDER BY p.created_at DESC LIMIT ?`
