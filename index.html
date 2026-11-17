@@ -123,7 +123,9 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <section id="perfil" hidden>
 <h1 class="section-title">Mi perfil</h1>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
-<label for="editNick">Apodo</label><input id="editNick" maxlength="32"><button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
+<label for="editNick">Apodo</label><input id="editNick" maxlength="32">
+<label for="editBio">Mi biografía</label><textarea id="editBio" maxlength="160" placeholder="Contá lo que quieras sobre vos…"></textarea>
+<button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
 
 <div class="card" id="myBadgesCard">
   <div class="name">Mis insignias camioneras</div>
@@ -330,6 +332,7 @@ function updateProfileUI(){
   $('profileAvatar').textContent = initials(nickname);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
+  $('editBio').value = profile.bio || '';
   const canModerate=['owner','moderator'].includes(profile.role);
   $('addCommunityInvite').classList.toggle('hidden',!canModerate);
   $('moderationNav').classList.toggle('hidden',!canModerate);
@@ -340,6 +343,10 @@ function badgeLabel(key){
   const labels={rueda_nueva:'Rueda Nueva',volante_firme:'Volante Firme',kilometro_de_oro:'Kilómetro de Oro',senor_de_las_rutas:'Señor de las Rutas',mano_camionera:'Mano Camionera',ojo_rutero:'Ojo Rutero',rey_de_la_noche:'Rey de la Noche',mecanico_de_emergencia:'Mecánico de Emergencia',companero_solidario:'Compañero Solidario',veterano_del_volante:'Veterano del Volante',carga_segura:'Carga Segura'};
   return labels[key] || key;
 }
+function badgeDescription(key){
+  const descriptions={rueda_nueva:'Primeros pasos y adaptación a la vida camionera.',volante_firme:'Experiencia, responsabilidad y criterio al volante.',kilometro_de_oro:'Trayectoria y constancia demostradas en la ruta.',senor_de_las_rutas:'Referente respetado por su experiencia y conducta.',mano_camionera:'Ayuda concreta y compañerismo con otros camioneros.',ojo_rutero:'Avisos de ruta útiles, oportunos y comprobados.',rey_de_la_noche:'Experiencia y responsabilidad en recorridos nocturnos.',mecanico_de_emergencia:'Conocimientos y asistencia mecánica que ayudan en ruta.',companero_solidario:'Apoyo real a colegas ante una necesidad.',veterano_del_volante:'Años de oficio y experiencia camionera reconocida.',carga_segura:'Compromiso demostrado con el cuidado de la carga y la seguridad.'};
+  return descriptions[key] || 'Reconocimiento por méritos camioneros.';
+}
 function renderBadges(container,awards){
   container.replaceChildren();
   if(!awards?.length){container.innerHTML='<span class="small">Todavía no recibió insignias.</span>';return;}
@@ -347,7 +354,8 @@ function renderBadges(container,awards){
     const item=document.createElement('div');item.className='badge-item';
     const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key);
     const level=document.createElement('div');level.className='badge-chip';level.textContent=award.level;
-    item.append(title,level);container.append(item);
+    const description=document.createElement('div');description.className='small';description.textContent=badgeDescription(award.badge_key);
+    item.append(title,level,description);container.append(item);
   });
 }
 async function loadOwnBadges(){
@@ -836,8 +844,10 @@ $('saveNick').addEventListener('click',async()=>{
   if(nickname.length<2){ $('profileMsg').textContent='El apodo debe tener al menos 2 caracteres'; return; }
   $('saveNick').disabled=true;
   try{
-    const result=await api('/api/profile',{method:'PATCH',body:{nickname}});
+    const bio=$('editBio').value.trim();
+    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio}});
     profile.nickname=result.nickname || nickname;
+    profile.bio=result.bio || bio;
     updateProfileUI();
     $('profileMsg').textContent='Perfil actualizado';
   }catch(error){ $('profileMsg').textContent=error.message || String(error); }
