@@ -524,7 +524,7 @@ export default {
         return json({ activities: result.results || [] },200,cors);
       }
 
-      const activityModerationMatch = path.match(/^\\/api\\/moderation\\/activity\\/([0-9a-f-]{36})$/i);
+      const activityModerationMatch = path.match(/^\/api\/moderation\/activity\/([0-9a-f-]{36})$/i);
       if (request.method === "PATCH" && activityModerationMatch) {
         if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar avisos del PAD.",403,cors);
         const input = await bodyJson(request);
@@ -537,7 +537,7 @@ export default {
         return json({ok:true,status},200,cors);
       }
 
-      const activityAudioMatch = path.match(/^\\/api\\/activity\\/([0-9a-f-]{36})\\/audio$/i);
+      const activityAudioMatch = path.match(/^\/api\/activity\/([0-9a-f-]{36})\/audio$/i);
       if (request.method === "GET" && activityAudioMatch) {
         const row = await env.DB.prepare("SELECT audio_mime_type,audio_data,status,profile_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityAudioMatch[1],user.community_id).first();
         if (!row || !row.audio_data || (row.status !== "approved" && row.profile_id !== user.profile_id && !["owner","moderator"].includes(user.role))) return fail("Audio no disponible.",404,cors);
