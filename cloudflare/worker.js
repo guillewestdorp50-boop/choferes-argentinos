@@ -82,6 +82,106 @@ async function consumeInvite(env, code, allowedKinds) {
   return invite;
 }
 
+
+function toB64Url(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary).split("+").join("-").split("/").join("_").replace(/=/g, "");
+}
+function fromB64Url(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+function concatBytes(...parts) {
+  const size = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(size);
+  let offset = 0;
+  for (const part of parts) { output.set(part, offset); offset += part.length; }
+  return output;
+}
+async function hkdfSha256(ikm, salt, info, length) {
+  const key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, key, length * 8));
+}
+async function sendWebPush(env, subscription, payload) {
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return { ok: false, configured: false, status: 0 };
+  try {
+    const publicKeyBytes = fromB64Url(env.VAPID_PUBLIC_KEY);
+    const privateKeyBytes = fromB64Url(env.VAPID_PRIVATE_KEY);
+    if (publicKeyBytes.length !== 65 || privateKeyBytes.length !== 32) return { ok: false, configured: false, status: 0 };
+    const signingJwk = {
+      kty: "EC", crv: "P-256",
+      x: toB64Url(publicKeyBytes.slice(1, 33)),
+      y: toB64Url(publicKeyBytes.slice(33, 65)),
+      d: toB64Url(privateKeyBytes),
+      ext: true, key_ops: ["sign"]
+    };
+    const signingKey = await crypto.subtle.importKey("jwk", signingJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+    const endpoint = new URL(subscription.endpoint);
+    if (endpoint.protocol !== "https:") return { ok: false, configured: true, status: 400 };
+    const expires = Math.floor(Date.now() / 1000) + 12 * 60 * 60;
+    const header = toB64Url(encoder.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+    const claims = toB64Url(encoder.encode(JSON.stringify({ aud: endpoint.origin, exp: expires, sub: env.VAPID_SUBJECT || env.APP_ORIGIN })));
+    const unsignedJwt = header + "." + claims;
+    const signature = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, signingKey, encoder.encode(unsignedJwt)));
+    const jwt = unsignedJwt + "." + toB64Url(signature);
+    const userPublicKey = fromB64Url(subscription.p256dh);
+    const authSecret = fromB64Url(subscription.auth);
+    if (userPublicKey.length !== 65 || authSecret.length < 16) return { ok: false, configured: true, status: 400 };
+    const serverKeys = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+    const serverPublicKey = new Uint8Array(await crypto.subtle.exportKey("raw", serverKeys.publicKey));
+    const userKey = await crypto.subtle.importKey("raw", userPublicKey, { name: "ECDH", namedCurve: "P-256" }, false, []);
+    const sharedSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: userKey }, serverKeys.privateKey, 256));
+    const keyInfo = concatBytes(encoder.encode("WebPush: info\0"), userPublicKey, serverPublicKey);
+    const inputKeyMaterial = await hkdfSha256(sharedSecret, authSecret, keyInfo, 32);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const contentKey = await hkdfSha256(inputKeyMaterial, salt, encoder.encode("Content-Encoding: aes128gcm\0"), 16);
+    const nonce = await hkdfSha256(inputKeyMaterial, salt, encoder.encode("Content-Encoding: nonce\0"), 12);
+    const plaintext = concatBytes(encoder.encode(JSON.stringify(payload)), new Uint8Array([2]));
+    const aesKey = await crypto.subtle.importKey("raw", contentKey, { name: "AES-GCM" }, false, ["encrypt"]);
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, tagLength: 128 }, aesKey, plaintext));
+    const body = concatBytes(salt, new Uint8Array([0, 0, 16, 0]), new Uint8Array([serverPublicKey.length]), serverPublicKey, ciphertext);
+    const response = await fetch(endpoint.toString(), {
+      method: "POST",
+      headers: {
+        "Authorization": "vapid t=" + jwt + ", k=" + env.VAPID_PUBLIC_KEY,
+        "Content-Encoding": "aes128gcm",
+        "Content-Type": "application/octet-stream",
+        "TTL": "60",
+        "Urgency": "high"
+      },
+      body
+    });
+    return { ok: response.ok, configured: true, status: response.status };
+  } catch {
+    return { ok: false, configured: true, status: 0 };
+  }
+}
+async function notifyModerators(env, communityId, postId, nickname) {
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return 0;
+  const result = await env.DB.prepare(
+    `SELECT s.id,s.endpoint,s.p256dh,s.auth
+     FROM push_subscriptions s JOIN profiles p ON p.id=s.profile_id
+     WHERE p.community_id=? AND p.role IN ('owner','moderator')`
+  ).bind(communityId).all();
+  const payload = {
+    title: "Nueva publicación para revisar",
+    body: (nickname || "Un compañero") + " publicó algo en Choferes Argentinos.",
+    url: (env.APP_ORIGIN || "") + "/?tab=moderacion&post=" + encodeURIComponent(postId),
+    tag: "ca-pending-" + postId,
+    post_id: postId
+  };
+  const outcomes = await Promise.all((result.results || []).map(async subscription => {
+    const sent = await sendWebPush(env, subscription, payload);
+    if (sent.status === 404 || sent.status === 410) {
+      await env.DB.prepare("DELETE FROM push_subscriptions WHERE id=?").bind(subscription.id).run();
+    }
+    return sent.ok ? 1 : 0;
+  }));
+  return outcomes.reduce((sum, value) => sum + value, 0);
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
@@ -92,6 +192,9 @@ export default {
     try {
       if (request.method === "GET" && path === "/api/health") {
         return json({ ok: true, service: "choferes-argentinos-api" }, 200, cors);
+      }
+      if (request.method === "GET" && path === "/api/push/public-key") {
+        return json({ enabled: Boolean(env.VAPID_PUBLIC_KEY), public_key: env.VAPID_PUBLIC_KEY || null }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/bootstrap") {
@@ -154,6 +257,55 @@ export default {
 
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
 
+      if (request.method === "POST" && path === "/api/push/subscribe") {
+        if (!["owner", "moderator"].includes(user.role)) return fail("Solo un administrador puede activar estas alertas.", 403, cors);
+        const input = await bodyJson(request);
+        const endpoint = cleanText(input?.endpoint, 2048);
+        const p256dh = cleanText(input?.keys?.p256dh, 256);
+        const authSecret = cleanText(input?.keys?.auth, 256);
+        let parsedEndpoint;
+        try { parsedEndpoint = new URL(endpoint); } catch { return fail("La suscripción de notificaciones no es válida.", 400, cors); }
+        if (parsedEndpoint.protocol !== "https:" || !p256dh || !authSecret) return fail("La suscripción de notificaciones está incompleta.", 400, cors);
+        await env.DB.prepare(
+          `INSERT INTO push_subscriptions(id,profile_id,endpoint,p256dh,auth,created_at,updated_at)
+           VALUES(?,?,?,?,?,?,?)
+           ON CONFLICT(endpoint) DO UPDATE SET profile_id=excluded.profile_id,p256dh=excluded.p256dh,auth=excluded.auth,updated_at=excluded.updated_at`
+        ).bind(id(), user.profile_id, endpoint, p256dh, authSecret, now(), now()).run();
+        return json({ ok: true }, 201, cors);
+      }
+
+      if (request.method === "DELETE" && path === "/api/push/subscribe") {
+        const input = await bodyJson(request);
+        const endpoint = cleanText(input?.endpoint, 2048);
+        await env.DB.prepare("DELETE FROM push_subscriptions WHERE profile_id=? AND endpoint=?").bind(user.profile_id, endpoint).run();
+        return json({ ok: true }, 200, cors);
+      }
+
+      if (request.method === "GET" && path === "/api/moderation/posts") {
+        if (!["owner", "moderator"].includes(user.role)) return fail("No tenés permiso para moderar publicaciones.", 403, cors);
+        const result = await env.DB.prepare(
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname
+           FROM posts p JOIN profiles pr ON pr.id=p.profile_id
+           WHERE p.community_id=? AND p.status='pending'
+           ORDER BY p.created_at ASC LIMIT 100`
+        ).bind(user.community_id).all();
+        return json({ posts: result.results || [] }, 200, cors);
+      }
+
+      const moderationMatch = path.match(/^\/api\/moderation\/posts\/([0-9a-f-]{36})$/i);
+      if (request.method === "PATCH" && moderationMatch) {
+        if (!["owner", "moderator"].includes(user.role)) return fail("No tenés permiso para moderar publicaciones.", 403, cors);
+        const input = await bodyJson(request);
+        const action = input?.action;
+        if (!["approve", "reject"].includes(action)) return fail("Acción de moderación inválida.", 400, cors);
+        const status = action === "approve" ? "approved" : "rejected";
+        const result = await env.DB.prepare(
+          "UPDATE posts SET status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND community_id=? AND status='pending'"
+        ).bind(status, user.profile_id, now(), moderationMatch[1], user.community_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("La publicación ya no está pendiente o no existe.", 404, cors);
+        return json({ ok: true, status }, 200, cors);
+      }
+
       if (request.method === "PATCH" && path === "/api/profile") {
         const input = await bodyJson(request);
         const nickname = cleanText(input?.nickname, 32);
@@ -188,7 +340,7 @@ export default {
              (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
              EXISTS(SELECT 1 FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? AND r.reaction='like') AS liked_by_me
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
-           WHERE p.community_id=? ORDER BY p.created_at DESC LIMIT ?`
+           WHERE p.community_id=? AND p.status='approved' ORDER BY p.created_at DESC LIMIT ?`
         ).bind(user.profile_id, user.community_id, limit).all();
         return json({ posts: result.results || [] }, 200, cors);
       }
@@ -203,15 +355,21 @@ export default {
           if (!media) return fail("La imagen no está disponible.", 400, cors);
         }
         const postId = id();
-        await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at) VALUES(?,?,?,?,?,?)")
-          .bind(postId, user.community_id, user.profile_id, body, mediaId, now()).run();
-        return json({ id: postId }, 201, cors);
+        const autoApprove = ["owner", "moderator"].includes(user.role);
+        const status = autoApprove ? "approved" : "pending";
+        await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status) VALUES(?,?,?,?,?,?,?)")
+          .bind(postId, user.community_id, user.profile_id, body, mediaId, now(), status).run();
+        let notificationsSent = 0;
+        if (!autoApprove) {
+          try { notificationsSent = await notifyModerators(env, user.community_id, postId, user.nickname); } catch {}
+        }
+        return json({ id: postId, status, notifications_sent: notificationsSent }, 201, cors);
       }
 
       if (request.method === "POST" && path === "/api/reactions") {
         const input = await bodyJson(request);
         const postId = cleanText(input?.post_id, 64);
-        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=?").bind(postId, user.community_id).first();
+        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND status='approved'").bind(postId, user.community_id).first();
         if (!post) return fail("Publicación no encontrada.", 404, cors);
         const existing = await env.DB.prepare("SELECT post_id FROM reactions WHERE post_id=? AND profile_id=? AND reaction='like'").bind(postId, user.profile_id).first();
         if (existing) await env.DB.prepare("DELETE FROM reactions WHERE post_id=? AND profile_id=? AND reaction='like'").bind(postId, user.profile_id).run();
@@ -280,7 +438,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/comments") {
         const postId = cleanText(url.searchParams.get("post_id"), 64);
-        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=?").bind(postId, user.community_id).first();
+        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND status='approved'").bind(postId, user.community_id).first();
         if (!post) return fail("Publicación no encontrada.", 404, cors);
         const result = await env.DB.prepare("SELECT c.id,c.profile_id,c.body,c.created_at,p.nickname FROM comments c JOIN profiles p ON p.id=c.profile_id WHERE c.post_id=? ORDER BY c.created_at ASC LIMIT 100").bind(postId).all();
         return json({ comments: result.results || [] }, 200, cors);
@@ -289,7 +447,7 @@ export default {
       if (request.method === "POST" && path === "/api/comments") {
         const input = await bodyJson(request);
         const postId = cleanText(input?.post_id, 64), body = cleanText(input?.body, 1000);
-        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=?").bind(postId, user.community_id).first();
+        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND status='approved'").bind(postId, user.community_id).first();
         if (!post || !body) return fail("Publicación o comentario inválido.", 400, cors);
         const commentId = id();
         await env.DB.prepare("INSERT INTO comments(id,post_id,profile_id,body,created_at) VALUES(?,?,?,?,?)").bind(commentId, postId, user.profile_id, body, now()).run();
