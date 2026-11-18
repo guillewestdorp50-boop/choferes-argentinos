@@ -605,7 +605,7 @@ export default {
         return json({liked:!existing},200,cors);
       }
 
-      const activityCommentDeleteMatch=path.match(/^\\/api\\/activity\\/comments\\/([0-9a-f-]{36})$/i);
+      const activityCommentDeleteMatch=path.match(/^\/api\/activity\/comments\/([0-9a-f-]{36})$/i);
       if(request.method==="DELETE" && activityCommentDeleteMatch){
         if(user.role!=="owner")return fail("Solo el administrador puede retirar comentarios.",403,cors);
         const comment=await env.DB.prepare("SELECT c.id,c.profile_id FROM activity_comments c JOIN driver_activity a ON a.id=c.activity_id WHERE c.id=? AND a.community_id=? AND a.status='approved'").bind(activityCommentDeleteMatch[1],user.community_id).first();
@@ -726,7 +726,7 @@ export default {
         return json({notices:result.results||[]},200,cors);
       }
 
-      const commentDeleteMatch=path.match(/^\\/api\\/comments\\/([0-9a-f-]{36})$/i);
+      const commentDeleteMatch=path.match(/^\/api\/comments\/([0-9a-f-]{36})$/i);
       if(request.method==="DELETE" && commentDeleteMatch){
         if(user.role!=="owner")return fail("Solo el administrador puede retirar comentarios.",403,cors);
         const comment=await env.DB.prepare("SELECT c.id,c.profile_id FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=? AND p.community_id=? AND p.status='approved'").bind(commentDeleteMatch[1],user.community_id).first();
