@@ -414,9 +414,10 @@ export default {
           `INSERT OR IGNORE INTO badge_awards(id,community_id,profile_id,badge_key,level,awarded_by_profile_id,awarded_at)
            VALUES(?,?,?,?,?,?,?)`
         ).bind(id(),user.community_id,viejoId,"vieja_escuela","Diamante",user.profile_id,timestamp).run();
-        await env.DB.prepare(
-          "INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)"
-        ).bind(user.profile_id,viejoId,timestamp).run();
+        await env.DB.batch([
+          env.DB.prepare("INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)").bind(user.profile_id,viejoId,timestamp),
+          env.DB.prepare("INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)").bind(viejoId,user.profile_id,timestamp)
+        ]);
         return json({ok:true,profile_id:viejoId},200,cors);
       }
 
@@ -435,7 +436,7 @@ export default {
              s.status AS route_status,s.updated_at AS route_updated_at
            FROM profiles p
            LEFT JOIN route_status s ON s.profile_id=p.id AND s.community_id=p.community_id AND s.expires_at>?
-           WHERE p.community_id=? ORDER BY p.nickname COLLATE NOCASE LIMIT 500`
+           WHERE p.community_id=? AND p.id NOT LIKE 'el-viejo-%' ORDER BY p.nickname COLLATE NOCASE LIMIT 500`
         ).bind(now(), user.community_id).all();
         return json({ colleagues: result.results || [] }, 200, cors);
       }
