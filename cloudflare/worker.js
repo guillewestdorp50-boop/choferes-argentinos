@@ -1,3 +1,5 @@
+import { createSupabaseDb } from "./supabase-adapter.mjs";
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
@@ -188,6 +190,17 @@ async function notifyModerators(env, communityId, postId, nickname) {
 
 export default {
   async fetch(request, env) {
+    const hasSupabaseConfig = Boolean(env.SUPABASE_URL || env.SUPABASE_SERVICE_ROLE_KEY);
+    if (hasSupabaseConfig && !(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)) {
+      return fail("Configuración Supabase incompleta.", 503);
+    }
+    if (hasSupabaseConfig) {
+      try {
+        env = { ...env, DB: createSupabaseDb(env) };
+      } catch {
+        return fail("No se pudo inicializar el acceso seguro a Supabase.", 503);
+      }
+    }
     const cors = corsHeaders(request, env);
     if (!cors) return fail("Origen no autorizado.", 403);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -195,7 +208,7 @@ export default {
     const path = url.pathname;
     try {
       if (request.method === "GET" && path === "/api/health") {
-        return json({ ok: true, service: "choferes-argentinos-api" }, 200, cors);
+        return json({ ok: true, service: "choferes-argentinos-api", database: hasSupabaseConfig ? "supabase" : "d1" }, 200, cors);
       }
       if (request.method === "GET" && path === "/api/push/public-key") {
         return json({ enabled: Boolean(env.VAPID_PUBLIC_KEY), public_key: env.VAPID_PUBLIC_KEY || null }, 200, cors);
