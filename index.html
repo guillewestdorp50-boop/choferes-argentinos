@@ -401,6 +401,8 @@ $('joinMode').addEventListener('change',()=>{
   const mode=$('joinMode').value;
   $('nickWrap').classList.toggle('hidden',mode==='device');
   $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme';
+  const nickLabel=document.querySelector('label[for="joinNick"]');
+  if(nickLabel)nickLabel.textContent=mode==='recovery'?'Nombre de usuario':'Tu apodo en la ruta';
   $('joinHelp').textContent = mode==='community'
     ? 'El primer ingreso crea tu perfil.'
     : mode==='friend'
@@ -1354,7 +1356,7 @@ $('saveRecoveryCode').addEventListener('click',async()=>{
 $('saveRecoveryPin').addEventListener('click',async()=>{
   const pin=$('pinSetupInput').value.trim();
   $('pinSetupStatus').textContent='';
-  if(!/^\\d{4}$/.test(pin)){$('pinSetupStatus').textContent='El PIN debe tener exactamente cuatro números.';return;}
+  if(!/^\d{4}$/.test(pin)){$('pinSetupStatus').textContent='El PIN debe tener exactamente cuatro números.';return;}
   $('saveRecoveryPin').disabled=true;
   try{
     await api('/api/recovery/pin',{method:'POST',body:{pin}});
@@ -1384,7 +1386,7 @@ $('hideRecoveryCodeBtn').addEventListener('click',()=>{
 $('verifyRecoveryPin').addEventListener('click',async()=>{
   const pin=$('pinRevealInput').value.trim();
   $('pinRevealStatus').textContent='';
-  if(!/^\\d{4}$/.test(pin)){$('pinRevealStatus').textContent='Ingresá tu PIN de cuatro números.';return;}
+  if(!/^\d{4}$/.test(pin)){$('pinRevealStatus').textContent='Ingresá tu PIN de cuatro números.';return;}
   $('verifyRecoveryPin').disabled=true;
   try{
     const data=await api('/api/recovery/reveal',{method:'POST',body:{pin}});
