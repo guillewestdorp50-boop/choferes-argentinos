@@ -150,7 +150,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <div style="margin-top:12px"><button class="action hidden" id="addCommunityInvite">＋ Invitar a toda la comunidad</button><div id="communityCodeArea"></div></div>
 </div>
 <div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
-<div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
+<div class="card" id="deviceLinkCard"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
 </section>
 
 <section id="colegas" hidden>
@@ -532,7 +532,10 @@ function updateProfileUI(){
   $('editAvatar').value = profile.avatar_key || 'truck';
   $('editBio').value = profile.bio || '';
   const canModerate=['owner','moderator'].includes(profile.role);
-  $('addCommunityInvite').classList.toggle('hidden',!canModerate);
+  const canIssueInvites=profile.role==='owner';
+  $('addFriend').classList.toggle('hidden',!canIssueInvites);
+  $('addCommunityInvite').classList.toggle('hidden',!canIssueInvites);
+  $('deviceLinkCard').classList.toggle('hidden',!canIssueInvites);
   $('moderationNav').classList.toggle('hidden',!canModerate);
   loadOwnBadges();
   if(canModerate) loadBadgeAdmin();
