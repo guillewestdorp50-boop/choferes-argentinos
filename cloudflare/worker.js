@@ -233,9 +233,9 @@ export default {
         if (!code || nickname.length < 2) return fail("Código y apodo son obligatorios.", 400, cors);
         const invite = await consumeInvite(env, code, ["community", "friend"]);
         if (!invite) return fail("Código inválido, vencido o ya utilizado.", 400, cors);
-        const profileId = id(), timestamp = now(), token = makeToken();
+        const profileId = id(), timestamp = now(), token = makeToken(), recoveryCode = makeCode();
         const stmts = [
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, code),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, recoveryCode),
           env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(profileId, invite.id),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp)
         ];
@@ -280,31 +280,24 @@ export default {
 
       if (request.method === "GET" && path === "/api/account-data") {
         const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
-        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash }, 200, cors);
-      }
-      if (request.method === "POST" && path === "/api/recovery/setup") {
-        const input = await bodyJson(request);
-        const code = cleanText(input?.code, 32).toUpperCase();
-        if (!code) return fail("Ingresá tu código original de invitación.", 400, cors);
-        const hash = await sha256(code);
-        const invite = await env.DB.prepare("SELECT id,used_by_profile_id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash,user.community_id).first();
-        if (!invite || (invite.used_by_profile_id && invite.used_by_profile_id !== user.profile_id)) return fail("Ese código no corresponde a tu cuenta o todavía no fue utilizado.", 400, cors);
-        try {
-          const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND (recovery_code IS NULL OR recovery_code=?)").bind(code,user.profile_id,code).run();
-          if (result.success && result.meta.changes === 1 && !invite.used_by_profile_id) {
-            await env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(user.profile_id,invite.id).run();
-          }
-          if (!result.success || result.meta.changes !== 1) return fail("Ese código ya está asociado a otra cuenta o no pudo guardarse.", 409, cors);
-        } catch (error) {
-          return fail("No está aplicada todavía la actualización de recuperación en el servidor.", 503, cors);
+        let hasRecoveryCode=!!row?.recovery_code;
+        if (hasRecoveryCode) {
+          const legacyHash=await sha256(row.recovery_code);
+          const legacyInvite=await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(legacyHash,user.community_id).first();
+          if (legacyInvite) hasRecoveryCode=false;
         }
-        return json({ ok:true, has_recovery_code:true }, 200, cors);
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: hasRecoveryCode, has_pin: !!row?.recovery_pin_hash }, 200, cors);
       }
-      if (request.method === "POST" && path === "/api/recovery/owner-code") {
-        if (user.role !== "owner") return fail("Solo el administrador principal puede generar este código.", 403, cors);
-        const code = makeCode();
-        const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND recovery_code IS NULL").bind(code,user.profile_id).run();
-        if (!result.success || result.meta.changes !== 1) return fail("Ya existe un código personal o no se pudo generar.", 409, cors);
+      if (request.method === "POST" && path === "/api/recovery/generate") {
+        const row=await env.DB.prepare("SELECT recovery_code FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        if (row?.recovery_code) {
+          const legacyHash=await sha256(row.recovery_code);
+          const legacyInvite=await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(legacyHash,user.community_id).first();
+          if (!legacyInvite) return fail("Tu cuenta ya tiene un código privado independiente.",409,cors);
+        }
+        const code=makeCode();
+        const result=await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND community_id=?").bind(code,user.profile_id,user.community_id).run();
+        if (!result.success || result.meta?.changes!==1) return fail("No se pudo generar el código privado. No se modificó la cuenta.",503,cors);
         return json({ok:true,has_recovery_code:true},200,cors);
       }
       if (request.method === "POST" && path === "/api/recovery/pin") {
