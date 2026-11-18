@@ -121,7 +121,10 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button><button data-status="demorado">⏳ Demorado</button><button data-status="accidente">🚨 Accidente</button><button data-status="deposito">📦 En depósito</button><button data-status="planta">🏭 En planta</button><button data-status="base">🏢 En la base</button><button data-status="casa">🏠 En mi casa</button><button data-status="descansando">😴 Descansando</button><button data-status="cafe">☕ Tomando un café</button><button data-status="ypf">⛽ En la YPF</button><button data-status="repostando">🛢️ Repostando</button>
 </div>
 <input id="routeLocation" maxlength="100" placeholder="Localidad o ubicación (opcional)">
-<input id="routeNote" maxlength="500" placeholder="Detalle breve (opcional)">
+<textarea id="routeNote" maxlength="500" placeholder="Detalle breve (opcional; se envía a moderación)"></textarea>
+<div class="actions"><label class="action" for="routeDescriptionPhoto">📷 Adjuntar foto al detalle</label><input id="routeDescriptionPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden></div>
+<p class="small" id="routeDescriptionFiles">Sin foto adjunta.</p>
+<div class="actions"><button class="action primary hidden" id="sendRouteDescription" disabled>Enviar detalle a revisión</button><button class="action hidden" id="skipRouteDescription">Omitir detalle</button></div>
 <button class="action primary" id="saveStatus">Compartir mi estado</button><p class="small" id="statusMsg"></p>
 </div>
 <div class="card" id="padComposer">
@@ -211,6 +214,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small" id="pushStatus">Comprobando notificaciones…</p>
 </div>
 <div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
+<h2 class="section-title">Descripciones de estados pendientes</h2>
+<div id="pendingRouteDescriptions"><div class="empty">Cargando descripciones…</div></div>
 <h2 class="section-title">PAD · Partes pendientes de verificar</h2>
 <div id="pendingPad"><div class="empty">Cargando partes del PAD…</div></div>
 </section>
@@ -225,6 +230,7 @@ const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
 let profile = null, selectedStatus = 'libre', currentTab = 'muro', elViejoChatOpen=false;
+let pendingRoutePostId=null, routeDescriptionPhotoFile=null;
 let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
@@ -326,7 +332,7 @@ function setTab(tab){
   ['muro','ruta','amigos','colegas','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='colegas') loadColleagues();
-  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
+  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
 }
@@ -855,7 +861,53 @@ $('publish').addEventListener('click',async()=>{
 syncPublishButton();
 const routeStatusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 En descanso',cafe:'☕ Tomando un café',ypf:'⛽ En YPF',repostando:'🛢️ Repostando'};
 const routeStatusSentence={libre:'Está libre',cargando:'Está cargando',cargado:'Está cargado',descargando:'Está descargando',demorado:'Está demorado',accidente:'Reportó un accidente',deposito:'Está en depósito',planta:'Está en planta',base:'Está en la base',casa:'Está en su casa',descansando:'Está en descanso',cafe:'Está tomando un café',ypf:'Está en YPF',repostando:'Está repostando'};
+function resetRouteDescription(){
+  pendingRoutePostId=null;routeDescriptionPhotoFile=null;
+  $('routeNote').value='';$('routeDescriptionPhoto').value='';
+  $('routeDescriptionFiles').textContent='Sin foto adjunta.';
+  $('sendRouteDescription').classList.add('hidden');$('skipRouteDescription').classList.add('hidden');
+  $('sendRouteDescription').disabled=true;
+  $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=false);
+}
+$('routeDescriptionPhoto').addEventListener('change',()=>{
+  const file=$('routeDescriptionPhoto').files?.[0]||null;
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    $('statusMsg').textContent='Usá una foto JPG, PNG o WebP.';$('routeDescriptionPhoto').value='';return;
+  }
+  routeDescriptionPhotoFile=file;
+  $('routeDescriptionFiles').textContent='Foto seleccionada: '+file.name;
+  $('sendRouteDescription').disabled=!(pendingRoutePostId&&($('routeNote').value.trim()||routeDescriptionPhotoFile));
+});
+$('routeNote').addEventListener('input',()=>{
+  $('sendRouteDescription').disabled=!(pendingRoutePostId&&($('routeNote').value.trim()||routeDescriptionPhotoFile));
+});
+$('sendRouteDescription').addEventListener('click',async()=>{
+  if(!pendingRoutePostId)return;
+  const body=$('routeNote').value.trim();
+  if(!body&&!routeDescriptionPhotoFile){$('statusMsg').textContent='Escribí un detalle o adjuntá una foto.';return;}
+  const button=$('sendRouteDescription');button.disabled=true;$('statusMsg').textContent='Enviando el detalle a moderación…';
+  try{
+    let mediaId=null;
+    if(routeDescriptionPhotoFile){
+      const prepared=await optimizePhoto(routeDescriptionPhotoFile);
+      const form=new FormData();form.append('file',prepared,'detalle-estado.webp');
+      const uploaded=await api('/api/media',{method:'POST',body:form});
+      if(!uploaded.media_id||!uploaded.bytes)throw new Error('El servidor no confirmó el guardado de la foto.');
+      mediaId=uploaded.media_id;
+    }
+    const result=await api('/api/route/status/description',{method:'POST',body:{post_id:pendingRoutePostId,body,media_id:mediaId}});
+    if(result.status!=='pending')throw new Error('El servidor no confirmó que el detalle quedó pendiente.');
+    $('statusMsg').textContent='Detalle enviado a moderación. El aviso original permanece en el muro.';
+    resetRouteDescription();
+  }catch(error){$('statusMsg').textContent=error.message||String(error);button.disabled=false;}
+});
+$('skipRouteDescription').addEventListener('click',()=>{
+  $('statusMsg').textContent='El aviso quedó publicado sin detalle adicional.';
+  resetRouteDescription();
+});
 $('statusChoices').querySelectorAll('button').forEach(button=>button.addEventListener('click',async()=>{
+  if(pendingRoutePostId){$('statusMsg').textContent='Primero enviá el detalle a revisión u omitilo para continuar.';return;}
   selectedStatus=button.dataset.status;
   $('statusChoices').querySelectorAll('button').forEach(item=>item.classList.toggle('selected',item===button));
   $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
@@ -864,14 +916,18 @@ $('statusChoices').querySelectorAll('button').forEach(button=>button.addEventLis
     await api('/api/route/status',{method:'PUT',body:{
       status:selectedStatus,
       location:$('routeLocation').value.trim(),
-      note:$('routeNote').value.trim()
+      note:''
     }});
     const label=routeStatusLabels[selectedStatus]||selectedStatus;
     const created=await api('/api/posts',{method:'POST',body:{body:routeStatusSentence[selectedStatus]||('Está '+label.replace(/^\S+\s/,''))}});
-    $('statusMsg').textContent=created.status==='pending'?'Estado enviado a revisión.':'¡Estado publicado en el muro!';
+    if(!created.id)throw new Error('El servidor no confirmó la publicación original.');
+    pendingRoutePostId=created.id;
+    $('sendRouteDescription').classList.remove('hidden');$('skipRouteDescription').classList.remove('hidden');
+    $('sendRouteDescription').disabled=!($('routeNote').value.trim()||routeDescriptionPhotoFile);
+    $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
+    $('statusMsg').textContent=(created.status==='pending'?'Aviso enviado a revisión. ':'Aviso publicado. ')+'Ahora podés agregar un detalle opcional para moderación.';
     await Promise.all([loadRoute(),loadFeed()]);
-  }catch(error){ $('statusMsg').textContent=error.message || String(error); }
-  finally{$('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=false);}
+  }catch(error){$('statusMsg').textContent=error.message||String(error);$('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=false);}
 }));
 $('saveStatus').classList.add('hidden');
 async function loadRoute(){
@@ -989,9 +1045,40 @@ async function loadPadModeration(){
   });
  }catch(error){box.innerHTML='<div class="empty">No se pudo cargar la cola del PAD: '+esc(error.message||String(error))+'</div>';}
 }
+async function loadRouteDescriptionModeration(){
+ if(!profile||!['owner','moderator'].includes(profile.role))return;
+ const box=$('pendingRouteDescriptions');
+ try{
+  const result=await api('/api/moderation/route-descriptions');const items=result.descriptions||[];
+  if(!items.length){box.innerHTML='<div class="empty">No hay descripciones pendientes.</div>';await loadModerationBadge();return;}
+  box.replaceChildren();
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='card';card.id='route-description-'+item.id;
+   const head=document.createElement('div');head.className='name';head.textContent='Detalle de estado · '+(item.nickname||'Compañero');
+   const original=document.createElement('div');original.className='meta';original.textContent='Aviso original: '+(item.original_body||'Estado del PAD');
+   const body=document.createElement('div');body.className='post';body.textContent=item.body||'Foto adjunta sin texto.';
+   card.append(head,original,body);
+   if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Foto adjunta al detalle pendiente';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
+   const actions=document.createElement('div');actions.className='actions';
+   for(const [action,label,primary] of [['approve','Aprobar detalle',true],['reject','Rechazar detalle',false]]){
+    const btn=document.createElement('button');btn.className='action'+(primary?' primary':'');btn.textContent=label;
+    btn.addEventListener('click',async()=>{
+     actions.querySelectorAll('button').forEach(b=>b.disabled=true);
+     try{
+      await api('/api/moderation/route-descriptions/'+encodeURIComponent(item.id),{method:'PATCH',body:{action}});
+      await Promise.all([loadRouteDescriptionModeration(),loadFeed(),loadModerationBadge()]);
+     }catch(error){$('pushStatus').textContent=error.message||String(error);actions.querySelectorAll('button').forEach(b=>b.disabled=false);}
+    });
+    actions.append(btn);
+   }
+   card.append(actions);box.append(card);
+  });
+  await loadModerationBadge();
+ }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar las descripciones: '+esc(error.message||String(error))+'</div>';}
+}
 async function loadModerationBadge(){
  if(!profile||!['owner','moderator'].includes(profile.role))return;
- try{const [posts,pad]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity')]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
+ try{const [posts,pad,descriptions]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity'),api('/api/moderation/route-descriptions').catch(()=>({descriptions:[]}))]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length+(descriptions.descriptions||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
 }
 async function loadModerationQueue(){
   if(!profile || !['owner','moderator'].includes(profile.role)) return;
