@@ -1,3 +1,5 @@
+import { createSupabaseDb } from "./supabase-adapter.mjs";
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
@@ -188,6 +190,18 @@ async function notifyModerators(env, communityId, postId, nickname) {
 
 export default {
   async fetch(request, env) {
+    const hasSupabaseConfig = Boolean(env.SUPABASE_URL || env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY);
+    const hasSupabaseSecret = Boolean(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY);
+    if (hasSupabaseConfig && !(env.SUPABASE_URL && hasSupabaseSecret)) {
+      return fail("Configuración Supabase incompleta.", 503);
+    }
+    if (hasSupabaseConfig) {
+      try {
+        env = { ...env, DB: createSupabaseDb(env) };
+      } catch {
+        return fail("No se pudo inicializar el acceso seguro a Supabase.", 503);
+      }
+    }
     const cors = corsHeaders(request, env);
     if (!cors) return fail("Origen no autorizado.", 403);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -195,10 +209,15 @@ export default {
     const path = url.pathname;
     try {
       if (request.method === "GET" && path === "/api/health") {
-        return json({ ok: true, service: "choferes-argentinos-api" }, 200, cors);
+        return json({ ok: true, service: "choferes-argentinos-api", database: hasSupabaseConfig ? "supabase" : "d1" }, 200, cors);
       }
       if (request.method === "GET" && path === "/api/push/public-key") {
         return json({ enabled: Boolean(env.VAPID_PUBLIC_KEY), public_key: env.VAPID_PUBLIC_KEY || null }, 200, cors);
+      }
+
+      if (request.method === "GET" && path === "/setup") {
+        const page = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inicializar Choferes Argentinos</title><style>body{font:16px system-ui;background:#101820;color:#f4f6f8;margin:0;padding:24px}main{max-width:480px;margin:8vh auto;background:#1b2935;padding:24px;border-radius:16px}label{display:block;margin:16px 0 6px}input{box-sizing:border-box;width:100%;padding:13px;border-radius:8px;border:1px solid #607080;background:#101820;color:white}button{margin-top:20px;padding:14px;width:100%;border:0;border-radius:8px;font-weight:700;background:#e6b84a;color:#101820}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;padding:12px;border-radius:8px}small{color:#b7c5d1}</style><main><h2>Choferes Argentinos</h2><p>Inicialización aislada de prueba en Supabase.</p><form id="f"><label>Nombre de la comunidad</label><input name="community_name" value="Choferes Argentinos" maxlength="80" required><label>Tu apodo de administrador</label><input name="nickname" minlength="2" maxlength="32" required><label>SETUP_SECRET</label><input name="secret" type="password" autocomplete="off" required><button>Crear comunidad de prueba</button></form><p><small>El secreto se envía directamente a este Worker. No se guarda en esta página.</small></p><section id="out" hidden><h3>Resultado</h3><pre id="result"></pre><button id="copy" type="button">Copiar credenciales</button><p><small>Guardalas en un lugar seguro. Esta respuesta se muestra una sola vez.</small></p></section></main><script>const f=document.getElementById('f'),out=document.getElementById('out'),result=document.getElementById('result');f.addEventListener('submit',async e=>{e.preventDefault();const b=f.querySelector('button');b.disabled=true;b.textContent='Inicializando…';try{const d=Object.fromEntries(new FormData(f));const r=await fetch('/api/bootstrap',{method:'POST',headers:{'content-type':'application/json','X-Setup-Secret':d.secret},body:JSON.stringify({community_name:d.community_name,nickname:d.nickname})});const data=await r.json();if(!r.ok)throw new Error(data.error||'No se pudo inicializar');const safe={community:data.community,profile:data.profile,token:data.token,invite_code:data.invite_code,note:data.note};result.textContent=JSON.stringify(safe,null,2);out.hidden=false;f.hidden=true;window.__caCredentials=JSON.stringify(safe,null,2)}catch(err){alert(err.message);b.disabled=false;b.textContent='Crear comunidad de prueba'}});document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(window.__caCredentials);alert('Credenciales copiadas. Guardalas de forma segura.')}catch{alert('No se pudo copiar automáticamente. Seleccioná y copiá el bloque de credenciales.')}});</script></html>`;
+        return new Response(page, { status: 200, headers: { ...cors, "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
 
       if (request.method === "POST" && path === "/api/bootstrap") {

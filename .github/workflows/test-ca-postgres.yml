@@ -1,0 +1,61 @@
+name: Test CA schema and adapter on isolated PostgreSQL
+
+on:
+  push:
+    branches:
+      - ca-supabase-adapter-draft
+    paths:
+      - "supabase/ca_schema_draft.sql"
+      - "supabase/ca_schema_integration_test.sql"
+      - "cloudflare/supabase-adapter.mjs"
+      - "cloudflare/supabase-adapter.test.mjs"
+      - ".github/workflows/test-ca-postgres.yml"
+  pull_request:
+    branches:
+      - production-pwa-cutover
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Create Supabase-compatible roles in disposable PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;"
+      - name: Apply draft CA schema to disposable PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/ca_schema_draft.sql
+      - name: Test RLS, permissions, RPC, atomic batches and binary media
+        run: psql -v ON_ERROR_STOP=1 -f supabase/ca_schema_integration_test.sql
+      - name: Check Worker module syntax
+        run: node --input-type=module --check < cloudflare/worker.js
+      - name: Run adapter and 65-query translation tests
+        run: node --test cloudflare/supabase-adapter.test.mjs

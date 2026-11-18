@@ -1,0 +1,110 @@
+name: Read-only production D1 inventory for Choferes Argentinos
+
+on:
+  push:
+    branches:
+      - ca-supabase-adapter-draft
+    paths:
+      - "cloudflare/README.md"
+
+permissions:
+  contents: read
+
+jobs:
+  audit-production-d1:
+    if: github.ref == 'refs/heads/ca-supabase-adapter-draft'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Read-only production D1 counts (group 1)
+        id: counts_1
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --json
+            --command "SELECT 'communities' AS table_name, COUNT(*) AS row_count FROM communities
+            UNION ALL SELECT 'profiles', COUNT(*) FROM profiles
+            UNION ALL SELECT 'devices', COUNT(*) FROM devices"
+
+      - name: Read-only production D1 counts (group 2)
+        id: counts_2
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --json
+            --command "SELECT 'invites' AS table_name, COUNT(*) AS row_count FROM invites
+            UNION ALL SELECT 'friend_links', COUNT(*) FROM friend_links
+            UNION ALL SELECT 'media', COUNT(*) FROM media"
+
+      - name: Read-only production D1 counts (group 3)
+        id: counts_3
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --json
+            --command "SELECT 'posts' AS table_name, COUNT(*) AS row_count FROM posts
+            UNION ALL SELECT 'comments', COUNT(*) FROM comments
+            UNION ALL SELECT 'reactions', COUNT(*) FROM reactions"
+
+      - name: Read-only production D1 counts (group 4)
+        id: counts_4
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --json
+            --command "SELECT 'route_status' AS table_name, COUNT(*) AS row_count FROM route_status
+            UNION ALL SELECT 'route_alerts', COUNT(*) FROM route_alerts
+            UNION ALL SELECT 'messages', COUNT(*) FROM messages"
+
+      - name: Read-only production D1 counts (group 5)
+        id: counts_5
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --json
+            --command "SELECT 'push_subscriptions' AS table_name, COUNT(*) AS row_count FROM push_subscriptions
+            UNION ALL SELECT 'badge_awards', COUNT(*) FROM badge_awards
+            UNION ALL SELECT 'driver_activity', COUNT(*) FROM driver_activity"
+
+      - name: Publish counts only
+        env:
+          RESULT_1: ${{ steps.counts_1.outputs.command-output }}
+          RESULT_2: ${{ steps.counts_2.outputs.command-output }}
+          RESULT_3: ${{ steps.counts_3.outputs.command-output }}
+          RESULT_4: ${{ steps.counts_4.outputs.command-output }}
+          RESULT_5: ${{ steps.counts_5.outputs.command-output }}
+        run: |
+          {
+            echo '### Inventario D1 de producción (solo lectura)'
+            echo
+            echo 'Se consultaron únicamente conteos por tabla; no se descargó contenido personal ni se escribió en D1.'
+            printf '%s\n' "$RESULT_1"
+            printf '%s\n' "$RESULT_2"
+            printf '%s\n' "$RESULT_3"
+            printf '%s\n' "$RESULT_4"
+            printf '%s\n' "$RESULT_5"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,30 @@
+name: Validate draft Supabase adapter
+
+on:
+  push:
+    branches:
+      - ca-supabase-adapter-draft
+    paths:
+      - "cloudflare/supabase-adapter.mjs"
+      - "cloudflare/supabase-adapter.test.mjs"
+      - ".github/workflows/test-supabase-adapter.yml"
+  pull_request:
+    branches:
+      - production-pwa-cutover
+
+permissions:
+  contents: read
+
+jobs:
+  adapter-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Worker module syntax
+        run: node --input-type=module --check < cloudflare/worker.js
+      - name: Run adapter unit tests
+        run: node --test cloudflare/supabase-adapter.test.mjs
