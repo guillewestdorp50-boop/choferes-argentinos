@@ -551,7 +551,7 @@ async function openPublicProfile(profileId){
     $('publicWall').innerHTML='<div class="empty">No se pudo cargar el muro.</div>';
   }
 }
-function renderPublicWall(posts){
+async function renderPublicWall(posts){
   const wall=$('publicWall');
   wall.replaceChildren();
   if(!posts.length){
@@ -577,6 +577,7 @@ function renderPublicWall(posts){
       photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
       article.append(photo);
     }
+    article.append(await renderPostComments(post));
     wall.append(article);
   });
 }
@@ -635,7 +636,7 @@ async function loadFeed(){
     const routeStatusByProfile = new Map((routeResult.statuses || []).map(s=>[s.profile_id,s]));
     if(!posts.length){ box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>'; return; }
     box.replaceChildren();
-    posts.forEach(post=>{
+    posts.forEach(async post=>{
       const article = document.createElement('article');
       article.className = 'card';
       const head = document.createElement('div');
