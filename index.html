@@ -35,7 +35,7 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
 .profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
 .profile-link:active{color:var(--cyan)}
-.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
+.colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
 .badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
 .badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
@@ -141,7 +141,10 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <section id="colegas" hidden>
 <h1 class="section-title">Colegas</h1>
 <div id="colleagueProfileSlot"></div>
-<div id="colleagueProfileIntro" class="card empty">Elegí «Ver perfil» en una publicación para conocer a un colega.</div>
+<div id="colleagueProfileIntro" class="card">
+  <p class="small">Todos los integrantes de Choferes Argentinos · presencia y estado actual del PAD.</p>
+  <div id="colleaguesList"><div class="empty">Cargando colegas…</div></div>
+</div>
 </section>
 
 <section id="perfil" hidden>
@@ -258,6 +261,7 @@ function setTab(tab){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   ['muro','ruta','amigos','colegas','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
+  if(tab==='colegas') loadColleagues();
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
@@ -451,6 +455,7 @@ async function openPublicProfile(profileId){
   $('colleagueProfileSlot').appendChild($('publicProfileCard'));
   $('colleagueProfileIntro').classList.add('hidden');
   setTab('colegas');
+  $('colleagueProfileIntro').classList.add('hidden');
   $('publicProfileCard').classList.remove('hidden');
   $('publicName').textContent='Cargando perfil…';
   $('publicBio').textContent='';
@@ -503,7 +508,7 @@ function renderPublicWall(posts){
     wall.append(article);
   });
 }
-$('closePublicProfile').addEventListener('click',()=>{$('publicProfileCard').classList.add('hidden');$('colleagueProfileIntro').classList.remove('hidden');setTab('muro');});
+$('closePublicProfile').addEventListener('click',()=>{$('publicProfileCard').classList.add('hidden');$('colleagueProfileIntro').classList.remove('hidden');setTab('colegas');});
 $('viewMyPublicProfile').addEventListener('click',()=>{if(profile?.id)openPublicProfile(profile.id);});
 $('awardBadge').addEventListener('click',async()=>{
   const profileId=$('badgeMember').value,badge_key=$('badgeType').value,level=$('badgeLevel').value;
@@ -1031,6 +1036,39 @@ async function createCode(kind,target){
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
 $('addCommunityInvite').addEventListener('click',()=>createCode('community','communityCodeArea'));
 $('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
+async function loadColleagues(){
+  const box=$('colleaguesList');
+  try{
+    const result=await api('/api/community/colleagues');
+    const colleagues=result.colleagues||[];
+    if(!colleagues.length){box.innerHTML='<div class="empty">Todavía no hay integrantes en la comunidad.</div>';return;}
+    box.replaceChildren();
+    const labels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
+    colleagues.forEach(colleague=>{
+      const row=document.createElement('div');
+      row.className='colleague-row';
+      const identity=document.createElement('div');identity.className='colleague-identity';
+      const name=document.createElement('div');name.className='name';name.textContent=colleague.nickname||'Compañero';
+      const presence=document.createElement('span');presence.className='presence'+(colleague.is_online?' online':'');
+      const dot=document.createElement('span');dot.className='presence-dot';
+      const online=document.createElement('span');online.textContent=colleague.is_online?'ONLINE':'OFFLINE';
+      presence.append(dot,online);
+      identity.append(name,presence);
+      row.append(identity);
+      if(colleague.route_status){
+        const status=document.createElement('span');status.className='route-status-glow';
+        status.textContent=labels[colleague.route_status]||colleague.route_status;
+        row.append(status);
+      }else{
+        const noStatus=document.createElement('span');noStatus.className='meta';noStatus.textContent='Sin estado';row.append(noStatus);
+      }
+      row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-label','Ver perfil de '+(colleague.nickname||'Compañero'));
+      row.addEventListener('click',()=>openPublicProfile(colleague.id));
+      row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPublicProfile(colleague.id);}});
+      box.append(row);
+    });
+  }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los colegas: '+esc(error.message||String(error))+'</div>';}
+}
 async function loadFriends(){
   const box=$('friendsList');
   try{
@@ -1121,6 +1159,7 @@ document.addEventListener('visibilitychange',()=>{
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='amigos') loadFriends();
+  if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden')) loadColleagues();
   if(currentTab==='moderacion') loadModerationQueue();
 });
 setInterval(()=>{
@@ -1128,6 +1167,7 @@ setInterval(()=>{
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='moderacion') loadModerationQueue();
+  if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden')) loadColleagues();
 },45000);
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 await boot();
