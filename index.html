@@ -220,18 +220,18 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card">
   <div class="name">Código de recuperación</div>
-  <p class="small">Es el mismo código original que te enviaron para entrar a la comunidad. Guardalo: junto con tu nombre de usuario te permite iniciar sesión si cambiás o perdés el teléfono.</p>
+  <p class="small">Es tu código privado de recuperación, independiente de SETUP. Guardalo: junto con tu nombre de usuario te permite recuperar tu cuenta si cambiás o perdés el teléfono.</p>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
-    <span class="small">Código original</span><strong id="recoveryCodeDisplay">••••••••••</strong>
+    <span class="small">Código privado</span><strong id="recoveryCodeDisplay">••••••••••</strong>
   </div>
   <div class="actions" style="margin-top:12px">
     <button class="action" id="revealRecoveryCodeBtn" type="button">👁 Ver código</button>
     <button class="action" id="hideRecoveryCodeBtn" type="button" hidden>Ocultar código</button>
   </div>
   <div id="recoveryCodeSetup">
-    <p class="small" style="margin-top:14px">Todavía no guardaste tu código original. Ingresalo una sola vez para dejarlo asociado a tu cuenta.</p>
+    <p class="small" style="margin-top:14px">Todavía no guardaste tu código de invitación. Ingresalo una sola vez para asociarlo a tu cuenta.</p>
     <label for="recoveryCodeInput">Código original de invitación</label>
-    <input id="recoveryCodeInput" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="Ingresá tu código original">
+    <input id="recoveryCodeInput" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="Ingresá tu código de invitación">
     <button class="action primary" id="saveRecoveryCode" type="button">Guardar mi código</button>
     <button class="action primary" id="generateOwnerRecoveryCode" type="button" hidden>Generar mi código personal</button>
     <p class="small" id="ownerRecoveryCodeStatus" aria-live="polite"></p>
