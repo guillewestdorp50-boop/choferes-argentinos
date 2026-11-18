@@ -58,4 +58,4 @@ No hay despliegue ni recursos Cloudflare creados desde este repositorio. No se h
 
 ## Inventario de datos (solo lectura)
 
-El workflow `.github/workflows/audit-ca-production-d1.yml` consulta únicamente conteos por tabla de la D1 de producción para preparar la migración. No exporta mensajes, nombres, fotos ni otros contenidos personales y no ejecuta escrituras.
+El workflow `.github/workflows/audit-ca-production-d1.yml` está preparado para consultar únicamente conteos por tabla. Su primera ejecución quedó bloqueada por una configuración inválida de `CLOUDFLARE_ACCOUNT_ID` y permisos insuficientes para descubrir la cuenta; no llegó a ejecutar la consulta. Corregir los secretos del Environment `production` antes de reintentarlo. No exporta contenido personal ni ejecuta escrituras.
