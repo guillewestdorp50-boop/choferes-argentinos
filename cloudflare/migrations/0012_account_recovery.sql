@@ -1,6 +1,6 @@
 -- Preserve the original invitation credential for account recovery.
--- The code is high-entropy (10 random characters) and is only returned to the
--- authenticated account that owns it or accepted by the recovery endpoint.
+-- Community invitations can be shared by multiple new members, so this is
+-- intentionally not unique; recovery matches both nickname and code.
 ALTER TABLE profiles ADD COLUMN recovery_code TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS profiles_recovery_code_idx
-  ON profiles(recovery_code) WHERE recovery_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS profiles_recovery_code_idx
+  ON profiles(recovery_code);
