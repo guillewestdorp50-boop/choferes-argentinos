@@ -45,7 +45,7 @@ test("uses server-only Supabase RPC and decodes returned bytea", async () => {
     SUPABASE_SERVICE_ROLE_KEY: "server-secret"
   }, async (url, init) => {
     captured = { url, init };
-    return new Response(JSON.stringify({ success: true, results: [{ data: "\\\\x4142" }] }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, results: [{ data: "\\x4142" }] }), { status: 200 });
   });
   const row = await db.prepare("SELECT data FROM media WHERE id=?").bind("media-id").first();
   assert.equal(captured.url, "https://example.supabase.co/rest/v1/rpc/ca_worker_query");
