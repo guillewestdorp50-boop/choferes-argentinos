@@ -25,6 +25,31 @@ async function sha256(value) {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
 }
+function nicknameKey(value) {
+  return cleanText(value, 32).normalize("NFKC").toLocaleLowerCase("es-AR");
+}
+function loginUsername(value) {
+  return cleanText(value, 32).normalize("NFKC").toLowerCase();
+}
+async function derivePassword(password, saltHex, iterations) {
+  const salt = Uint8Array.from(saltHex.match(/.{2}/g).map(part => parseInt(part, 16)));
+  const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, material, 256);
+  return Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2, "0")).join("");
+}
+function constantTimeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+async function nicknameTaken(env, nickname, excludeProfileId = null) {
+  const key = nicknameKey(nickname);
+  const row = await env.DB.prepare(
+    "SELECT id FROM profiles WHERE nickname_key=? AND (? IS NULL OR id<>?) LIMIT 1"
+  ).bind(key, excludeProfileId, excludeProfileId).first();
+  return !!row;
+}
 async function bodyJson(request) {
   try { return await request.json(); } catch { return null; }
 }
@@ -201,6 +226,47 @@ export default {
         return json({ enabled: Boolean(env.VAPID_PUBLIC_KEY), public_key: env.VAPID_PUBLIC_KEY || null }, 200, cors);
       }
 
+      if (request.method === "POST" && path === "/api/login") {
+        const input = await bodyJson(request);
+        const username = loginUsername(input?.username);
+        const password = String(input?.password || "");
+        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username) || password.length < 1 || password.length > 128) {
+          return fail("Usuario o contraseña incorrectos.", 401, cors);
+        }
+        const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+        const attemptKey = await sha256(username + "|" + ip);
+        const previous = await env.DB.prepare("SELECT failed_count,window_started_at,locked_until FROM login_attempts WHERE attempt_key=?")
+          .bind(attemptKey).first();
+        if (previous?.locked_until && Date.parse(previous.locked_until) > Date.now()) {
+          return fail("Usuario o contraseña incorrectos. Esperá unos minutos e intentá nuevamente.", 429, cors);
+        }
+        const profile = await env.DB.prepare(
+          "SELECT id,password_salt,password_hash,password_iterations FROM profiles WHERE login_username=? LIMIT 1"
+        ).bind(username).first();
+        let valid = false;
+        if (profile?.password_hash && profile?.password_salt && profile?.password_iterations) {
+          const candidate = await derivePassword(password, profile.password_salt, profile.password_iterations);
+          valid = constantTimeEqual(candidate, profile.password_hash);
+        } else {
+          await derivePassword(password, "00000000000000000000000000000000", 310000);
+        }
+        if (!valid) {
+          const withinWindow = previous?.window_started_at && Date.now() - Date.parse(previous.window_started_at) < 15 * 60 * 1000;
+          const failedCount = withinWindow ? Number(previous.failed_count || 0) + 1 : 1;
+          const windowStarted = withinWindow ? previous.window_started_at : now();
+          const lockedUntil = failedCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+          await env.DB.prepare(
+            `INSERT INTO login_attempts(attempt_key,failed_count,window_started_at,locked_until)
+             VALUES(?,?,?,?)
+             ON CONFLICT(attempt_key) DO UPDATE SET failed_count=excluded.failed_count,window_started_at=excluded.window_started_at,locked_until=excluded.locked_until`
+          ).bind(attemptKey, failedCount, windowStarted, lockedUntil).run();
+          return fail("Usuario o contraseña incorrectos.", 401, cors);
+        }
+        await env.DB.prepare("DELETE FROM login_attempts WHERE attempt_key=?").bind(attemptKey).run();
+        const token = await issueDevice(env, profile.id);
+        return json({ token, logged_in: true }, 200, cors);
+      }
+
       if (request.method === "POST" && path === "/api/bootstrap") {
         const secret = request.headers.get("X-Setup-Secret") || "";
         if (!env.SETUP_SECRET || secret !== env.SETUP_SECRET) return fail("Configuración no autorizada.", 401, cors);
@@ -208,13 +274,14 @@ export default {
         const communityName = cleanText(input?.community_name || "Choferes Argentinos", 80);
         const nickname = cleanText(input?.nickname, 32);
         if (nickname.length < 2) return fail("El apodo debe tener al menos 2 caracteres.", 400, cors);
+        if (await nicknameTaken(env, nickname)) return fail("Ese apodo ya está en uso. Elegí otro.", 409, cors);
         const existing = await env.DB.prepare("SELECT id FROM communities LIMIT 1").first();
         if (existing) return fail("La comunidad ya fue inicializada.", 409, cors);
         const communityId = id(), profileId = id(), timestamp = now();
         const inviteCode = makeCode(), recoveryCode = makeCode(), token = makeToken();
         await env.DB.batch([
           env.DB.prepare("INSERT INTO communities(id,name,created_at) VALUES(?,?,?)").bind(communityId, communityName, timestamp),
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'owner',?,?,?)").bind(profileId, communityId, nickname, timestamp, timestamp, recoveryCode),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,nickname_key,role,created_at,updated_at,recovery_code) VALUES(?,?,?,?,'owner',?,?,?)").bind(profileId, communityId, nickname, nicknameKey(nickname), timestamp, timestamp, recoveryCode),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp),
           env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,1,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
         ]);
@@ -231,11 +298,12 @@ export default {
         const code = cleanText(input?.code, 32).toUpperCase();
         const nickname = cleanText(input?.nickname, 32);
         if (!code || nickname.length < 2) return fail("Código y apodo son obligatorios.", 400, cors);
+        if (await nicknameTaken(env, nickname)) return fail("Ese apodo ya está en uso. Elegí otro.", 409, cors);
         const invite = await consumeInvite(env, code, ["community", "friend"]);
         if (!invite) return fail("Código inválido, vencido o ya utilizado.", 400, cors);
         const profileId = id(), timestamp = now(), token = makeToken();
         const stmts = [
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, code),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,nickname_key,role,created_at,updated_at,recovery_code) VALUES(?,?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, nicknameKey(nickname), timestamp, timestamp, code),
           env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(profileId, invite.id),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp)
         ];
@@ -279,9 +347,45 @@ export default {
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
       if (request.method === "GET" && path === "/api/account-data") {
-        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
-        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash }, 200, cors);
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash,login_username,password_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
       }
+      if (request.method === "POST" && path === "/api/account/credentials") {
+        const input = await bodyJson(request);
+        const username = loginUsername(input?.username);
+        const password = String(input?.password || "");
+        const currentPassword = String(input?.current_password || "");
+        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) {
+          return fail("El usuario debe tener entre 3 y 24 caracteres: letras, números, punto, guion o guion bajo.", 400, cors);
+        }
+        if (password.length < 10 || password.length > 128) {
+          return fail("La contraseña debe tener entre 10 y 128 caracteres.", 400, cors);
+        }
+        const current = await env.DB.prepare(
+          "SELECT login_username,password_salt,password_hash,password_iterations FROM profiles WHERE id=? AND community_id=?"
+        ).bind(user.profile_id, user.community_id).first();
+        if (current?.password_hash) {
+          if (!currentPassword) return fail("Ingresá tu contraseña actual para cambiar los datos de acceso.", 400, cors);
+          const currentHash = await derivePassword(currentPassword, current.password_salt, current.password_iterations);
+          if (!constantTimeEqual(currentHash, current.password_hash)) return fail("La contraseña actual no es correcta.", 401, cors);
+        }
+        const taken = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND id<>? LIMIT 1")
+          .bind(username, user.profile_id).first();
+        if (taken) return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, "0")).join("");
+        const iterations = 310000;
+        const passwordHash = await derivePassword(password, salt, iterations);
+        try {
+          await env.DB.prepare(
+            "UPDATE profiles SET login_username=?,password_salt=?,password_hash=?,password_iterations=?,updated_at=? WHERE id=? AND community_id=?"
+          ).bind(username, salt, passwordHash, iterations, now(), user.profile_id, user.community_id).run();
+        } catch {
+          return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
+        }
+        return json({ ok: true, login_username: username, has_password: true }, 200, cors);
+      }
+
       if (request.method === "POST" && path === "/api/recovery/setup") {
         const input = await bodyJson(request);
         const code = cleanText(input?.code, 32).toUpperCase();
@@ -469,6 +573,7 @@ export default {
           ? (input.avatar_media_id ? cleanText(input.avatar_media_id, 64) : null)
           : (user.avatar_media_id || null);
         if (nickname.length < 2) return fail("El apodo debe tener al menos 2 caracteres.", 400, cors);
+        if (await nicknameTaken(env, nickname, user.profile_id)) return fail("Ese apodo ya está en uso. Elegí otro.", 409, cors);
         if (!allowedAvatars.includes(avatarKey)) return fail("Avatar no válido.", 400, cors);
         if (avatarKey.startsWith("admin_") && user.role !== "owner") return fail("Estos avatares son exclusivos de la cuenta administradora.", 403, cors);
         if (avatarMediaId) {
@@ -476,8 +581,12 @@ export default {
             .bind(avatarMediaId, user.community_id, user.profile_id).first();
           if (!media) return fail("La foto no pertenece a tu perfil o no está disponible.", 400, cors);
         }
-        await env.DB.prepare("UPDATE profiles SET nickname=?,bio=?,avatar_key=?,avatar_media_id=?,updated_at=? WHERE id=? AND community_id=?")
-          .bind(nickname, bio, avatarKey, avatarMediaId, now(), user.profile_id, user.community_id).run();
+        try {
+          await env.DB.prepare("UPDATE profiles SET nickname=?,nickname_key=?,bio=?,avatar_key=?,avatar_media_id=?,updated_at=? WHERE id=? AND community_id=?")
+            .bind(nickname, nicknameKey(nickname), bio, avatarKey, avatarMediaId, now(), user.profile_id, user.community_id).run();
+        } catch {
+          return fail("Ese apodo ya está en uso. Elegí otro.", 409, cors);
+        }
         return json({ ok: true, nickname, bio, avatar_key: avatarKey, avatar_media_id: avatarMediaId }, 200, cors);
       }
 
@@ -494,9 +603,9 @@ export default {
         const timestamp = now();
         const viejoId = "el-viejo-" + user.community_id;
         await env.DB.prepare(
-          `INSERT OR IGNORE INTO profiles(id,community_id,nickname,bio,role,created_at,updated_at,avatar_key)
-           VALUES(?,?,? ,?,'member',?,?,?)`
-        ).bind(viejoId,user.community_id,"El Viejo","Siempre en la ruta · Chofer argentino",timestamp,timestamp,"el-viejo").run();
+          `INSERT OR IGNORE INTO profiles(id,community_id,nickname,nickname_key,bio,role,created_at,updated_at,avatar_key)
+           VALUES(?,?,?,?,?,'member',?,?,?)`
+        ).bind(viejoId,user.community_id,"El Viejo",nicknameKey("El Viejo"),"Siempre en la ruta · Chofer argentino",timestamp,timestamp,"el-viejo").run();
         await env.DB.prepare(
           `INSERT OR IGNORE INTO badge_awards(id,community_id,profile_id,badge_key,level,awarded_by_profile_id,awarded_at)
            VALUES(?,?,?,?,?,?,?)`
