@@ -15,14 +15,31 @@ nav button,.action{border:1px solid var(--line);background:var(--panel);color:va
 nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:750}
 main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size:20px;margin:4px 0 14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
-.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
 .name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}.feed-photo{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#0b1214;border-radius:13px;margin-top:10px;cursor:zoom-in}.photo-load-error{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px}
 input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
 textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.status-grid button{padding:12px 7px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:11px;font:inherit}
-.status-grid button.selected{border-color:var(--cyan);background:#244347}
+.status-grid button{position:relative;padding:12px 7px;border:1px solid var(--glow,#39d879);background:var(--panel2);color:var(--ink);border-radius:11px;font:inherit;box-shadow:0 0 7px var(--glow,#39d879),inset 0 0 7px color-mix(in srgb,var(--glow,#39d879) 22%,transparent);animation:statusGlow 3.1s ease-in-out infinite alternate}
+.status-grid button:nth-child(6n+1){--glow:#35e6a0;animation-delay:-.2s}
+.status-grid button:nth-child(6n+2){--glow:#38bdf8;animation-delay:-1.1s}
+.status-grid button:nth-child(6n+3){--glow:#f6c945;animation-delay:-2.2s}
+.status-grid button:nth-child(6n+4){--glow:#b58cff;animation-delay:-.8s}
+.status-grid button:nth-child(6n+5){--glow:#ff8a55;animation-delay:-1.7s}
+.status-grid button:nth-child(6n){--glow:#f06fba;animation-delay:-2.7s}
+@keyframes statusGlow{0%{filter:hue-rotate(0deg);box-shadow:0 0 5px var(--glow),inset 0 0 5px color-mix(in srgb,var(--glow) 20%,transparent)}50%{filter:hue-rotate(95deg);box-shadow:0 0 13px var(--glow),inset 0 0 10px color-mix(in srgb,var(--glow) 35%,transparent)}100%{filter:hue-rotate(210deg);box-shadow:0 0 8px var(--glow),inset 0 0 7px color-mix(in srgb,var(--glow) 25%,transparent)}}
+.status-grid button.selected{animation:none;filter:none;border-color:var(--glow);background:color-mix(in srgb,var(--glow) 20%,var(--panel2));box-shadow:0 0 12px var(--glow),inset 0 0 8px color-mix(in srgb,var(--glow) 30%,transparent);padding-right:19px}
+.status-grid button.selected::after{content:"";position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:#39f27b;box-shadow:0 0 5px #39f27b,0 0 11px #39f27b;animation:selectedStatusDot 1s ease-in-out infinite}
+@keyframes selectedStatusDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.72)}}
+@media(prefers-reduced-motion:reduce){.status-grid button,.status-grid button.selected::after{animation:none}}
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
+.profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
+.profile-link:active{color:var(--cyan)}
+.badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
+.badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
+.badge-item .small{margin-top:4px}
+
 .hidden{display:none!important}.error{color:var(--danger);font-size:13px;white-space:pre-wrap}.success{color:var(--cyan);font-size:13px;white-space:pre-wrap}
 .code{font:700 19px ui-monospace,monospace;letter-spacing:.09em;overflow-wrap:anywhere;background:#101a1d;border:1px dashed var(--cyan);border-radius:10px;padding:13px;margin:10px 0}
 label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
@@ -39,7 +56,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
 </header>
 <nav id="nav" class="hidden" aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button>
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
 </nav>
 <main>
 <section id="onboarding" class="card">
@@ -51,15 +68,34 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" placeholder="Ej.: El Cordobés"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
 <p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
+<div style="margin-top:14px"><button type="button" class="action" id="ownerToggle">Soy el administrador · Inicializar comunidad</button></div>
+<div id="ownerPanel" class="card hidden" style="margin-top:12px">
+  <h2 class="section-title">Crear la comunidad</h2>
+  <p class="small">Este paso es solo para quien administra Choferes Argentinos. El secreto se envía directamente al servidor de prueba y no se guarda en este teléfono.</p>
+  <label for="ownerSecret">Secreto de configuración</label><input id="ownerSecret" type="password" autocomplete="new-password" autocapitalize="none" placeholder="Pegá el valor de SETUP_SECRET">
+  <label for="ownerNick">Tu apodo de administrador</label><input id="ownerNick" maxlength="32" placeholder="Ej.: El Cordobés">
+  <button class="action primary" id="ownerBootstrap">Crear mi cuenta de administrador</button>
+  <p class="error" id="ownerError"></p>
+</div>
 </section>
 
 <div id="app" class="hidden">
+<section id="ownerWelcome" class="card notice hidden">
+  <h2 class="section-title">¡Comunidad inicializada!</h2>
+  <p class="small">Este es el primer código para invitar a los choferes a Choferes Argentinos. Guardalo y compartilo solo con personas de confianza.</p>
+  <div class="code" id="ownerInviteCode"></div>
+  <button class="action" id="copyOwnerInvite">Copiar código de invitación</button>
+  <p class="small" id="ownerInviteMsg"></p>
+</section>
 <section id="muro">
 <h1 class="section-title">La comunidad</h1>
 <div class="card">
 <div class="row"><div class="avatar" id="myAvatar">YO</div><div><div class="name" id="composerName">Compartí con la comunidad</div><div class="meta">Tu publicación llega a los miembros vinculados</div></div></div>
 <textarea id="postText" maxlength="2000" placeholder="¿Qué querés compartir, compañero?"></textarea>
-<button class="action primary" id="publish">Publicar</button><span class="small" id="publishMsg"></span>
+<div class="actions" style="margin-top:8px"><button type="button" class="action" id="choosePhoto">📷 Agregar foto</button><span class="small" id="photoHint">Opcional · JPG, PNG o WebP</span></div>
+<input id="postPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+<div id="photoPreview" class="photo-preview hidden"><img id="photoPreviewImage" alt="Vista previa de la foto seleccionada"><div><div class="small" id="photoName"></div><button type="button" class="action" id="removePhoto">Quitar foto</button></div></div>
+<button class="action primary" id="publish" disabled>Publicar</button><span class="small" id="publishMsg"></span>
 </div>
 <div id="feed"><div class="empty">Cargando publicaciones…</div></div>
 </section>
@@ -69,24 +105,34 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div class="card">
 <h2 style="font-size:17px;margin:0 0 10px">Mi estado</h2>
 <div class="status-grid" id="statusChoices">
-<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button>
+<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button><button data-status="demorado">⏳ Demorado</button><button data-status="accidente">🚨 Accidente</button><button data-status="deposito">📦 En depósito</button><button data-status="planta">🏭 En planta</button><button data-status="base">🏢 En la base</button><button data-status="casa">🏠 En mi casa</button><button data-status="descansando">😴 Descansando</button><button data-status="cafe">☕ Tomando un café</button><button data-status="ypf">⛽ En la YPF</button><button data-status="repostando">🛢️ Repostando</button>
 </div>
 <input id="routeLocation" maxlength="100" placeholder="Localidad o ubicación (opcional)">
 <input id="routeNote" maxlength="500" placeholder="Detalle breve (opcional)">
 <button class="action primary" id="saveStatus">Compartir mi estado</button><p class="small" id="statusMsg"></p>
 </div>
+<div class="card" id="padComposer">
+  <h2 style="font-size:17px;margin:0 0 8px">PAD · Parte de alerta del conductor</h2>
+  <p class="small">Reportá accidentes, demoras, cortes o cualquier situación importante. Tu parte queda privado mientras se revisa y solo se comparte con la comunidad cuando moderación lo aprueba.</p>
+  <label for="padKind">Tipo de situación</label>
+  <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="demorado">Demora</option><option value="otro">Corte, desvío u otra situación</option></select>
+  <input id="padLocation" maxlength="160" placeholder="Ruta, kilómetro y localidad">
+  <textarea id="padBody" maxlength="1200" placeholder="Describí lo ocurrido, sentido de circulación y referencias…"></textarea>
+  <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><label class="action" for="padAudio">🎙️ Adjuntar audio</label><input id="padAudio" type="file" accept="audio/*" hidden></div>
+  <p class="small" id="padFiles">Sin archivos adjuntos.</p>
+  <button class="action primary" id="sendPad">Enviar parte para revisión</button><p class="small" id="padMsg" aria-live="polite"></p>
+</div>
+<h2 class="section-title">PAD · Avisos verificados</h2><div id="padFeed"><div class="empty">Cargando avisos verificados…</div></div>
 <h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
-<h2 class="section-title">Avisos de ruta</h2>
-<div class="card">
-<label for="alertKind">Tipo de aviso</label><select id="alertKind"><option value="accidente">Accidente</option><option value="demora">Demora</option><option value="corte">Corte de ruta</option><option value="clima">Clima</option><option value="ruta">Estado de ruta</option><option value="otro">Otro</option></select>
-<input id="alertRoad" maxlength="80" placeholder="Ruta / camino (opcional)"><input id="alertLocation" maxlength="100" placeholder="Localidad o zona (opcional)">
-<textarea id="alertBody" maxlength="1000" placeholder="Contá qué está pasando…"></textarea><button class="action primary" id="sendAlert">Publicar aviso</button><p class="small" id="alertMsg"></p>
-</div><div id="alertsFeed"></div>
+<p class="small">Todos los reportes nuevos se envían por el PAD y requieren aprobación antes de publicarse.</p>
 </section>
 
 <section id="amigos" hidden>
 <h1 class="section-title">Compañeros</h1>
-<div class="card"><div class="row" style="justify-content:space-between"><div><div class="name">Tu red de ruta</div><div class="meta">Conectá compañeros con invitaciones privadas</div></div><button class="action primary" id="addFriend">＋ Agregar nuevo amigo</button></div></div>
+<div class="card">
+  <div class="row" style="justify-content:space-between;flex-wrap:wrap"><div><div class="name">Tu red de ruta</div><div class="meta">Conectá compañeros con invitaciones privadas</div></div><button class="action primary" id="addFriend">＋ Agregar nuevo amigo</button></div>
+  <div style="margin-top:12px"><button class="action hidden" id="addCommunityInvite">＋ Invitar a toda la comunidad</button><div id="communityCodeArea"></div></div>
+</div>
 <div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
 <div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
 </section>
@@ -94,72 +140,934 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <section id="perfil" hidden>
 <h1 class="section-title">Mi perfil</h1>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
-<label for="editNick">Apodo</label><input id="editNick" maxlength="32"><button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
+<label for="editNick">Apodo</label><input id="editNick" maxlength="32">
+<label for="editAvatar">Elegí tu avatar camionero</label><select id="editAvatar">
+<option value="truck">🚛 Camión</option><option value="truck2">🚚 Camión de reparto</option><option value="tractor">🚜 Tractor</option><option value="wheel">🛞 Rueda</option><option value="road">🛣️ Ruta</option><option value="gear">⚙️ Volante y mecánica</option><option value="flag">🏁 Bandera rutera</option><option value="fuel">⛽ Estación de servicio</option><option value="wrench">🔧 Mecánico</option><option value="construction">🚧 Ruta en obra</option><option value="pickup">🛻 Camioneta</option><option value="bus">🚌 Transporte</option>
+</select>
+<label for="editBio">Mi biografía</label><textarea id="editBio" maxlength="160" placeholder="Contá lo que quieras sobre vos…"></textarea>
+<p class="small">📢 Importante: todo lo que escribas en tu biografía será público y podrán verlo los integrantes de Choferes Argentinos al entrar a tu perfil. No publiques teléfonos, domicilios ni información privada.</p>
+<button class="action primary" id="saveNick">Guardar cambios</button><p class="small" id="profileMsg"></p></div>
+
+<div class="card" id="myBadgesCard">
+  <div class="name">Mis insignias camioneras</div>
+  <p class="small">Reconocimientos por méritos reales en la ruta. Cada insignia evoluciona de Bronce a Diamante.</p>
+  <div id="myBadges" class="badge-list"><span class="small">Cargando insignias…</span></div>
+</div>
+<div class="card hidden" id="badgeAdminCard">
+  <div class="name">Entregar una insignia</div>
+  <p class="small">Solo administración puede reconocer méritos y subir categorías. Una misma insignia se actualiza, no se duplica.</p>
+  <label for="badgeMember">Compañero</label><select id="badgeMember"><option value="">Cargando miembros…</option></select>
+  <div class="name" style="margin-top:12px">Insignias actuales de este compañero</div>
+  <div id="badgeMemberCurrent" class="badge-list"><span class="small">Elegí un compañero para revisar sus insignias.</span></div>
+  <label for="badgeType">Reconocimiento</label><select id="badgeType"></select>
+  <label for="badgeLevel">Categoría</label><select id="badgeLevel"><option>Bronce</option><option>Plata</option><option>Oro</option><option>Platino</option><option>Diamante</option></select>
+  <button class="action primary" id="awardBadge">Entregar insignia</button><p class="small" id="badgeAwardMsg"></p>
+</div>
+<div class="card hidden" id="publicProfileCard">
+  <div class="row" style="justify-content:space-between"><div class="name">Perfil del compañero</div><button class="action" id="closePublicProfile">Volver a mi perfil</button></div>
+  <div class="row" style="margin-top:12px"><div class="avatar" id="publicAvatar">🚛</div><div><div class="name" id="publicName"></div><div class="meta">Miembro de Choferes Argentinos</div><div class="presence" id="publicPresence"><span class="presence-dot"></span><span id="publicPresenceText">OFFLINE</span></div></div></div>
+  <div class="profile-stats"><div><strong id="publicFriendCount">0</strong> <span class="small">amigos</span></div><div><strong id="publicBadgeCount">0</strong> <span class="small">insignias</span></div></div>
+  <p id="publicBio" class="small"></p>
+  <div class="name" style="margin-top:14px">Insignias obtenidas</div>
+  <div id="publicBadges" class="badge-list"></div>
+  <div class="name" style="margin-top:18px">Muro de este compañero</div>
+  <div id="publicWall"><div class="empty">Cargando publicaciones…</div></div>
+</div>
 <div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
+</section>
+
+<section id="moderacion" hidden>
+<h1 class="section-title">Moderación</h1>
+<div class="card notice" id="pushSetupCard">
+  <div class="name">Alertas prioritarias para el administrador</div>
+  <p class="small">Activá las notificaciones en este teléfono para enterarte apenas un chofer envíe una publicación a revisión. Si la app está abierta, también sonará una alarma fuerte.</p>
+  <div class="actions">
+    <button class="action primary" id="enablePush">Activar notificaciones urgentes</button>
+    <button class="action" id="testAlarm">Probar sonido</button>
+  </div>
+  <p class="small" id="pushStatus">Comprobando notificaciones…</p>
+</div>
+<div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
+<h2 class="section-title">PAD · Partes pendientes de verificar</h2>
+<div id="pendingPad"><div class="empty">Cargando partes del PAD…</div></div>
 </section>
 </div>
 </main>
 <footer id="footer">Conectando con la comunidad…</footer>
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.0';
-const SUPABASE_URL='https://wihbxfebobfmohmqqhkt.supabase.co';
-const SUPABASE_KEY='sb_publishable_CmPT-xSeIUUtTUArdIYDgA_jhXY8nuZ';
-const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let user=null, profile=null, selectedStatus='libre', channel=null;
-const $=id=>document.getElementById(id);
-const initials=name=>(name||'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const time=s=>new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
-function showError(id,msg){$(id).textContent=msg||''}
-function setTab(tab){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));['muro','ruta','amigos','perfil'].forEach(id=>$(id).hidden=id!==tab);if(tab==='amigos')loadFriends();if(tab==='ruta'){loadRoute();loadAlerts()}}
+const API_BASE = 'https://choferes-argentinos-api.chazoncba.workers.dev';
+const TOKEN_KEY = 'ca_device_token_v1';
+let token = '';
+try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
+let profile = null, selectedStatus = 'libre', currentTab = 'muro';
+let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
+const $ = id => document.getElementById(id);
+const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const avatarGlyphs = {truck:'🚛',truck2:'🚚',tractor:'🚜',wheel:'🛞',road:'🛣️',gear:'⚙️',flag:'🏁',fuel:'⛽',wrench:'🔧',construction:'🚧',pickup:'🛻',bus:'🚌'};
+const avatarGlyph = (key,name) => avatarGlyphs[key] || initials(name);
+function setPresence(elementId,textId,isOnline){
+  const el=$(elementId); if(!el)return;
+  el.classList.toggle('online',!!isOnline);
+  $(textId).textContent=isOnline?'ONLINE':'OFFLINE';
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const time = s => s ? new Date(s).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'}) : '';
+function showError(id,msg){ $(id).textContent = msg || ''; }
+function saveToken(value){
+  token = value || '';
+  try { if(token) localStorage.setItem(TOKEN_KEY,token); else localStorage.removeItem(TOKEN_KEY); }
+  catch { throw new Error('El navegador no permitió guardar la sesión de este dispositivo.'); }
+}
+async function api(path, options = {}){
+  if(!API_BASE.startsWith('https://')) throw new Error('La API aislada de pruebas todavía no está configurada.');
+  const headers = new Headers(options.headers || {});
+  if(token) headers.set('Authorization','Bearer '+token);
+  let body = options.body;
+  if(body !== undefined && !(body instanceof FormData)){
+    headers.set('Content-Type','application/json');
+    body = JSON.stringify(body);
+  }
+  const response = await fetch(API_BASE + path,{method:options.method || 'GET',headers,body,cache:'no-store'});
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if(!response.ok){
+    const error = new Error(data.error || ('Error de conexión ('+response.status+').'));
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+function showOnboarding(message){
+  $('onboarding').classList.remove('hidden');
+  $('nav').classList.add('hidden');
+  $('app').classList.add('hidden');
+  $('footer').textContent = 'Perfil todavía no vinculado';
+  if(message) showError('joinError',message);
+}
+function setTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  ['muro','ruta','amigos','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
+  if(tab==='amigos') loadFriends();
+  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
+  if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
+  if(tab==='muro') loadFeed();
+}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
-$('joinMode').addEventListener('change',()=>{$('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');$('joinHelp').textContent=$('joinMode').value==='community'?'El primer ingreso crea tu perfil.':$('joinMode').value==='friend'?'La invitación crea tu perfil y conecta ambos compañeros.':'Este código vincula el segundo teléfono al mismo perfil.'});
-async function ensureAuth(){let {data,error}=await db.auth.getSession();if(error)throw error;user=data.session?.user||null;if(!user){const r=await db.auth.signInAnonymously();if(r.error)throw r.error;user=r.data.user}}
+$('joinMode').addEventListener('change',()=>{
+  $('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');
+  $('joinHelp').textContent = $('joinMode').value==='community'
+    ? 'El primer ingreso crea tu perfil.'
+    : $('joinMode').value==='friend'
+      ? 'La invitación crea tu perfil y conecta ambos compañeros.'
+      : 'Este código vincula el segundo teléfono al mismo perfil.';
+});
+$('ownerToggle').addEventListener('click',()=>{
+  $('ownerPanel').classList.toggle('hidden');
+  showError('ownerError','');
+});
+$('copyOwnerInvite').addEventListener('click',async()=>{
+  const code=$('ownerInviteCode').textContent;
+  try{ await navigator.clipboard.writeText(code); $('ownerInviteMsg').textContent='Código copiado. Guardalo en un lugar seguro.'; }
+  catch{ $('ownerInviteMsg').textContent='No se pudo copiar automáticamente; mantené presionado el código para copiarlo.'; }
+});
 async function boot(){
- try{await ensureAuth();const {data:device,error}=await db.from('ca_devices').select('profile_id').eq('user_id',user.id).maybeSingle();if(error)throw error;
-  if(!device){$('onboarding').classList.remove('hidden');$('nav').classList.add('hidden');$('app').classList.add('hidden');$('footer').textContent='Perfil todavía no vinculado';return}
-  const r=await db.from('ca_profiles').select('*').eq('id',device.profile_id).single();if(r.error)throw r.error;profile=r.data;
-  $('onboarding').classList.add('hidden');$('nav').classList.remove('hidden');$('app').classList.remove('hidden');$('footer').textContent='Comunidad privada · Conexión activa';
-  updateProfileUI();await Promise.all([loadFeed(),loadRoute(),loadAlerts()]);
-  if(channel)db.removeChannel(channel);
-  channel=db.channel('ca-live-'+profile.id).on('postgres_changes',{event:'*',schema:'public',table:'ca_posts'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_reactions'},()=>loadFeed()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_status'},()=>loadRoute()).on('postgres_changes',{event:'*',schema:'public',table:'ca_route_alerts'},()=>loadAlerts()).subscribe();
- }catch(e){$('footer').textContent='No se pudo conectar';$('onboarding').classList.remove('hidden');showError('joinError',e.message||String(e))}
+  if(!token){ showOnboarding(); return; }
+  try{
+    const result = await api('/api/me');
+    profile = result.profile || null;
+    if(!profile) throw new Error('El servidor no devolvió el perfil del dispositivo.');
+    profile.id = profile.profile_id;
+    $('onboarding').classList.add('hidden');
+    $('nav').classList.remove('hidden');
+    $('app').classList.remove('hidden');
+    $('footer').textContent = 'Comunidad privada · Conexión activa';
+    updateProfileUI();
+    await Promise.all([loadFeed(),loadRoute(),loadPadFeed()]);
+    if(['owner','moderator'].includes(profile.role)){
+      await Promise.all([loadModerationQueue(),loadPadModeration()]);
+      updatePushStatus().catch(()=>{});
+    }
+  }catch(error){
+    if(error.status===401){
+      saveToken('');
+      profile = null;
+      showOnboarding('La sesión de este dispositivo venció. Volvé a vincularlo con un código.');
+    }else{
+      $('footer').textContent = 'No se pudo conectar con la comunidad';
+      showError('joinError',error.message || String(error));
+      $('onboarding').classList.remove('hidden');
+    }
+  }
 }
 $('joinBtn').addEventListener('click',async()=>{
- const code=$('joinCode').value.trim(),nick=$('joinNick').value.trim(),mode=$('joinMode').value;
- showError('joinError','');if(!code){showError('joinError','Pegá el código de invitación.');return}
- if(mode!=='device'&&nick.length<2){showError('joinError','Escribí un apodo de al menos 2 caracteres.');return}
- $('joinBtn').disabled=true;$('joinBtn').textContent='Vinculando…';
- try{let result;
-  if(mode==='community')result=await db.rpc('ca_join_community',{p_code:code,p_nickname:nick});
-  else result=await db.rpc('ca_redeem_invite',{p_code:code,p_nickname:mode==='device'?null:nick});
-  if(result.error)throw result.error;$('joinCode').value='';await boot();
- }catch(e){showError('joinError',e.message||String(e))}
- finally{$('joinBtn').disabled=false;$('joinBtn').textContent='Vincularme'}
+  const code = $('joinCode').value.trim();
+  const nickname = $('joinNick').value.trim();
+  const mode = $('joinMode').value;
+  showError('joinError','');
+  if(!code){ showError('joinError','Pegá el código de invitación.'); return; }
+  if(mode!=='device' && nickname.length<2){ showError('joinError','Escribí un apodo de al menos 2 caracteres.'); return; }
+  $('joinBtn').disabled = true;
+  $('joinBtn').textContent = 'Vinculando…';
+  try{
+    const result = mode==='device'
+      ? await api('/api/link-device',{method:'POST',body:{code}})
+      : await api('/api/join',{method:'POST',body:{code,nickname}});
+    if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
+    saveToken(result.token);
+    $('joinCode').value = '';
+    await boot();
+  }catch(error){ showError('joinError',error.message || String(error)); }
+  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent='Vincularme'; }
 });
-function updateProfileUI(){const n=profile.nickname;$('composerName').textContent='Compartí con la comunidad';$('myAvatar').textContent=initials(n);$('profileAvatar').textContent=initials(n);$('profileName').textContent=n;$('editNick').value=n}
-async function loadFeed(){
- const box=$('feed');const {data:posts,error}=await db.from('ca_posts').select('id,profile_id,body,photo_url,created_at,profile:ca_profiles!ca_posts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).order('created_at',{ascending:false}).limit(60);
- if(error){box.innerHTML='<div class="empty">No se pudo cargar el muro.</div>';return}
- if(!posts.length){box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>';return}
- const {data:reactions}=await db.from('ca_reactions').select('post_id,profile_id,reaction').eq('reaction','like').limit(1000);
- const counts={};const mine={};(reactions||[]).forEach(r=>{counts[r.post_id]=(counts[r.post_id]||0)+1;if(r.profile_id===profile.id)mine[r.post_id]=true});
- box.replaceChildren();
- posts.forEach(p=>{const article=document.createElement('article');article.className='card';const head=document.createElement('div');head.className='row';const av=document.createElement('div');av.className='avatar';av.textContent=initials(p.profile?.nickname);const who=document.createElement('div');who.innerHTML='<div class="name">'+esc(p.profile?.nickname||'Compañero')+'</div><div class="meta">'+time(p.created_at)+'</div>';head.append(av,who);const body=document.createElement('div');body.className='post';body.textContent=p.body;const actions=document.createElement('div');actions.className='actions';const like=document.createElement('button');like.className='action';like.textContent=(mine[p.id]?'♥':'♡')+' Me gusta · '+(counts[p.id]||0);if(mine[p.id])like.style.borderColor='var(--cyan)';like.addEventListener('click',()=>toggleLike(p.id,!!mine[p.id]));actions.append(like);article.append(head,body,actions);box.append(article)});
+$('ownerBootstrap').addEventListener('click',async()=>{
+  const setupSecret=$('ownerSecret').value;
+  const nickname=$('ownerNick').value.trim();
+  showError('ownerError','');
+  if(!setupSecret){ showError('ownerError','Pegá el valor del secreto SETUP_SECRET.'); return; }
+  if(nickname.length<2){ showError('ownerError','Escribí un apodo de al menos 2 caracteres.'); return; }
+  $('ownerBootstrap').disabled=true;
+  $('ownerBootstrap').textContent='Creando comunidad…';
+  try{
+    try{
+      const testKey='ca_storage_check';
+      localStorage.setItem(testKey,'1');
+      localStorage.removeItem(testKey);
+    }catch{ throw new Error('El navegador no permite guardar la sesión. Habilitá el almacenamiento del sitio y volvé a intentar.'); }
+    const response=await fetch(API_BASE+'/api/bootstrap',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Setup-Secret':setupSecret},
+      body:JSON.stringify({community_name:'Choferes Argentinos',nickname}),
+      cache:'no-store'
+    });
+    let result={};
+    try{ result=await response.json(); }catch{}
+    if(!response.ok) throw new Error(result.error || ('No se pudo inicializar la comunidad ('+response.status+').'));
+    if(!result.token || !result.invite_code) throw new Error('El servidor no devolvió el acceso y el código de invitación.');
+    saveToken(result.token);
+    $('ownerSecret').value='';
+    $('ownerPanel').classList.add('hidden');
+    await boot();
+    if(!profile) throw new Error('La comunidad se creó, pero no se pudo abrir la sesión. No vuelvas a inicializarla; avisame para recuperar el acceso.');
+    $('ownerInviteCode').textContent=result.invite_code;
+    $('ownerWelcome').classList.remove('hidden');
+    $('ownerWelcome').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(error){
+    $('ownerSecret').value='';
+    showError('ownerError',error.message || String(error));
+  }finally{
+    $('ownerBootstrap').disabled=false;
+    $('ownerBootstrap').textContent='Crear mi cuenta de administrador';
+  }
+});
+function updateProfileUI(){
+  const nickname = profile.nickname || 'Compañero';
+  $('composerName').textContent = 'Compartí con la comunidad';
+  $('myAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
+  $('profileAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
+  $('profileName').textContent = nickname;
+  $('editNick').value = nickname;
+  $('editAvatar').value = profile.avatar_key || 'truck';
+  $('editBio').value = profile.bio || '';
+  const canModerate=['owner','moderator'].includes(profile.role);
+  $('addCommunityInvite').classList.toggle('hidden',!canModerate);
+  $('moderationNav').classList.toggle('hidden',!canModerate);
+  loadOwnBadges();
+  if(canModerate) loadBadgeAdmin();
 }
-async function toggleLike(postId,liked){let r;if(liked)r=await db.from('ca_reactions').delete().eq('post_id',postId).eq('profile_id',profile.id).eq('reaction','like');else r=await db.from('ca_reactions').insert({post_id:postId,profile_id:profile.id,reaction:'like'});if(r.error)alert(r.error.message);else loadFeed()}
-$('publish').addEventListener('click',async()=>{const body=$('postText').value.trim();if(!body)return;$('publish').disabled=true;const r=await db.from('ca_posts').insert({community_id:profile.community_id,profile_id:profile.id,body});$('publish').disabled=false;if(r.error){$('publishMsg').textContent=r.error.message;return}$('postText').value='';$('publishMsg').textContent='Publicado en la comunidad';setTimeout(()=>$('publishMsg').textContent='',2500);loadFeed()});
-$('statusChoices').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{selectedStatus=b.dataset.status;$('statusChoices').querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b))}));
-$('saveStatus').addEventListener('click',async()=>{const r=await db.from('ca_route_status').upsert({profile_id:profile.id,community_id:profile.community_id,status:selectedStatus,location_label:$('routeLocation').value.trim()||null,note:$('routeNote').value.trim(),expires_at:new Date(Date.now()+24*3600*1000).toISOString(),updated_at:new Date().toISOString()},{onConflict:'profile_id'});$('statusMsg').textContent=r.error?r.error.message:'Estado compartido por 24 horas';if(!r.error)loadRoute()});
-async function loadRoute(){const {data,error}=await db.from('ca_route_status').select('profile_id,status,location_label,note,updated_at,expires_at,profile:ca_profiles!ca_route_status_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('updated_at',{ascending:false});const box=$('routeFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los estados.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay estados compartidos.</div>';return}data.forEach(s=>{const d=document.createElement('div');d.className='card';d.innerHTML='<div class="name">'+esc(s.profile?.nickname||'Compañero')+' · '+esc(s.status)+'</div><div class="meta">'+esc(s.location_label||'Ubicación no indicada')+' · '+time(s.updated_at)+'</div><div class="post">'+esc(s.note||'')+'</div>';box.append(d)})}
-$('sendAlert').addEventListener('click',async()=>{const body=$('alertBody').value.trim();if(!body)return;$('sendAlert').disabled=true;const r=await db.from('ca_route_alerts').insert({community_id:profile.community_id,profile_id:profile.id,kind:$('alertKind').value,road:$('alertRoad').value.trim()||null,location_label:$('alertLocation').value.trim()||null,body,expires_at:new Date(Date.now()+12*3600*1000).toISOString()});$('sendAlert').disabled=false;$('alertMsg').textContent=r.error?r.error.message:'Aviso publicado por 12 horas';if(!r.error){$('alertBody').value='';loadAlerts()}});
-async function loadAlerts(){const {data,error}=await db.from('ca_route_alerts').select('id,kind,road,location_label,body,created_at,expires_at,profile:ca_profiles!ca_route_alerts_profile_id_fkey(nickname)').eq('community_id',profile.community_id).gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(30);const box=$('alertsFeed');if(error){box.innerHTML='<div class="empty">No se pudieron cargar los avisos.</div>';return}box.replaceChildren();if(!data.length){box.innerHTML='<div class="empty">Todavía no hay avisos vigentes.</div>';return}data.forEach(a=>{const d=document.createElement('div');d.className='card notice';d.innerHTML='<div class="name">'+esc(a.kind.toUpperCase())+' · '+esc(a.road||'Ruta sin especificar')+'</div><div class="meta">'+esc(a.profile?.nickname||'Compañero')+' · '+esc(a.location_label||'Zona no indicada')+' · '+time(a.created_at)+'</div><div class="post">'+esc(a.body)+'</div>';box.append(d)})}
-async function createCode(kind,target){const {data,error}=await db.rpc('ca_create_invite',{p_kind:kind});if(error){$(target).textContent=error.message;return}const area=$(target);area.innerHTML='<div class="code">'+esc(data)+'</div><div class="small">Código de un solo uso · vence en 24 horas</div><button class="action" id="copyInvite">Copiar código</button>';area.querySelector('#copyInvite').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(data);area.querySelector('#copyInvite').textContent='Copiado'}catch{area.querySelector('#copyInvite').textContent='Seleccioná y copiá el código'}})}
+function badgeLabel(key){
+  const labels={rueda_nueva:'Rueda Nueva',volante_firme:'Volante Firme',kilometro_de_oro:'Kilómetro de Oro',senor_de_las_rutas:'Señor de las Rutas',mano_camionera:'Mano Camionera',ojo_rutero:'Ojo Rutero',rey_de_la_noche:'Rey de la Noche',mecanico_de_emergencia:'Mecánico de Emergencia',companero_solidario:'Compañero Solidario',veterano_del_volante:'Veterano del Volante',carga_segura:'Carga Segura'};
+  return labels[key] || key;
+}
+function badgeDescription(key){
+  const descriptions={rueda_nueva:'Primeros pasos y adaptación a la vida camionera.',volante_firme:'Experiencia, responsabilidad y criterio al volante.',kilometro_de_oro:'Trayectoria y constancia demostradas en la ruta.',senor_de_las_rutas:'Referente respetado por su experiencia y conducta.',mano_camionera:'Ayuda concreta y compañerismo con otros camioneros.',ojo_rutero:'Avisos de ruta útiles, oportunos y comprobados.',rey_de_la_noche:'Experiencia y responsabilidad en recorridos nocturnos.',mecanico_de_emergencia:'Conocimientos y asistencia mecánica que ayudan en ruta.',companero_solidario:'Apoyo real a colegas ante una necesidad.',veterano_del_volante:'Años de oficio y experiencia camionera reconocida.',carga_segura:'Compromiso demostrado con el cuidado de la carga y la seguridad.'};
+  return descriptions[key] || 'Reconocimiento por méritos camioneros.';
+}
+function renderBadges(container,awards){
+  container.replaceChildren();
+  if(!awards?.length){container.innerHTML='<span class="small">Todavía no recibió insignias.</span>';return;}
+  awards.forEach(award=>{
+    const item=document.createElement('div');item.className='badge-item';
+    const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key);
+    const level=document.createElement('div');level.className='badge-chip';level.textContent=award.level;
+    const description=document.createElement('div');description.className='small';description.textContent=badgeDescription(award.badge_key);
+    item.append(title,level,description);container.append(item);
+  });
+}
+async function loadOwnBadges(){
+  try{const result=await api('/api/badges');renderBadges($('myBadges'),result.awards||[]);}
+  catch(error){$('myBadges').textContent=error.message||String(error);}
+}
+async function loadBadgeAdmin(){
+  if(!profile || !['owner','moderator'].includes(profile.role))return;
+  $('badgeAdminCard').classList.remove('hidden');
+  try{
+    const [catalog,members]=await Promise.all([api('/api/badges/catalog'),api('/api/community/members')]);
+    $('badgeType').replaceChildren();
+    (catalog.badges||[]).forEach(b=>{const option=document.createElement('option');option.value=b.key;option.textContent=b.name+' · '+b.description;$('badgeType').append(option);});
+    $('badgeMember').replaceChildren();
+    (members.members||[]).forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.nickname;$('badgeMember').append(option);});
+    if(!members.members?.length){const option=document.createElement('option');option.value='';option.textContent='No hay miembros';$('badgeMember').append(option);}
+    await loadMemberBadges();
+  }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);}
+}
+async function loadMemberBadges(){
+  const targetId=$('badgeMember').value, box=$('badgeMemberCurrent');
+  if(!targetId){box.innerHTML='<span class="small">Elegí un compañero para revisar sus insignias.</span>';return;}
+  box.innerHTML='<span class="small">Cargando insignias…</span>';
+  try{
+    const result=await api('/api/badges?profile_id='+encodeURIComponent(targetId));
+    const awards=result.awards||[];
+    box.replaceChildren();
+    if(!awards.length){box.innerHTML='<span class="small">Este compañero todavía no tiene insignias.</span>';return;}
+    awards.forEach(award=>{
+      const item=document.createElement('div');item.className='badge-item';
+      const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key)+' · '+award.level;
+      const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Quitar insignia';
+      remove.addEventListener('click',async()=>{
+        if(!confirm('¿Quitar '+badgeLabel(award.badge_key)+' del perfil de este compañero?'))return;
+        remove.disabled=true;
+        try{
+          await api('/api/badges/remove',{method:'POST',body:{profile_id:targetId,badge_key:award.badge_key}});
+          $('badgeAwardMsg').textContent='Insignia retirada del perfil.';
+          await Promise.all([loadMemberBadges(),loadOwnBadges(),loadFeed()]);
+        }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);remove.disabled=false;}
+      });
+      item.append(title,remove);box.append(item);
+    });
+  }catch(error){box.textContent=error.message||String(error);}
+}
+$('badgeMember').addEventListener('change',loadMemberBadges);
+async function openPublicProfile(profileId){
+  if(!profileId)return;
+  setTab('perfil');
+  $('publicProfileCard').classList.remove('hidden');
+  $('publicName').textContent='Cargando perfil…';
+  $('publicBio').textContent='';
+  $('publicBadges').replaceChildren();
+  $('publicWall').replaceChildren();
+  try{
+    const [result,wall]=await Promise.all([
+      api('/api/badges?profile_id='+encodeURIComponent(profileId)),
+      api('/api/posts?profile_id='+encodeURIComponent(profileId)+'&limit=60')
+    ]);
+    $('publicName').textContent=result.profile.nickname||'Compañero';
+    $('publicAvatar').textContent=avatarGlyph(result.profile.avatar_key,result.profile.nickname);
+    $('publicFriendCount').textContent=String(result.profile.friend_count||0);
+    $('publicBadgeCount').textContent=String((result.awards||[]).length);
+    setPresence('publicPresence','publicPresenceText',!!result.profile.is_online);
+    $('publicBio').textContent=result.profile.bio||'Este compañero todavía no agregó una biografía.';
+    renderBadges($('publicBadges'),result.awards||[]);
+    renderPublicWall(wall.posts||[]);
+  }catch(error){
+    $('publicName').textContent=error.message||String(error);
+    $('publicWall').innerHTML='<div class="empty">No se pudo cargar el muro.</div>';
+  }
+}
+function renderPublicWall(posts){
+  const wall=$('publicWall');
+  wall.replaceChildren();
+  if(!posts.length){
+    wall.innerHTML='<div class="empty">Todavía no tiene publicaciones en su muro.</div>';
+    return;
+  }
+  posts.forEach(post=>{
+    const article=document.createElement('article');
+    article.className='card';
+    article.style.margin='10px 0 0';
+    const date=document.createElement('div');
+    date.className='meta';
+    date.textContent=time(post.created_at);
+    const body=document.createElement('div');
+    body.className='post';
+    body.textContent=post.body||'';
+    article.append(date);
+    if(post.body)article.append(body);
+    if(post.media_id){
+      const photo=document.createElement('img');
+      photo.alt='Foto publicada por '+($('publicName').textContent||'un compañero');
+      photo.loading='lazy';
+      photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
+      article.append(photo);
+    }
+    wall.append(article);
+  });
+}
+$('closePublicProfile').addEventListener('click',()=>$('publicProfileCard').classList.add('hidden'));
+$('awardBadge').addEventListener('click',async()=>{
+  const profileId=$('badgeMember').value,badge_key=$('badgeType').value,level=$('badgeLevel').value;
+  if(!profileId||!badge_key){$('badgeAwardMsg').textContent='Elegí un compañero y una insignia.';return;}
+  $('awardBadge').disabled=true;
+  try{
+    const result=await api('/api/badges/award',{method:'POST',body:{profile_id:profileId,badge_key,level}});
+    $('badgeAwardMsg').textContent='¡Insignia entregada! El reconocimiento ya se publicó en el muro.';
+    await Promise.all([loadOwnBadges(),loadFeed()]);
+  }catch(error){$('badgeAwardMsg').textContent=error.message||String(error);}
+  finally{$('awardBadge').disabled=false;}
+});
+
+async function loadFeed(){
+  const box = $('feed');
+  try{
+    const result = await api('/api/posts?limit=60');
+    const posts = result.posts || [];
+    if(!posts.length){ box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>'; return; }
+    box.replaceChildren();
+    posts.forEach(post=>{
+      const article = document.createElement('article');
+      article.className = 'card';
+      const head = document.createElement('div');
+      head.className = 'row';
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = avatarGlyph(post.avatar_key,post.nickname);
+      const who = document.createElement('div');
+      const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
+      who.innerHTML = '<button type="button" class="profile-link">'+esc(post.nickname || 'Compañero')+'</button><div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
+      who.querySelector('.profile-link').addEventListener('click',()=>openPublicProfile(post.profile_id));
+      head.append(avatar,who);
+      const body = document.createElement('div');
+      body.className = 'post';
+      body.textContent = post.body || '';
+      article.append(head,body);
+      if(post.media_id){
+        const photo = document.createElement('img');
+        photo.alt = 'Imagen compartida por '+(post.nickname || 'un compañero');
+        photo.loading = 'lazy';
+        photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
+        article.append(photo);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const like = document.createElement('button');
+      like.className = 'action';
+      like.textContent = (post.liked_by_me ? '❤️' : '🤍')+' Me gusta · '+(post.likes || 0);
+      if(post.liked_by_me) like.style.borderColor='var(--cyan)';
+      like.addEventListener('click',async()=>{
+        like.disabled=true;
+        try{ await api('/api/reactions',{method:'POST',body:{post_id:post.id}}); await loadFeed(); }
+        catch(error){ alert(error.message || String(error)); like.disabled=false; }
+      });
+      actions.append(like);
+      if(profile && post.profile_id===profile.id){
+        const edit=document.createElement('button');
+        edit.className='action';
+        edit.textContent='Editar';
+        edit.addEventListener('click',async()=>{
+          const revised=prompt('Editá el texto de tu publicación:',post.body||'');
+          if(revised===null)return;
+          if(!revised.trim() && !post.media_id){alert('La publicación no puede quedar vacía.');return;}
+          edit.disabled=true;
+          try{
+            const updated=await api('/api/posts/'+encodeURIComponent(post.id),{method:'PATCH',body:{body:revised.trim(),media_id:post.media_id||null}});
+            alert(updated.status==='pending'?'Cambios enviados a moderación.':'Publicación actualizada.');
+            await loadFeed();
+          }catch(error){alert(error.message||String(error));edit.disabled=false;}
+        });
+        const remove=document.createElement('button');
+        remove.className='action';
+        remove.textContent='Eliminar';
+        remove.addEventListener('click',async()=>{
+          if(!confirm('¿Eliminar definitivamente tu publicación del muro?'))return;
+          remove.disabled=true;
+          try{await api('/api/posts/'+encodeURIComponent(post.id),{method:'DELETE'});await loadFeed();}
+          catch(error){alert(error.message||String(error));remove.disabled=false;}
+        });
+        actions.append(edit,remove);
+      }
+      article.append(actions);
+      box.append(article);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudo cargar el muro: '+esc(error.message || String(error))+'</div>'; }
+}
+function imageLoadError(error){
+  const note=document.createElement('div');
+  note.className='photo-load-error';
+  const detail=error?.message ? ' Detalle: '+error.message : '';
+  note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada.'+detail;
+  return note;
+}
+async function loadMedia(mediaId){
+  let response;
+  try{
+    response=await fetch(API_BASE+'/api/media/'+encodeURIComponent(mediaId),{
+      headers: token ? {Authorization:'Bearer '+token} : {},
+      cache:'no-store'
+    });
+  }catch(error){
+    throw new Error('No se pudo conectar con el servidor de imágenes. Revisá la conexión y el acceso a la API.');
+  }
+  if(!response.ok){
+    let detail='';
+    try{const data=await response.clone().json();detail=[data.error,data.detail].filter(Boolean).join(' — ');}catch{}
+    throw new Error('El servidor respondió '+response.status+(detail?': '+detail:'.'));
+  }
+  const contentType=response.headers.get('content-type') || '';
+  if(!contentType.startsWith('image/')) throw new Error('La API respondió, pero no entregó un archivo de imagen.');
+  const blob=await response.blob();
+  if(!blob.size) throw new Error('El servidor devolvió una imagen vacía.');
+  return URL.createObjectURL(blob);
+}
+function syncPublishButton(){
+  $('publish').disabled = publishingPost || preparingPhoto || (!$('postText').value.trim() && !selectedPhoto);
+}
+function clearSelectedPhoto(){
+  if(selectedPhotoUrl) URL.revokeObjectURL(selectedPhotoUrl);
+  selectedPhoto=null; selectedPhotoUrl=''; uploadedPhotoId='';
+  $('postPhoto').value='';
+  $('photoPreviewImage').removeAttribute('src');
+  $('photoName').textContent='';
+  $('photoPreview').classList.add('hidden');
+  $('photoHint').textContent='Opcional · JPG, PNG o WebP';
+  syncPublishButton();
+}
+async function optimizePhoto(file){
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Elegí una foto JPG, PNG o WebP.');
+  if(typeof createImageBitmap!=='function') throw new Error('Este navegador no puede preparar la foto. Probá con Chrome actualizado.');
+  const bitmap=await createImageBitmap(file);
+  try{
+    const canvas=document.createElement('canvas');
+    const context=canvas.getContext('2d');
+    if(!context) throw new Error('No se pudo preparar la imagen.');
+    let output=null;
+    for(const maxSide of [1600,1400,1200,1000,900]){
+      const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+      canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      context.clearRect(0,0,canvas.width,canvas.height);
+      context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      for(const quality of [0.82,0.72,0.62]){
+        output=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+        if(output && output.size<=900*1024) break;
+      }
+      if(output && output.size<=900*1024) break;
+    }
+    if(!output) throw new Error('No se pudo procesar la foto.');
+    if(output.size>1024*1024) throw new Error('La foto sigue siendo demasiado pesada. Elegí otra imagen.');
+    const extension=output.type==='image/jpeg'?'jpg':output.type==='image/png'?'png':'webp';
+    return new File([output],'foto.'+extension,{type:output.type || 'image/webp',lastModified:Date.now()});
+  }finally{ bitmap.close?.(); }
+}
+$('choosePhoto').addEventListener('click',()=>$('postPhoto').click());
+$('postPhoto').addEventListener('change',async()=>{
+  const file=$('postPhoto').files?.[0];
+  if(!file) return;
+  preparingPhoto=true;
+  $('choosePhoto').disabled=true;
+  $('removePhoto').disabled=true;
+  syncPublishButton();
+  $('photoHint').textContent='Preparando foto…';
+  try{
+    const prepared=await optimizePhoto(file);
+    if(selectedPhotoUrl) URL.revokeObjectURL(selectedPhotoUrl);
+    selectedPhoto=prepared; uploadedPhotoId='';
+    selectedPhotoUrl=URL.createObjectURL(prepared);
+    $('photoPreviewImage').src=selectedPhotoUrl;
+    $('photoPreview').classList.remove('hidden');
+    $('photoName').textContent=file.name+' · '+Math.round(prepared.size/1024)+' KB';
+    $('photoHint').textContent='Foto lista para publicar';
+    syncPublishButton();
+  }catch(error){
+    clearSelectedPhoto();
+    $('photoHint').textContent=error.message || 'No se pudo preparar la foto.';
+  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('removePhoto').disabled=false; syncPublishButton(); }
+});
+$('removePhoto').addEventListener('click',clearSelectedPhoto);
+$('postText').addEventListener('input',syncPublishButton);
+$('publish').addEventListener('click',async()=>{
+  const body=$('postText').value.trim();
+  if(!body && !selectedPhoto) return;
+  publishingPost=true;
+  $('publish').disabled=true;
+  $('choosePhoto').disabled=true;
+  $('removePhoto').disabled=true;
+  $('postText').disabled=true;
+  try{
+    if(selectedPhoto && !uploadedPhotoId){
+      $('publishMsg').textContent='Subiendo foto…';
+      const form=new FormData();
+      form.append('file',selectedPhoto,selectedPhoto.name || 'foto.webp');
+      const uploaded=await api('/api/media',{method:'POST',body:form});
+      if(!uploaded.media_id) throw new Error('No se pudo confirmar la foto subida.');
+      uploadedPhotoId=uploaded.media_id;
+    }
+    $('publishMsg').textContent='Publicando…';
+    const created=await api('/api/posts',{method:'POST',body:{body,media_id:uploadedPhotoId || null}});
+    $('postText').value='';
+    clearSelectedPhoto();
+    $('publishMsg').textContent=created.status==='pending'
+      ? 'Enviado a revisión. Te avisaremos cuando sea aprobado.'
+      : 'Publicado en la comunidad';
+    await loadFeed();
+  }catch(error){ $('publishMsg').textContent=error.message || String(error); }
+  finally{
+    publishingPost=false;
+    $('choosePhoto').disabled=false;
+    $('removePhoto').disabled=false;
+    $('postText').disabled=false;
+    syncPublishButton();
+  }
+});
+syncPublishButton();
+$('statusChoices').querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{
+  selectedStatus=button.dataset.status;
+  $('statusChoices').querySelectorAll('button').forEach(item=>item.classList.toggle('selected',item===button));
+}));
+$('saveStatus').addEventListener('click',async()=>{
+  $('saveStatus').disabled=true;
+  try{
+    await api('/api/route/status',{method:'PUT',body:{
+      status:selectedStatus,
+      location:$('routeLocation').value.trim(),
+      note:$('routeNote').value.trim()
+    }});
+    $('statusMsg').textContent='Estado compartido por 24 horas';
+    await loadRoute();
+  }catch(error){ $('statusMsg').textContent=error.message || String(error); }
+  finally{ $('saveStatus').disabled=false; }
+});
+async function loadRoute(){
+  const box=$('routeFeed');
+  try{
+    const result=await api('/api/route/status');
+    const statuses=result.statuses || [];
+    if(!statuses.length){ box.innerHTML='<div class="empty">Todavía no hay estados compartidos.</div>'; return; }
+    box.replaceChildren();
+    statuses.forEach(status=>{
+      const card=document.createElement('div');
+      card.className='card';
+      const name=document.createElement('div');
+      name.className='name';
+      const statusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
+      name.textContent=(status.nickname || 'Compañero')+' · '+(statusLabels[status.status]||status.status);
+      const meta=document.createElement('div');
+      meta.className='meta';
+      meta.textContent=(status.location_label || 'Ubicación no indicada')+' · '+time(status.updated_at);
+      const note=document.createElement('div');
+      note.className='post';
+      note.textContent=status.note || '';
+      card.append(name,meta,note);
+      box.append(card);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
+}
+
+let padPhotoFile=null, padAudioFile=null;
+$('padPhoto').addEventListener('change',()=>{padPhotoFile=$('padPhoto').files?.[0]||null;syncPadFiles();});
+$('padAudio').addEventListener('change',()=>{padAudioFile=$('padAudio').files?.[0]||null;syncPadFiles();});
+function syncPadFiles(){
+ const parts=[]; if(padPhotoFile)parts.push('Foto: '+padPhotoFile.name); if(padAudioFile)parts.push('Audio: '+padAudioFile.name);
+ $('padFiles').textContent=parts.join(' · ')||'Sin archivos adjuntos.';
+}
+$('sendPad').addEventListener('click',async()=>{
+ const body=$('padBody').value.trim(), location=$('padLocation').value.trim(), kind=$('padKind').value;
+ if(!body&&!location&&!padPhotoFile&&!padAudioFile){$('padMsg').textContent='Agregá una descripción, ubicación o archivo.';return;}
+ const button=$('sendPad'); button.disabled=true; $('padMsg').textContent='Enviando parte al servidor…';
+ try{
+  let mediaId='';
+  if(padPhotoFile){
+   const prepared=await optimizePhoto(padPhotoFile);
+   const fd=new FormData(); fd.append('file',prepared,'pad-foto.webp');
+   const uploaded=await api('/api/media',{method:'POST',body:fd});
+   if(!uploaded.media_id||!uploaded.bytes)throw new Error('El servidor no confirmó el guardado de la fotografía.');
+   mediaId=uploaded.media_id;
+  }
+  const form=new FormData(); form.append('kind',kind);form.append('body',body);form.append('location',location);
+  if(mediaId)form.append('media_id',mediaId);
+  if(padAudioFile)form.append('audio',padAudioFile,padAudioFile.name);
+  const result=await api('/api/activity',{method:'POST',body:form});
+  if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
+  $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
+  $('padMsg').textContent='Tu parte fue recibida y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
+ }catch(error){$('padMsg').textContent=error.message||String(error);}
+ finally{button.disabled=false;}
+});
+async function loadPadFeed(){
+ const box=$('padFeed');try{
+  const result=await api('/api/activity');const items=result.activities||[];
+  if(!items.length){box.innerHTML='<div class="empty">Todavía no hay partes verificados.</div>';return;}
+  box.replaceChildren();
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='card notice';
+   const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.location_label||'Ubicación no indicada');
+   const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.nickname||'Compañero')+' · '+time(item.created_at);
+   const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
+   card.append(head,meta,body);
+   if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Fotografía del parte verificado';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
+   if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
+   box.append(card);
+  });
+ }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los partes: '+esc(error.message||String(error))+'</div>';}
+}
+async function loadPadModeration(){
+ if(!profile||!['owner','moderator'].includes(profile.role))return;
+ const box=$('pendingPad');try{
+  const result=await api('/api/moderation/activity');const items=result.activities||[];
+  if(!items.length){box.innerHTML='<div class="empty">No hay partes del PAD pendientes de verificar.</div>';return;}
+  box.replaceChildren();
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='card';card.id='pad-pending-'+item.id;
+   const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.nickname||'Compañero');
+   const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.location_label||'Ubicación no indicada')+' · '+time(item.created_at);
+   const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
+   card.append(head,meta,body);
+   if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Foto adjunta al parte pendiente';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
+   if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
+   const actions=document.createElement('div');actions.className='actions';
+   for(const [action,label,primary] of [['approve','Verificar y publicar',true],['reject','Rechazar',false]]){
+    const btn=document.createElement('button');btn.className='action'+(primary?' primary':'');btn.textContent=label;
+    btn.addEventListener('click',async()=>{actions.querySelectorAll('button').forEach(b=>b.disabled=true);try{await api('/api/moderation/activity/'+encodeURIComponent(item.id),{method:'PATCH',body:{action}});await Promise.all([loadPadModeration(),loadPadFeed()]);}catch(error){$('pushStatus').textContent=error.message||String(error);actions.querySelectorAll('button').forEach(b=>b.disabled=false);}});
+    actions.append(btn);
+   }
+   card.append(actions);box.append(card);
+  });
+ }catch(error){box.innerHTML='<div class="empty">No se pudo cargar la cola del PAD: '+esc(error.message||String(error))+'</div>';}
+}
+async function loadModerationQueue(){
+  if(!profile || !['owner','moderator'].includes(profile.role)) return;
+  const box=$('pendingPosts');
+  try{
+    const result=await api('/api/moderation/posts');
+    const posts=result.posts || [];
+    $('pendingBadge').textContent=String(posts.length);
+    if(!posts.length){ box.innerHTML='<div class="empty">No hay publicaciones pendientes. ¡Todo al día!</div>'; return; }
+    box.replaceChildren();
+    posts.forEach(post=>{
+      const card=document.createElement('article');
+      card.className='card';
+      card.id='pending-'+post.id;
+      const head=document.createElement('div');
+      head.className='row';
+      const avatar=document.createElement('div');
+      avatar.className='avatar';
+      avatar.textContent=initials(post.nickname);
+      const who=document.createElement('div');
+      who.innerHTML='<div class="name">'+esc(post.nickname || 'Compañero')+'</div><div class="meta">Enviado '+time(post.created_at)+'</div>';
+      head.append(avatar,who);
+      const body=document.createElement('div');
+      body.className='post';
+      body.textContent=post.body || '';
+      card.append(head,body);
+      if(post.media_id){
+        const photo=document.createElement('img');
+        photo.alt='Foto adjunta a la publicación pendiente';
+        photo.loading='lazy';
+        photo.className='feed-photo';
+        photo.decoding='async';
+        loadMedia(post.media_id).then(url=>{if(url){photo.src=url;}else{photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}}).catch(error=>photo.replaceWith(imageLoadError(error)));
+        card.append(photo);
+      }
+      const actions=document.createElement('div');
+      actions.className='actions';
+      const approve=document.createElement('button');
+      approve.className='action primary';
+      approve.textContent='Aprobar y publicar';
+      const reject=document.createElement('button');
+      reject.className='action';
+      reject.textContent='Rechazar';
+      const decide=async(action,button)=>{
+        approve.disabled=true; reject.disabled=true;
+        try{
+          await api('/api/moderation/posts/'+encodeURIComponent(post.id),{method:'PATCH',body:{action}});
+          await Promise.all([loadModerationQueue(),loadFeed()]);
+        }catch(error){
+          $('pushStatus').textContent=error.message || String(error);
+          approve.disabled=false; reject.disabled=false;
+        }
+      };
+      approve.addEventListener('click',()=>decide('approve',approve));
+      reject.addEventListener('click',()=>decide('reject',reject));
+      actions.append(approve,reject);
+      card.append(actions);
+      box.append(card);
+    });
+    const target=new URLSearchParams(location.search).get('post');
+    if(target){ const item=$('pending-'+target); if(item)item.scrollIntoView({behavior:'smooth',block:'center'}); }
+  }catch(error){
+    box.innerHTML='<div class="empty">No se pudo cargar la moderación: '+esc(error.message || String(error))+'</div>';
+  }
+}
+let alarmAudioContext=null;
+async function unlockAlarmAudio(){
+  const AudioContextClass=window.AudioContext || window.webkitAudioContext;
+  if(!AudioContextClass) throw new Error('Este navegador no permite reproducir la alarma dentro de la app.');
+  if(!alarmAudioContext) alarmAudioContext=new AudioContextClass();
+  if(alarmAudioContext.state==='suspended') await alarmAudioContext.resume();
+}
+function playModerationAlarm(){
+  if(!alarmAudioContext || document.hidden) return;
+  const context=alarmAudioContext;
+  const start=context.currentTime+0.03;
+  for(let i=0;i<4;i++){
+    const at=start+i*0.48;
+    const oscillator=context.createOscillator();
+    const gain=context.createGain();
+    oscillator.type='square';
+    oscillator.frequency.setValueAtTime(i%2===0?880:660,at);
+    gain.gain.setValueAtTime(0.0001,at);
+    gain.gain.exponentialRampToValueAtTime(0.72,at+0.025);
+    gain.gain.setValueAtTime(0.72,at+0.23);
+    gain.gain.exponentialRampToValueAtTime(0.0001,at+0.31);
+    oscillator.connect(gain); gain.connect(context.destination);
+    oscillator.start(at); oscillator.stop(at+0.33);
+  }
+}
+async function updatePushStatus(){
+  if(!profile || !['owner','moderator'].includes(profile.role)) return;
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    $('pushStatus').textContent='Este navegador no admite notificaciones push. Abrí la PWA instalada en Chrome para Android.';
+    $('enablePush').disabled=true;
+    return;
+  }
+  if(Notification.permission==='denied'){
+    $('pushStatus').textContent='Las notificaciones están bloqueadas en Android. Habilitalas en los ajustes de la aplicación.';
+    return;
+  }
+  try{
+    const registration=await navigator.serviceWorker.ready;
+    const subscription=await registration.pushManager.getSubscription();
+    $('pushStatus').textContent=subscription
+      ? 'Alertas activadas en este teléfono. El sistema avisará cuando llegue una publicación.'
+      : 'Todavía no activaste las alertas en este teléfono.';
+    $('enablePush').textContent=subscription?'Alertas activadas':'Activar notificaciones urgentes';
+  }catch{
+    $('pushStatus').textContent='No se pudo comprobar el estado de las notificaciones.';
+  }
+}
+$('enablePush').addEventListener('click',async()=>{
+  $('enablePush').disabled=true;
+  try{
+    const permissionPromise=Notification.permission==='default'
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
+    await unlockAlarmAudio();
+    const keyResult=await api('/api/push/public-key');
+    if(!keyResult.enabled || !keyResult.public_key) throw new Error('Las alertas del servidor todavía necesitan su clave de seguridad. La dejamos preparada y falta configurar esa clave.');
+    const permission=await permissionPromise;
+    if(permission!=='granted') throw new Error('No se concedió permiso para mostrar notificaciones.');
+    const registration=await navigator.serviceWorker.ready;
+    const existing=await registration.pushManager.getSubscription();
+    const subscription=existing || await registration.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:(()=>{
+        const value=keyResult.public_key.replace(/-/g,'+').replace(/_/g,'/');
+        const binary=atob(value.padEnd(Math.ceil(value.length/4)*4,'='));
+        return Uint8Array.from(binary,char=>char.charCodeAt(0));
+      })()
+    });
+    await api('/api/push/subscribe',{method:'POST',body:subscription.toJSON()});
+    $('pushStatus').textContent='¡Listo! Este teléfono recibirá alertas de moderación.';
+    $('enablePush').textContent='Alertas activadas';
+  }catch(error){
+    $('pushStatus').textContent=error.message || String(error);
+  }finally{
+    $('enablePush').disabled=false;
+    // No borrar el error de activación: updatePushStatus solo debe refrescar
+    // el estado después de una suscripción exitosa.
+  }
+});
+$('testAlarm').addEventListener('click',async()=>{
+  try{ await unlockAlarmAudio(); playModerationAlarm(); $('pushStatus').textContent='Probando la alarma de este teléfono.'; }
+  catch(error){ $('pushStatus').textContent=error.message || String(error); }
+});
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message',event=>{
+    if(event.data?.type==='CA_NEW_PENDING_POST'){
+      playModerationAlarm();
+      if(profile && ['owner','moderator'].includes(profile.role)) loadModerationQueue();
+    }
+  });
+}
+async function createCode(kind,target){
+  const area=$(target);
+  area.textContent='Generando código…';
+  try{
+    const result=await api('/api/invites',{method:'POST',body:{kind}});
+    const code=result.code;
+    if(!code) throw new Error('El servidor no devolvió un código.');
+    area.innerHTML='<div class="code">'+esc(code)+'</div><div class="small">Código de un solo uso · vence '+time(result.expires_at)+'</div><button class="action" id="copyInvite">Copiar código</button>';
+    area.querySelector('#copyInvite').addEventListener('click',async()=>{
+      try{ await navigator.clipboard.writeText(code); area.querySelector('#copyInvite').textContent='Copiado'; }
+      catch{ area.querySelector('#copyInvite').textContent='Seleccioná y copiá el código'; }
+    });
+  }catch(error){ area.textContent=error.message || String(error); }
+}
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
+$('addCommunityInvite').addEventListener('click',()=>createCode('community','communityCodeArea'));
 $('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
-async function loadFriends(){const box=$('friendsList');const {data,error}=await db.from('ca_friend_links').select('friend_profile_id').eq('profile_id',profile.id);if(error){box.innerHTML='<div class="empty">No se pudieron cargar los compañeros.</div>';return}if(!data.length){box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>';return}const ids=data.map(x=>x.friend_profile_id);const r=await db.from('ca_profiles').select('id,nickname,bio').in('id',ids);box.replaceChildren();(r.data||[]).forEach(p=>{const d=document.createElement('div');d.className='card row';d.innerHTML='<div class="avatar">'+esc(initials(p.nickname))+'</div><div><div class="name">'+esc(p.nickname)+'</div><div class="meta">'+esc(p.bio||'Compañero de ruta')+'</div></div>';box.append(d)})}
-$('saveNick').addEventListener('click',async()=>{const nickname=$('editNick').value.trim();if(nickname.length<2){$('profileMsg').textContent='El apodo debe tener al menos 2 caracteres';return}const r=await db.from('ca_profiles').update({nickname,updated_at:new Date().toISOString()}).eq('id',profile.id);$('profileMsg').textContent=r.error?r.error.message:'Perfil actualizado';if(!r.error){profile.nickname=nickname;updateProfileUI()}});
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+async function loadFriends(){
+  const box=$('friendsList');
+  try{
+    const result=await api('/api/friends');
+    const friends=result.friends || [];
+    if(!friends.length){ box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>'; return; }
+    box.replaceChildren();
+    friends.forEach(friend=>{
+      const card=document.createElement('div');
+      card.className='card row';
+      const avatar=document.createElement('div');
+      avatar.className='avatar';
+      avatar.textContent=avatarGlyph(friend.avatar_key,friend.nickname);
+      const info=document.createElement('div');
+      const name=document.createElement('div');
+      name.className='name';
+      name.textContent=friend.nickname || 'Compañero';
+      const bio=document.createElement('div');
+      bio.className='meta';
+      bio.textContent=friend.bio || 'Compañero de ruta';
+      const presence=document.createElement('div');
+      presence.className='presence'+(friend.is_online?' online':'');
+      const dot=document.createElement('span');dot.className='presence-dot';
+      const state=document.createElement('span');state.textContent=friend.is_online?'ONLINE':'OFFLINE';
+      presence.append(dot,state);
+      info.append(name,bio,presence);
+      card.append(avatar,info);
+      card.style.cursor='pointer';
+      card.setAttribute('role','button');
+      card.setAttribute('aria-label','Ver perfil de '+(friend.nickname||'Compañero'));
+      card.addEventListener('click',()=>openPublicProfile(friend.id));
+      box.append(card);
+    });
+  }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los compañeros: '+esc(error.message || String(error))+'</div>'; }
+}
+$('saveNick').addEventListener('click',async()=>{
+  const nickname=$('editNick').value.trim();
+  if(nickname.length<2){ $('profileMsg').textContent='El apodo debe tener al menos 2 caracteres'; return; }
+  $('saveNick').disabled=true;
+  try{
+    const bio=$('editBio').value.trim();
+    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio}});
+    profile.nickname=result.nickname || nickname;
+    profile.bio=result.bio ?? bio;
+    profile.avatar_key=result.avatar_key || avatar_key;
+    updateProfileUI();
+    $('profileMsg').textContent='Perfil actualizado';
+  }catch(error){ $('profileMsg').textContent=error.message || String(error); }
+  finally{ $('saveNick').disabled=false; }
+});
+setInterval(async()=>{
+  if(!profile || document.hidden) return;
+  try{const result=await api('/api/me');if(result.profile)profile={...profile,...result.profile};}
+  catch{}
+},60000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden || !profile) return;
+  api('/api/me').then(result=>{if(result.profile)profile={...profile,...result.profile};}).catch(()=>{});
+  if(currentTab==='muro') loadFeed();
+  if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
+  if(currentTab==='amigos') loadFriends();
+  if(currentTab==='moderacion') loadModerationQueue();
+});
+setInterval(()=>{
+  if(document.hidden || !profile) return;
+  if(currentTab==='muro') loadFeed();
+  if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
+  if(currentTab==='moderacion') loadModerationQueue();
+},45000);
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 await boot();
+const requestedTab=new URLSearchParams(location.search).get('tab');
+if(requestedTab==='moderacion' && profile && ['owner','moderator'].includes(profile.role)) setTab('moderacion');
 </script>
 </body></html>
+<!-- Preview refresh: publish the complete fourteen-state route panel. -->
