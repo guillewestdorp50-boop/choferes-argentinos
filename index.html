@@ -35,7 +35,7 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
 .profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
 .profile-link:active{color:var(--cyan)}
-.colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
+.colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.viejo-row{border-color:#b58a3d;background:linear-gradient(110deg,#29251b,var(--panel) 58%)}.viejo-row .avatar{width:52px;height:52px;border:2px solid #d6ad4d}.viejo-badge{color:#f3d58c;border-color:#9d7838;background:#302716}.viejo-chat{display:flex;flex-direction:column;min-height:60vh}.viejo-messages{display:flex;flex-direction:column;gap:9px;overflow:auto;max-height:55vh;padding:8px 0}.viejo-bubble{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere}.viejo-bubble.user{align-self:flex-end;background:#214447;border:1px solid #397b7a}.viejo-bubble.assistant{align-self:flex-start}.viejo-compose{display:flex;gap:8px;align-items:flex-end}.viejo-compose textarea{flex:1;min-height:54px;max-height:130px;margin:0}.viejo-compose button{flex:none}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
 .badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
 .badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
@@ -207,10 +207,12 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <footer id="footer">Conectando con la comunidad…</footer>
 <script type="module">
 const API_BASE = 'https://choferes-argentinos-api-preview.chazoncba.workers.dev';
+const EL_VIEJO_URL='https://tdgvfuiidxpwxrnnurby.supabase.co/functions/v1/el-viejo';
+const EL_VIEJO_PUBLIC_KEY='sb_publishable_G9TvfIH9viYcsSXdlASwfA_Z6Wu-aeN';
 const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
-let profile = null, selectedStatus = 'libre', currentTab = 'muro';
+let profile = null, selectedStatus = 'libre', currentTab = 'muro', elViejoChatOpen=false;
 let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
@@ -1051,9 +1053,17 @@ async function loadColleagues(){
   try{
     const result=await api('/api/community/colleagues');
     const colleagues=result.colleagues||[];
-    if(!colleagues.length){box.innerHTML='<div class="empty">Todavía no hay integrantes en la comunidad.</div>';return;}
     box.replaceChildren();
     const labels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
+    const viejo=document.createElement('div');viejo.className='colleague-row viejo-row';viejo.tabIndex=0;viejo.setAttribute('role','button');viejo.setAttribute('aria-label','Conversar con El Viejo');
+    const viejoIdentity=document.createElement('div');viejoIdentity.className='colleague-identity';
+    const viejoAvatar=document.createElement('div');viejoAvatar.className='avatar';const viejoImg=document.createElement('img');viejoImg.src='./el-viejo.svg';viejoImg.alt='El Viejo';viejoAvatar.append(viejoImg);
+    const viejoInfo=document.createElement('div');const viejoName=document.createElement('div');viejoName.className='name';viejoName.textContent='El Viejo';
+    const viejoMeta=document.createElement('div');viejoMeta.className='meta';viejoMeta.textContent='Siempre en la ruta · Chofer argentino';
+    const viejoPresence=document.createElement('span');viejoPresence.className='presence online';const viejoDot=document.createElement('span');viejoDot.className='presence-dot';const viejoOnline=document.createElement('span');viejoOnline.textContent='EN LÍNEA';viejoPresence.append(viejoDot,viejoOnline);
+    viejoInfo.append(viejoName,viejoMeta,viejoPresence);viejoIdentity.append(viejoAvatar,viejoInfo);
+    const viejoBadge=document.createElement('span');viejoBadge.className='badge-chip viejo-badge';viejoBadge.textContent='🏅 De la vieja escuela · Diamante';
+    viejo.append(viejoIdentity,viejoBadge);viejo.addEventListener('click',openElViejoChat);viejo.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openElViejoChat();}});box.append(viejo);
     colleagues.forEach(colleague=>{
       const row=document.createElement('div');
       row.className='colleague-row';
@@ -1078,6 +1088,49 @@ async function loadColleagues(){
       box.append(row);
     });
   }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los colegas: '+esc(error.message||String(error))+'</div>';}
+}
+async function elViejoRequest(action,message){
+  const response=await fetch(EL_VIEJO_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':EL_VIEJO_PUBLIC_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,message}),cache:'no-store'});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||'No se pudo comunicar con El Viejo.');
+  return data;
+}
+function appendElViejoMessage(box,role,content){
+  const bubble=document.createElement('div');bubble.className='viejo-bubble '+(role==='user'?'user':'assistant');bubble.textContent=content;box.append(bubble);
+}
+async function openElViejoChat(){
+  elViejoChatOpen=true;setTab('colegas');
+  $('colleagueProfileIntro').classList.add('hidden');$('publicProfileCard').classList.add('hidden');
+  const slot=$('colleagueProfileSlot');slot.replaceChildren();
+  const card=document.createElement('div');card.className='card viejo-chat';
+  const head=document.createElement('div');head.className='row';head.style.justifyContent='space-between';
+  const identity=document.createElement('div');identity.className='row';
+  const avatar=document.createElement('div');avatar.className='avatar';avatar.style.width='58px';avatar.style.height='58px';avatar.style.border='2px solid #d6ad4d';
+  const img=document.createElement('img');img.src='./el-viejo.svg';img.alt='El Viejo';avatar.append(img);
+  const info=document.createElement('div');const name=document.createElement('div');name.className='name';name.textContent='El Viejo';const sub=document.createElement('div');sub.className='meta';sub.textContent='Siempre en la ruta · EN LÍNEA';const badge=document.createElement('span');badge.className='badge-chip viejo-badge';badge.textContent='🏅 De la vieja escuela · Diamante';info.append(name,sub,badge);identity.append(avatar,info);
+  const close=document.createElement('button');close.className='action';close.type='button';close.textContent='Volver';close.addEventListener('click',()=>{elViejoChatOpen=false;slot.replaceChildren();$('colleagueProfileIntro').classList.remove('hidden');loadColleagues();});
+  head.append(identity,close);
+  const intro=document.createElement('p');intro.className='small';intro.textContent='¿Qué hacés, colega? Preguntame tranquilo. Acá estoy para darte una mano.';
+  const messages=document.createElement('div');messages.className='viejo-messages';messages.id='elViejoMessages';
+  const status=document.createElement('div');status.className='small';status.textContent='Abriendo la charla…';
+  const compose=document.createElement('div');compose.className='viejo-compose';
+  const input=document.createElement('textarea');input.rows=2;input.maxLength=1200;input.placeholder='Escribile al Viejo…';
+  const send=document.createElement('button');send.className='action primary';send.type='button';send.textContent='Enviar';
+  compose.append(input,send);card.append(head,intro,messages,status,compose);slot.append(card);
+  try{
+    const history=await elViejoRequest('history');messages.replaceChildren();
+    if(!(history.messages||[]).length)appendElViejoMessage(messages,'assistant','¿Qué hacés, colega? Soy El Viejo. Decime, ¿en qué te puedo ayudar?');
+    (history.messages||[]).forEach(m=>appendElViejoMessage(messages,m.role,m.content));
+    messages.scrollTop=messages.scrollHeight;status.textContent='';
+  }catch(error){status.textContent=error.message||String(error);}
+  const sendMessage=async()=>{
+    const message=input.value.trim();if(!message||send.disabled)return;
+    input.value='';input.disabled=true;send.disabled=true;appendElViejoMessage(messages,'user',message);messages.scrollTop=messages.scrollHeight;status.textContent='El Viejo está pensando…';
+    try{const result=await elViejoRequest('send',message);appendElViejoMessage(messages,'assistant',result.reply);status.textContent='';}
+    catch(error){status.textContent=error.message||String(error);appendElViejoMessage(messages,'assistant','Se cortó la comunicación, colega. Probá de nuevo en un momento.');}
+    finally{input.disabled=false;send.disabled=false;input.focus();messages.scrollTop=messages.scrollHeight;}
+  };
+  send.addEventListener('click',sendMessage);input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
 }
 async function loadFriends(){
   const box=$('friendsList');
@@ -1169,7 +1222,7 @@ document.addEventListener('visibilitychange',()=>{
   if(currentTab==='muro') loadFeed();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='amigos') loadFriends();
-  if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden')) loadColleagues();
+  if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden') && !elViejoChatOpen) loadColleagues();
   if(currentTab==='moderacion') loadModerationQueue();
 });
 setInterval(()=>{
