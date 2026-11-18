@@ -15,7 +15,7 @@ nav button,.action{border:1px solid var(--line);background:var(--panel);color:va
 nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:750}
 main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size:20px;margin:4px 0 14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
-.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
 .name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}.feed-photo{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#0b1214;border-radius:13px;margin-top:10px;cursor:zoom-in}.photo-load-error{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px}
 input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
@@ -143,7 +143,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <button class="action" id="viewMyPublicProfile" type="button">Ver mi perfil</button>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
 <label for="editNick">Apodo</label><input id="editNick" maxlength="32">
-<label for="editAvatar">Elegí tu avatar camionero</label><select id="editAvatar">
+<label>Foto de perfil</label><div class="actions"><label class="action" for="profilePhotoInput">📷 Elegir o cambiar foto</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="action" type="button" id="removeProfilePhoto">Quitar foto</button></div><p class="small">JPG, PNG o WebP · máximo 1 MB. La foto se verá junto a tu nombre en la comunidad.</p><label for="editAvatar">O elegí un avatar camionero</label><select id="editAvatar">
 <option value="truck">🚛 Camión</option><option value="truck2">🚚 Camión de reparto</option><option value="tractor">🚜 Tractor</option><option value="wheel">🛞 Rueda</option><option value="road">🛣️ Ruta</option><option value="gear">⚙️ Volante y mecánica</option><option value="flag">🏁 Bandera rutera</option><option value="fuel">⛽ Estación de servicio</option><option value="wrench">🔧 Mecánico</option><option value="construction">🚧 Ruta en obra</option><option value="pickup">🛻 Camioneta</option><option value="bus">🚌 Transporte</option>
 </select>
 <label for="editBio">Mi biografía</label><textarea id="editBio" maxlength="160" placeholder="Contá lo que quieras sobre vos…"></textarea>
@@ -202,6 +202,7 @@ const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
 let profile = null, selectedStatus = 'libre', currentTab = 'muro';
+let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
 const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
@@ -365,8 +366,8 @@ $('ownerBootstrap').addEventListener('click',async()=>{
 function updateProfileUI(){
   const nickname = profile.nickname || 'Compañero';
   $('composerName').textContent = 'Compartí con la comunidad';
-  $('myAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
-  $('profileAvatar').textContent = avatarGlyph(profile.avatar_key,nickname);
+  renderAvatar($('myAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
+  renderAvatar($('profileAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
   $('editAvatar').value = profile.avatar_key || 'truck';
@@ -455,7 +456,7 @@ async function openPublicProfile(profileId){
       api('/api/posts?profile_id='+encodeURIComponent(profileId)+'&limit=60')
     ]);
     $('publicName').textContent=result.profile.nickname||'Compañero';
-    $('publicAvatar').textContent=avatarGlyph(result.profile.avatar_key,result.profile.nickname);
+    renderAvatar($('publicAvatar'),result.profile.avatar_media_id,result.profile.avatar_key,result.profile.nickname);
     $('publicFriendCount').textContent=String(result.profile.friend_count||0);
     $('publicBadgeCount').textContent=String((result.awards||[]).length);
     setPresence('publicPresence','publicPresenceText',!!result.profile.is_online);
@@ -528,7 +529,7 @@ async function loadFeed(){
       head.className = 'row';
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.textContent = avatarGlyph(post.avatar_key,post.nickname);
+      renderAvatar(avatar,post.avatar_media_id,post.avatar_key,post.nickname);
       const who = document.createElement('div');
       const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
       const liveStatus=routeStatusByProfile.get(post.profile_id);
@@ -599,6 +600,18 @@ function imageLoadError(error){
   const detail=error?.message ? ' Detalle: '+error.message : '';
   note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada.'+detail;
   return note;
+}
+function renderAvatar(element,mediaId,avatarKey,nickname,previewUrl=''){
+  const fallback=avatarGlyph(avatarKey,nickname);
+  element.replaceChildren();element.textContent=fallback;
+  const requestKey=previewUrl?'preview:'+previewUrl:(mediaId||'');
+  element.dataset.avatarRequest=requestKey;
+  if(previewUrl){const img=document.createElement('img');img.alt='Foto de perfil de '+(nickname||'compañero');img.src=previewUrl;element.replaceChildren(img);return;}
+  if(!mediaId)return;
+  loadMedia(mediaId).then(url=>{
+    if(element.dataset.avatarRequest!==requestKey){URL.revokeObjectURL(url);return;}
+    const img=document.createElement('img');img.alt='Foto de perfil de '+(nickname||'compañero');img.src=url;element.replaceChildren(img);
+  }).catch(()=>{});
 }
 async function loadMedia(mediaId){
   let response;
@@ -755,14 +768,17 @@ async function loadRoute(){
       const name=document.createElement('div');
       name.className='name';
       const statusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
+      const identity=document.createElement('div');identity.className='row';
+      const avatar=document.createElement('div');avatar.className='avatar';renderAvatar(avatar,status.avatar_media_id,status.avatar_key,status.nickname);
       name.textContent=(status.nickname || 'Compañero')+' · '+(statusLabels[status.status]||status.status);
+      identity.append(avatar,name);
       const meta=document.createElement('div');
       meta.className='meta';
       meta.textContent=(status.location_label || 'Ubicación no indicada')+' · '+time(status.updated_at);
       const note=document.createElement('div');
       note.className='post';
       note.textContent=status.note || '';
-      card.append(name,meta,note);
+      card.append(identity,meta,note);
       box.append(card);
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
@@ -1023,7 +1039,7 @@ async function loadFriends(){
       card.className='card row';
       const avatar=document.createElement('div');
       avatar.className='avatar';
-      avatar.textContent=avatarGlyph(friend.avatar_key,friend.nickname);
+      renderAvatar(avatar,friend.avatar_media_id,friend.avatar_key,friend.nickname);
       const info=document.createElement('div');
       const name=document.createElement('div');
       name.className='name';
@@ -1052,14 +1068,43 @@ $('saveNick').addEventListener('click',async()=>{
   $('saveNick').disabled=true;
   try{
     const bio=$('editBio').value.trim();
-    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio}});
+    let avatarMediaId=profile.avatar_media_id||null;
+    if(selectedProfilePhoto){
+      const prepared=await optimizePhoto(selectedProfilePhoto);
+      const form=new FormData();form.append('file',prepared,'foto-perfil.webp');
+      const uploaded=await api('/api/media',{method:'POST',body:form});
+      if(!uploaded.media_id||!uploaded.bytes)throw new Error('El servidor no confirmó el guardado de la foto de perfil.');
+      avatarMediaId=uploaded.media_id;
+    }else if(removeProfilePhotoRequested){avatarMediaId=null;}
+    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio,avatar_media_id:avatarMediaId}});
     profile.nickname=result.nickname || nickname;
     profile.bio=result.bio ?? bio;
-    profile.avatar_key=result.avatar_key || avatar_key;
+    profile.avatar_key=result.avatar_key || profile.avatar_key;
+    profile.avatar_media_id=result.avatar_media_id||null;
+    if(selectedProfilePhotoUrl)URL.revokeObjectURL(selectedProfilePhotoUrl);
+    selectedProfilePhoto=null;selectedProfilePhotoUrl='';removeProfilePhotoRequested=false;$('profilePhotoInput').value='';
     updateProfileUI();
     $('profileMsg').textContent='Perfil actualizado';
   }catch(error){ $('profileMsg').textContent=error.message || String(error); }
   finally{ $('saveNick').disabled=false; }
+});
+$('profilePhotoInput').addEventListener('change',()=>{
+  const file=$('profilePhotoInput').files?.[0]||null;
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){ $('profileMsg').textContent='Usá una foto JPG, PNG o WebP.';$('profilePhotoInput').value='';return; }
+  if(file.size>5*1024*1024){ $('profileMsg').textContent='La foto original supera 5 MB. Elegí otra imagen.';$('profilePhotoInput').value='';return; }
+  if(selectedProfilePhotoUrl)URL.revokeObjectURL(selectedProfilePhotoUrl);
+  selectedProfilePhoto=file;selectedProfilePhotoUrl=URL.createObjectURL(file);removeProfilePhotoRequested=false;
+  renderAvatar($('myAvatar'),null,profile.avatar_key,profile.nickname,selectedProfilePhotoUrl);
+  renderAvatar($('profileAvatar'),null,profile.avatar_key,profile.nickname,selectedProfilePhotoUrl);
+  $('profileMsg').textContent='Foto seleccionada. Tocá Guardar cambios para publicarla.';
+});
+$('removeProfilePhoto').addEventListener('click',()=>{
+  if(selectedProfilePhotoUrl)URL.revokeObjectURL(selectedProfilePhotoUrl);
+  selectedProfilePhoto=null;selectedProfilePhotoUrl='';$('profilePhotoInput').value='';removeProfilePhotoRequested=true;
+  renderAvatar($('myAvatar'),null,profile.avatar_key,profile.nickname);
+  renderAvatar($('profileAvatar'),null,profile.avatar_key,profile.nickname);
+  $('profileMsg').textContent='Se quitará la foto al guardar los cambios.';
 });
 setInterval(async()=>{
   if(!profile || document.hidden) return;
