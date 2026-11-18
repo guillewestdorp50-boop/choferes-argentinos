@@ -68,7 +68,7 @@ async function createInvite(env, communityId, kind, creatorId, targetProfileId =
   const timestamp = now();
   const days = kind === "device" ? 1 : 30;
   const expires = new Date(Date.now() + days * 86400000).toISOString();
-  const maxUses = kind === "community" ? 45 : 1;
+  const maxUses = 1;
   await env.DB.prepare(
     `INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,target_profile_id,max_uses,uses,expires_at,created_at)
      VALUES(?,?,?,?,?,?,?,?,?,?)`
@@ -216,7 +216,7 @@ export default {
           env.DB.prepare("INSERT INTO communities(id,name,created_at) VALUES(?,?,?)").bind(communityId, communityName, timestamp),
           env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'owner',?,?,?)").bind(profileId, communityId, nickname, timestamp, timestamp, inviteCode),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp),
-          env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,45,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
+          env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,1,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
         ]);
         return json({
           token, invite_code: inviteCode,
@@ -236,6 +236,7 @@ export default {
         const profileId = id(), timestamp = now(), token = makeToken();
         const stmts = [
           env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, code),
+          env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(profileId, invite.id),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp)
         ];
         if (invite.kind === "friend" && invite.created_by_profile_id) {
@@ -286,10 +287,13 @@ export default {
         const code = cleanText(input?.code, 32).toUpperCase();
         if (!code) return fail("Ingresá tu código original de invitación.", 400, cors);
         const hash = await sha256(code);
-        const invite = await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash,user.community_id).first();
-        if (!invite) return fail("Ese código no coincide con una invitación utilizada de la comunidad.", 400, cors);
+        const invite = await env.DB.prepare("SELECT id,used_by_profile_id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash,user.community_id).first();
+        if (!invite || (invite.used_by_profile_id && invite.used_by_profile_id !== user.profile_id)) return fail("Ese código no corresponde a tu cuenta o todavía no fue utilizado.", 400, cors);
         try {
           const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND (recovery_code IS NULL OR recovery_code=?)").bind(code,user.profile_id,code).run();
+          if (result.success && result.meta.changes === 1 && !invite.used_by_profile_id) {
+            await env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(user.profile_id,invite.id).run();
+          }
           if (!result.success || result.meta.changes !== 1) return fail("Ese código ya está asociado a otra cuenta o no pudo guardarse.", 409, cors);
         } catch (error) {
           return fail("No está aplicada todavía la actualización de recuperación en el servidor.", 503, cors);
@@ -465,7 +469,7 @@ export default {
         const input = await bodyJson(request);
         const kind = input?.kind;
         if (!["friend", "device", "community"].includes(kind)) return fail("Tipo de invitación inválido.", 400, cors);
-        if (kind === "community" && !["owner", "moderator"].includes(user.role)) return fail("Solo un administrador puede crear invitaciones de comunidad.", 403, cors);
+        if (!["owner", "moderator"].includes(user.role)) return fail("Solo el administrador puede emitir códigos de invitación.", 403, cors);
         const invite = await createInvite(env, user.community_id, kind, user.profile_id, kind === "device" ? user.profile_id : null);
         return json(invite, 201, cors);
       }
