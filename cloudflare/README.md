@@ -18,7 +18,8 @@ Fuentes oficiales consultadas el 17-11-2026:
 ## Componentes
 
 - `worker.js`: API HTTP, autenticación por token aleatorio de dispositivo, invitaciones de comunidad/amistad, vinculación de otro teléfono, muro con moderación previa, reacciones, comentarios, estados y alertas de ruta, mensajes privados, medios y notificaciones Web Push para owner/moderator.
-- `migrations/0001_initial.sql`: esquema inicial e índices.\n- `migrations/0002_moderation_and_push.sql`: estados de moderación y suscripciones de notificaciones.
+- `migrations/0001_initial.sql`: esquema inicial e índices.
+- `migrations/0002_moderation_and_push.sql`: estados de moderación y suscripciones de notificaciones.
 - `wrangler.toml`: configuración de ejemplo. El `database_id` es deliberadamente un marcador y debe reemplazarse después de crear D1.
 
 ## Seguridad y privacidad
@@ -29,8 +30,7 @@ Fuentes oficiales consultadas el 17-11-2026:
 - Las consultas de muro, ruta, imágenes y mensajes se restringen a la comunidad del perfil autenticado.
 - Los mensajes privados requieren que ambos perfiles estén vinculados como compañeros.
 - `SETUP_SECRET` es un secreto temporal para inicializar una sola vez la comunidad. No se escribe en GitHub. Después de inicializar, hay que eliminarlo del Worker.
-- `APP_ORIGIN` limita CORS al sitio publicado.
-
+- `APP_ORIGIN` limita CORS al origen del sitio de la PWA.
 
 ## Moderación y alertas urgentes
 
@@ -55,7 +55,6 @@ Fuentes oficiales consultadas el 17-11-2026:
 
 No hay despliegue ni recursos Cloudflare creados desde este repositorio. No se habilitó facturación ni se agregó un medio de pago.
 
-
 ## Inventario de datos (solo lectura)
 
-El workflow `.github/workflows/audit-ca-production-d1.yml` está preparado para consultar únicamente conteos por tabla. Su primera ejecución quedó bloqueada por una configuración inválida de `CLOUDFLARE_ACCOUNT_ID` y permisos insuficientes para descubrir la cuenta; no llegó a ejecutar la consulta. Corregir los secretos del Environment `production` antes de reintentarlo. No exporta contenido personal ni ejecuta escrituras.
+El workflow `.github/workflows/audit-ca-production-d1.yml` consulta únicamente conteos por tabla. Lee el Account ID desde la variable `CLOUDFLARE_ACCOUNT_ID` del Environment `production` y usa un token de API de solo lectura configurado como secreto. No exporta contenido personal ni ejecuta escrituras.
