@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { translateD1Sql, createSupabaseDb } from "./supabase-adapter.mjs";
 
 test("prefixes every D1 table with ca_", () => {
@@ -17,6 +18,10 @@ test("translates SQLite ignore inserts and timestamp functions", () => {
   assert.match(
     translateD1Sql("SELECT id FROM profiles WHERE datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes')"),
     /COALESCE\(p\.moderated_at,p\.created_at\)::timestamptz <= now\(\) - interval '5 minutes'/
+  );
+  assert.match(
+    translateD1Sql("SELECT id FROM devices WHERE datetime(d.last_seen_at)>=datetime('now','-3 minutes')"),
+    /d\.last_seen_at::timestamptz >= now\(\) - interval '3 minutes'/
   );
 });
 
@@ -51,4 +56,38 @@ test("uses server-only Supabase RPC and decodes returned bytea", async () => {
   assert.equal(captured.url, "https://example.supabase.co/rest/v1/rpc/ca_worker_query");
   assert.equal(captured.init.headers.apikey, "server-secret");
   assert.deepEqual(Array.from(row.data), [0x41, 0x42]);
+});
+
+test("preserves D1 run/all/batch result shapes", async () => {
+  const calls = [];
+  const db = createSupabaseDb({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "server-secret"
+  }, async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    const payload = url.endsWith("ca_worker_batch")
+      ? [{ success: true, changes: 1 }]
+      : url.endsWith("ca_worker_query") && calls.length === 1
+        ? { success: true, changes: 1 }
+        : { success: true, results: [{ id: "one" }] };
+    return new Response(JSON.stringify(payload), { status: 200 });
+  });
+  const run = await db.prepare("UPDATE profiles SET bio=? WHERE id=?").bind("bio", "p1").run();
+  assert.equal(run.success, true);
+  assert.equal(run.meta.changes, 1);
+  const all = await db.prepare("SELECT id FROM profiles WHERE id=?").bind("p1").all();
+  assert.equal(all.results[0].id, "one");
+  const batch = await db.batch([
+    db.prepare("INSERT INTO profiles(id,community_id,nickname,created_at,updated_at) VALUES(?,?,?,?,?)")
+      .bind("p2", "c1", "driver", "t1", "t1")
+  ]);
+  assert.equal(calls[2].url.endsWith("ca_worker_batch"), true);
+  assert.equal(Array.isArray(batch), true);
+});
+
+test("schema RPC is service-role-only and restricts referenced tables", async () => {
+  const schema = await readFile(new URL("../supabase/ca_schema_draft.sql", import.meta.url), "utf8");
+  assert.match(schema, /REVOKE ALL ON FUNCTION public\.ca_worker_query\(text, jsonb\) FROM PUBLIC, anon, authenticated/);
+  assert.match(schema, /GRANT EXECUTE ON FUNCTION public\.ca_worker_query\(text, jsonb\) TO service_role/);
+  assert.match(schema, /La consulta intentó acceder a una tabla ajena a Choferes Argentinos/);
 });
