@@ -238,3 +238,106 @@ ALTER TABLE public.ca_driver_activity ENABLE ROW LEVEL SECURITY;
 -- Before production use: implement and test a Worker data adapter for every route,
 -- verify device-token auth/authorization, and migrate data only after a verified
 -- D1 export + row-count/checksum comparison. Do not delete or disable D1 yet.
+
+
+-- Draft-only RPC bridge. It runs only as the server-side service_role and accepts
+-- parameter values separately from SQL text. Browser roles cannot execute it.
+-- The Worker translates its fixed D1 query strings to ca_* table names first.
+CREATE OR REPLACE FUNCTION public.ca_worker_query(p_sql text, p_params jsonb DEFAULT '[]'::jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+  v_sql text := p_sql;
+  v_pos integer;
+  v_index integer := 0;
+  v_param jsonb;
+  v_literal text;
+  v_row record;
+  v_rows jsonb := '[]'::jsonb;
+  v_changes bigint := 0;
+  v_param_count integer := COALESCE(jsonb_array_length(p_params), 0);
+BEGIN
+  IF p_sql IS NULL OR length(p_sql) > 12000
+     OR position(';' IN p_sql) > 0
+     OR position('--' IN p_sql) > 0
+     OR position('/*' IN p_sql) > 0
+     OR position('*/' IN p_sql) > 0 THEN
+    RAISE EXCEPTION 'Consulta no permitida';
+  END IF;
+
+  IF upper(left(ltrim(p_sql), 6)) NOT IN ('SELECT','INSERT','UPDATE','DELETE') THEN
+    RAISE EXCEPTION 'Tipo de consulta no permitido';
+  END IF;
+
+  IF p_sql !~* '\mca_(communities|profiles|devices|invites|friend_links|media|posts|comments|reactions|route_status|route_alerts|messages|push_subscriptions|badge_awards|driver_activity)\M'
+     OR p_sql ~* '\m(multiplayer_[a-z0-9_]*|ilox_[a-z0-9_]*)\M' THEN
+    RAISE EXCEPTION 'La consulta debe limitarse a las tablas de Choferes Argentinos';
+  END IF;
+
+  -- Substitute only positional placeholders, quoting every JSON value as a SQL
+  -- literal. This avoids treating user-supplied values as executable SQL.
+  LOOP
+    v_pos := position('?' IN v_sql);
+    EXIT WHEN v_pos = 0;
+    v_index := v_index + 1;
+    IF v_index > v_param_count THEN
+      RAISE EXCEPTION 'Faltan parámetros para la consulta';
+    END IF;
+    v_param := p_params -> (v_index - 1);
+    IF v_param = 'null'::jsonb THEN
+      v_literal := 'NULL';
+    ELSE
+      v_literal := quote_literal(p_params ->> (v_index - 1));
+    END IF;
+    v_sql := overlay(v_sql placing v_literal from v_pos for 1);
+  END LOOP;
+
+  IF v_index <> v_param_count THEN
+    RAISE EXCEPTION 'Cantidad de parámetros incorrecta';
+  END IF;
+
+  IF upper(left(ltrim(v_sql), 6)) = 'SELECT' THEN
+    FOR v_row IN EXECUTE v_sql LOOP
+      v_rows := v_rows || jsonb_build_array(to_jsonb(v_row));
+    END LOOP;
+    RETURN jsonb_build_object('success', true, 'results', v_rows);
+  END IF;
+
+  EXECUTE v_sql;
+  GET DIAGNOSTICS v_changes = ROW_COUNT;
+  RETURN jsonb_build_object('success', true, 'changes', v_changes);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.ca_worker_batch(p_operations jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+  v_operation jsonb;
+  v_results jsonb := '[]'::jsonb;
+BEGIN
+  IF jsonb_typeof(p_operations) <> 'array' OR jsonb_array_length(p_operations) > 20 THEN
+    RAISE EXCEPTION 'Lote no válido';
+  END IF;
+  FOR v_operation IN SELECT value FROM jsonb_array_elements(p_operations) LOOP
+    v_results := v_results || jsonb_build_array(
+      public.ca_worker_query(v_operation ->> 'sql', COALESCE(v_operation -> 'params', '[]'::jsonb))
+    );
+  END LOOP;
+  RETURN v_results;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.ca_worker_query(text, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ca_worker_batch(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ca_worker_query(text, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.ca_worker_batch(jsonb) TO service_role;
+
+-- These functions are intentionally not installed until the schema and adapter
+-- have passed isolated Postgres integration tests. Never expose the server key.
