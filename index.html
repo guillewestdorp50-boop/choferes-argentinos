@@ -646,6 +646,7 @@ async function loadFeed(){
         catch(error){ alert(error.message || String(error)); like.disabled=false; }
       });
       actions.append(like);
+      if(post.source_activity_id){const comment=document.createElement('button');comment.type='button';comment.className='action';comment.textContent='💬 Comentar / conversar';comment.addEventListener('click',async()=>{document.querySelector('[data-tab="ruta"]')?.click();await loadPadFeed();const target=$('pad-alert-'+post.source_activity_id);const opener=target?.querySelector('.pad-conversation-toggle');if(target){target.scrollIntoView({behavior:'smooth',block:'center'});opener?.click();}});actions.append(comment);}
       if(profile && post.profile_id===profile.id){
         const edit=document.createElement('button');
         edit.className='action';
@@ -906,7 +907,7 @@ async function loadPadFeed(){
   if(!items.length){box.innerHTML='<div class="empty">Todavía no hay partes verificados.</div>';return;}
   box.replaceChildren();
   items.forEach(item=>{
-   const card=document.createElement('article');card.className='card notice';
+   const card=document.createElement('article');card.className='card notice';card.id='pad-alert-'+item.id;
    const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.location_label||'Ubicación no indicada');
    const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.nickname||'Compañero')+' · '+time(item.created_at);
    const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
@@ -917,7 +918,7 @@ async function loadPadFeed(){
    const like=document.createElement('button');like.type='button';like.className='action';like.textContent=(item.liked_by_me?'❤️':'🤍')+' Me gusta · '+(item.likes||0);if(item.liked_by_me)like.style.borderColor='var(--cyan)';
    like.addEventListener('click',async()=>{like.disabled=true;try{await api('/api/activity/reactions',{method:'POST',body:{activity_id:item.id}});await loadPadFeed();}catch(error){alert(error.message||String(error));like.disabled=false;}});
    actions.append(like);
-   const toggle=document.createElement('button');toggle.type='button';toggle.className='action';toggle.textContent='💬 Comentar / conversar';actions.append(toggle);card.append(actions);
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='action pad-conversation-toggle';toggle.textContent='💬 Comentar / conversar';actions.append(toggle);card.append(actions);
    const thread=document.createElement('div');thread.className='card';thread.style.marginTop='10px';thread.hidden=true;
    const quick=document.createElement('div');quick.className='actions';quick.style.marginBottom='8px';
    const messages=document.createElement('div');messages.className='small';
