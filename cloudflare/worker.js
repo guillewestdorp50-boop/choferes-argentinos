@@ -654,7 +654,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/route/status") {
         const result = await env.DB.prepare(
-          `SELECT s.profile_id,s.status,s.location_label,s.note,s.updated_at,s.expires_at,p.nickname,p.avatar_key,p.avatar_media_id
+          `SELECT s.profile_id,s.status,s.location_label,'' AS note,s.updated_at,s.expires_at,p.nickname,p.avatar_key,p.avatar_media_id
            FROM route_status s JOIN profiles p ON p.id=s.profile_id
            WHERE s.community_id=? AND s.expires_at>? ORDER BY s.updated_at DESC LIMIT 100`
         ).bind(user.community_id, now()).all();
