@@ -300,6 +300,13 @@ export default {
         }
         return json({ ok:true, has_recovery_code:true }, 200, cors);
       }
+      if (request.method === "POST" && path === "/api/recovery/owner-code") {
+        if (user.role !== "owner") return fail("Solo el administrador principal puede generar este código.", 403, cors);
+        const code = makeCode();
+        const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND recovery_code IS NULL").bind(code,user.profile_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("Ya existe un código personal o no se pudo generar.", 409, cors);
+        return json({ok:true,has_recovery_code:true},200,cors);
+      }
       if (request.method === "POST" && path === "/api/recovery/pin") {
         const input = await bodyJson(request);
         const pin = String(input?.pin || "");
