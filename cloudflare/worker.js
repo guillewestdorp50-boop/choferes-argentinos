@@ -286,7 +286,7 @@ export default {
         const code = cleanText(input?.code, 32).toUpperCase();
         if (!code) return fail("Ingresá tu código original de invitación.", 400, cors);
         const hash = await sha256(code);
-        const invite = await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash).first();
+        const invite = await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash,user.community_id).first();
         if (!invite) return fail("Ese código no coincide con una invitación utilizada de la comunidad.", 400, cors);
         try {
           const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND (recovery_code IS NULL OR recovery_code=?)").bind(code,user.profile_id,code).run();
