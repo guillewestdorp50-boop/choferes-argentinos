@@ -69,7 +69,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 
 <nav id="nav" class="hidden" aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button data-tab="datos">Datos</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
 </nav>
 <main>
 <section id="onboarding" class="card">
@@ -202,6 +202,23 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div class="card"><div class="name">Privacidad</div><p class="small">Tu perfil usa un identificador anónimo del dispositivo. Los demás miembros ven tu apodo y lo que compartís en la comunidad. No se usa GPS permanente ni agenda de contactos.</p></div>
 </section>
 
+<section id="datos" hidden>
+<h1 class="section-title">Mis datos</h1>
+<div class="card">
+  <div class="name">Mi cuenta en Choferes Argentinos</div>
+  <p class="small">Estos son los datos de tu cuenta vinculada.</p>
+  <div class="row" style="justify-content:space-between;margin-top:12px"><span class="small">Apodo</span><strong id="accountNickname">—</strong></div>
+  <div class="row" style="justify-content:space-between;margin-top:8px"><span class="small">Tipo de cuenta</span><strong id="accountRole">—</strong></div>
+  <p class="small" style="margin-top:14px">Tu perfil, publicaciones y compañeros permanecen guardados aunque cierres sesión. Para volver a entrar en este teléfono necesitarás vincularlo nuevamente.</p>
+</div>
+<div class="card">
+  <div class="name">Sesión de este teléfono</div>
+  <p class="small">Cerrar sesión desconecta únicamente este dispositivo. No elimina tu cuenta ni cierra las sesiones de tus otros teléfonos.</p>
+  <button class="action" id="logoutBtn" type="button">Cerrar sesión en este teléfono</button>
+  <p class="small" id="logoutMsg" aria-live="polite"></p>
+</div>
+</section>
+
 <section id="moderacion" hidden>
 <h1 class="section-title">Moderación</h1>
 <div class="card notice" id="pushSetupCard">
@@ -242,6 +259,7 @@ const guideSections={
  amigos:'Estás en Amigos. Acá construís tu red privada de compañeros. Podés agregar a una persona mediante una invitación, invitar a toda la comunidad si tenés permiso y generar un código para vincular otro teléfono a tu mismo perfil.',
  colegas:'Estás en Colegas. Acá podés conocer a los integrantes de Choferes Argentinos, consultar su presencia y estado, y abrir sus perfiles. La comunidad incluye camioneros, colectiveros, taxistas, remiseros, transportistas, repartidores, motociclistas, automovilistas, viajeros y todas las personas que comparten la ruta y el camino.',
  perfil:'Estás en Mi Perfil. Desde acá podés ver y actualizar tu apodo, elegir o cambiar tu foto, seleccionar un avatar, escribir tu biografía y consultar tus insignias y reconocimientos. Si sos administrador, también vas a encontrar las herramientas de administración disponibles para tu cuenta.',
+ datos:'Estás en Datos. Acá podés consultar la información de tu cuenta y cerrar la sesión de este teléfono sin borrar tu perfil ni tus publicaciones.',
  moderacion:'Estás en Moderación. Esta sección está reservada a quienes tienen permisos de administración o moderación. Acá se revisan los reportes del PAD y las publicaciones pendientes, para cuidar la seguridad y la convivencia de toda la comunidad.'
 };
 const guideActions={
@@ -329,7 +347,7 @@ function setTab(tab){
   currentTab = tab;
   if(guideEnabled) guideDescribeSection(tab);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  ['muro','ruta','amigos','colegas','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
+  ['muro','ruta','amigos','colegas','perfil','datos','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='colegas') loadColleagues();
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
@@ -449,6 +467,8 @@ function updateProfileUI(){
   renderAvatar($('myAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   renderAvatar($('profileAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   $('profileName').textContent = nickname;
+  $('accountNickname').textContent = nickname;
+  $('accountRole').textContent = profile.role==='owner'?'Administrador principal':profile.role==='moderator'?'Moderador':'Integrante';
   $('editNick').value = nickname;
   const adminAvatarGroup=$('editAvatar').querySelector('optgroup[data-admin-avatars]');
   if(adminAvatarGroup)adminAvatarGroup.remove();
@@ -1251,6 +1271,17 @@ async function createCode(kind,target){
     });
   }catch(error){ area.textContent=error.message || String(error); }
 }
+$('logoutBtn').addEventListener('click',async()=>{
+  const button=$('logoutBtn');button.disabled=true;$('logoutMsg').textContent='Cerrando esta sesión…';
+  try{
+    await api('/api/logout',{method:'POST'});
+    saveToken('');profile=null;
+    if('speechSynthesis'in window)window.speechSynthesis.cancel();
+    $('nav').classList.add('hidden');$('app').classList.add('hidden');$('onboarding').classList.remove('hidden');
+    $('footer').textContent='Sesión cerrada en este teléfono';
+    $('joinCode').value='';$('joinNick').value='';showError('joinError','La sesión de este teléfono se cerró. Tu cuenta y tus datos siguen guardados.');
+  }catch(error){$('logoutMsg').textContent=error.message||'No se pudo cerrar la sesión. Intentá nuevamente.';button.disabled=false;}
+});
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
 $('addCommunityInvite').addEventListener('click',()=>createCode('community','communityCodeArea'));
 $('pairDevice').addEventListener('click',()=>createCode('device','pairCodeArea'));
