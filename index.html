@@ -76,9 +76,11 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Entrá a la comunidad</h1>
 <p class="small">Tu apodo será tu identidad. No pedimos DNI, teléfono ni agenda de contactos.</p>
 <label for="joinMode">¿Qué código tenés?</label>
-<select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option><option value="recovery">Iniciar sesión / recuperar mi cuenta</option></select>
+<select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option><option value="password">Usuario y contraseña</option><option value="pin">Recuperar con PIN</option><option value="recovery">Código de recuperación anterior</option></select>
 <label for="joinCode">Código de invitación</label><input id="joinCode" autocomplete="off" autocapitalize="none" placeholder="Pegá acá el código">
-<div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" placeholder="Ej.: El Cordobés"></div>
+<div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" autocomplete="username" autocapitalize="none" placeholder="Ej.: El Cordobés"></div>
+<div id="joinPasswordWrap" class="hidden"><label for="joinPassword">Contraseña</label><input id="joinPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Tu contraseña"></div>
+<div id="joinPinWrap" class="hidden"><label for="joinPin">PIN de recuperación</label><input id="joinPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
 <p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
 <div style="margin-top:14px"><button type="button" class="action" id="ownerToggle">Soy el administrador · Inicializar comunidad</button></div>
@@ -208,19 +210,34 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <div class="name">Mi cuenta en Choferes Argentinos</div>
   <p class="small">Tus datos de acceso quedan guardados para que puedas volver a entrar desde otro teléfono.</p>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:14px">
-    <span class="small">Nombre de usuario</span><strong id="accountNicknameDisplay">••••••••</strong>
+    <span class="small">Apodo público</span><strong id="accountNicknameDisplay">••••••••</strong>
   </div>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px">
     <span class="small">Tipo de cuenta</span><strong id="accountRole">—</strong>
   </div>
   <div class="actions" style="margin-top:12px">
-    <button class="action" id="revealUsernameBtn" type="button">👁 Ver usuario</button>
+    <button class="action" id="revealUsernameBtn" type="button">👁 Ver apodo público</button>
     <button class="action" id="hideUsernameBtn" type="button" hidden>Ocultar usuario</button>
   </div>
 </div>
+<div class="card" id="loginCredentialsCard">
+  <div class="name">Usuario y contraseña</div>
+  <p class="small">Elegí un usuario único y una contraseña de al menos 10 caracteres. Con esos datos vas a poder entrar desde otro teléfono sin depender de Google ni de una clave externa. Tus sesiones actuales siguen abiertas.</p>
+  <div class="small">Usuario configurado: <strong id="configuredLoginUsername">Todavía no configurado</strong></div>
+  <label for="loginUsernameInput">Usuario de acceso</label>
+  <input id="loginUsernameInput" maxlength="24" autocomplete="username" autocapitalize="none" placeholder="Ej.: westdorf">
+  <label for="currentPasswordInput" id="currentPasswordLabel" hidden>Contraseña actual</label>
+  <input id="currentPasswordInput" type="password" maxlength="128" autocomplete="current-password" placeholder="Solo para cambiar tu contraseña" hidden>
+  <label for="loginPasswordInput">Nueva contraseña</label>
+  <input id="loginPasswordInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Mínimo 10 caracteres">
+  <label for="loginPasswordConfirmInput">Repetir contraseña</label>
+  <input id="loginPasswordConfirmInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña">
+  <button class="action primary" id="saveLoginCredentials" type="button">Guardar acceso</button>
+  <p class="small" id="loginCredentialsStatus" aria-live="polite"></p>
+</div>
 <div class="card">
   <div class="name">Código de recuperación</div>
-  <p class="small">Es tu código privado de recuperación, independiente de SETUP. Guardalo: junto con tu nombre de usuario te permite recuperar tu cuenta si cambiás o perdés el teléfono.</p>
+  <p class="small">Es tu código privado de recuperación, independiente de SETUP. Guardalo: junto con tu apodo público te permite recuperar tu cuenta si cambiás o perdés el teléfono.</p>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
     <span class="small">Código privado</span><strong id="recoveryCodeDisplay">••••••••••</strong>
   </div>
@@ -240,7 +257,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card" id="pinSetupCard">
   <div class="name">Tu PIN personal</div>
-  <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu usuario y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
+  <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu apodo público y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
   <label for="pinSetupInput">Crear PIN de cuatro números</label>
   <input id="pinSetupInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="••••">
   <button class="action primary" id="saveRecoveryPin" type="button">Guardar mi PIN</button>
@@ -401,19 +418,30 @@ function setTab(tab){
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('joinMode').addEventListener('change',()=>{
   const mode=$('joinMode').value;
+  const passwordMode=mode==='password';
+  const pinMode=mode==='pin';
+  const loginMode=passwordMode||pinMode;
   $('nickWrap').classList.toggle('hidden',mode==='device');
+  $('joinCode').hidden=loginMode;
   const codeLabel=document.querySelector('label[for="joinCode"]');
-  if(codeLabel)codeLabel.textContent=mode==='recovery'?'Código original de invitación':'Código de invitación';
-  $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme';
+  if(codeLabel)codeLabel.hidden=loginMode;
+  $('joinPasswordWrap').classList.toggle('hidden',!passwordMode);
+  $('joinPinWrap').classList.toggle('hidden',!pinMode);
   const nickLabel=document.querySelector('label[for="joinNick"]');
-  if(nickLabel)nickLabel.textContent=mode==='recovery'?'Nombre de usuario':'Tu apodo en la ruta';
+  if(nickLabel)nickLabel.textContent=mode==='recovery'||pinMode?'Apodo público':passwordMode?'Usuario de acceso':'Tu apodo en la ruta';
+  $('joinNick').placeholder=passwordMode?'Ej.: westdorf':'Ej.: El Cordobés';
+  $('joinBtn').textContent=loginMode||mode==='recovery'?'Iniciar sesión':'Vincularme';
   $('joinHelp').textContent = mode==='community'
     ? 'El primer ingreso crea tu perfil.'
     : mode==='friend'
       ? 'La invitación crea tu perfil y conecta ambos compañeros.'
-      : mode==='recovery'
-        ? 'Ingresá el mismo nombre de usuario y el código original que usaste al entrar. Son los mismos datos para iniciar sesión después de cerrar sesión o recuperar tu cuenta en otro teléfono.'
-        : 'Este código vincula el segundo teléfono al mismo perfil.';
+      : mode==='password'
+        ? 'Ingresá el usuario y la contraseña que configuraste en DATOS.'
+        : mode==='pin'
+          ? 'Ingresá tu apodo público y el PIN de cuatro números que configuraste en DATOS. Se abrirá una sesión nueva sin desconectar los otros teléfonos.'
+          : mode==='recovery'
+            ? 'Podés seguir usando tu apodo público y el código original de invitación como método anterior de recuperación.'
+            : 'Este código vincula el segundo teléfono al mismo perfil.';
 });
 $('ownerToggle').addEventListener('click',()=>{
   $('ownerPanel').classList.toggle('hidden');
@@ -456,24 +484,38 @@ async function boot(){
 $('joinBtn').addEventListener('click',async()=>{
   const code = $('joinCode').value.trim();
   const nickname = $('joinNick').value.trim();
+  const password = $('joinPassword').value;
+  const pin = $('joinPin').value;
   const mode = $('joinMode').value;
   showError('joinError','');
-  if(!code){ showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.'); return; }
-  if(mode!=='device' && nickname.length<2){ showError('joinError',mode==='recovery'?'Escribí tu nombre de usuario.':'Escribí un apodo de al menos 2 caracteres.'); return; }
+  if(mode==='password'){
+    if(nickname.length<3 || !password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
+  }else if(mode==='pin'){
+    if(nickname.length<2 || !/^\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
+  }else{
+    if(mode!=='device' && !code){showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.');return;}
+    if(mode!=='device' && nickname.length<2){showError('joinError',mode==='recovery'?'Escribí tu apodo público.':'Escribí un apodo de al menos 2 caracteres.');return;}
+  }
   $('joinBtn').disabled = true;
-  $('joinBtn').textContent = mode==='recovery'?'Ingresando…':'Vinculando…';
+  $('joinBtn').textContent = mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
-    const result = mode==='device'
-      ? await api('/api/link-device',{method:'POST',body:{code}})
-      : mode==='recovery'
-        ? await api('/api/recover',{method:'POST',body:{code,nickname}})
-        : await api('/api/join',{method:'POST',body:{code,nickname}});
+    const result = mode==='password'
+      ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
+      : mode==='pin'
+        ? await api('/api/recover-pin',{method:'POST',body:{nickname,pin}})
+        : mode==='device'
+        ? await api('/api/link-device',{method:'POST',body:{code}})
+        : mode==='recovery'
+          ? await api('/api/recover',{method:'POST',body:{code,nickname}})
+          : await api('/api/join',{method:'POST',body:{code,nickname}});
     if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
     saveToken(result.token);
     $('joinCode').value = '';
+    $('joinPassword').value = '';
+    $('joinPin').value = '';
     await boot();
   }catch(error){ showError('joinError',error.message || String(error)); }
-  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme'; }
+  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent=mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme'; }
 });
 $('ownerBootstrap').addEventListener('click',async()=>{
   const setupSecret=$('ownerSecret').value;
@@ -1333,6 +1375,14 @@ async function loadAccountData(){
     const data=await api('/api/account-data');
     $('accountNicknameDisplay').textContent='••••••••';
     $('recoveryCodeDisplay').textContent='••••••••••';
+    $('configuredLoginUsername').textContent=data.login_username||'Todavía no configurado';
+    $('loginUsernameInput').value=data.login_username||'';
+    $('currentPasswordInput').hidden=!data.has_password;
+    $('currentPasswordLabel').hidden=!data.has_password;
+    $('loginPasswordInput').value='';
+    $('loginPasswordConfirmInput').value='';
+    $('currentPasswordInput').value='';
+    $('loginCredentialsStatus').textContent=data.has_password?'Acceso configurado. Podés cambiarlo ingresando tu contraseña actual.':'Todavía no configuraste usuario y contraseña.';
     $('accountRole').textContent=profile?.role==='owner'?'Administrador principal':profile?.role==='moderator'?'Moderador':'Integrante';
     $('recoveryCodeSetup').hidden=!!data.has_recovery_code;
     const isOwner=profile?.role==='owner';
@@ -1353,6 +1403,29 @@ async function loadAccountData(){
     $('recoveryCodeStatus').textContent=error.message||'No se pudieron cargar tus datos.';
   }
 }
+$('saveLoginCredentials').addEventListener('click',async()=>{
+  const username=$('loginUsernameInput').value.trim();
+  const password=$('loginPasswordInput').value;
+  const confirmation=$('loginPasswordConfirmInput').value;
+  const currentPassword=$('currentPasswordInput').value;
+  const status=$('loginCredentialsStatus');
+  status.textContent='';
+  if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,23}$/.test(username)){status.textContent='El usuario debe tener entre 3 y 24 caracteres: letras, números, punto, guion o guion bajo.';return;}
+  if(password.length<10||password.length>128){status.textContent='La contraseña debe tener entre 10 y 128 caracteres.';return;}
+  if(password!==confirmation){status.textContent='Las dos contraseñas no coinciden.';return;}
+  const button=$('saveLoginCredentials');button.disabled=true;status.textContent='Guardando acceso seguro…';
+  try{
+    const result=await api('/api/account/credentials',{method:'POST',body:{username,password,current_password:currentPassword}});
+    $('configuredLoginUsername').textContent=result.login_username;
+    $('currentPasswordInput').hidden=false;
+    $('currentPasswordLabel').hidden=false;
+    $('currentPasswordInput').value='';
+    $('loginPasswordInput').value='';
+    $('loginPasswordConfirmInput').value='';
+    status.textContent='Acceso guardado. Ya podés iniciar sesión desde otro teléfono; las sesiones actuales siguen activas.';
+  }catch(error){status.textContent=error.message||'No se pudo guardar el acceso.';}
+  finally{button.disabled=false;}
+});
 $('saveRecoveryCode').addEventListener('click',async()=>{
   const code=$('recoveryCodeInput').value.trim().toUpperCase();
   $('recoveryCodeStatus').textContent='';
@@ -1433,7 +1506,7 @@ $('logoutBtn').addEventListener('click',async()=>{
     if('speechSynthesis'in window)window.speechSynthesis.cancel();
     $('nav').classList.add('hidden');$('app').classList.add('hidden');$('onboarding').classList.remove('hidden');
     $('footer').textContent='Sesión cerrada en este teléfono';
-    $('joinMode').value='recovery';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Para iniciar sesión, usá el mismo nombre de usuario y el código original de invitación.');
+    $('joinMode').value='password';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Elegí Usuario y contraseña para entrar, o Recuperar con PIN si lo configuraste.');
   }catch(error){$('logoutMsg').textContent=error.message||'No se pudo cerrar la sesión. Intentá nuevamente.';button.disabled=false;}
 });
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
