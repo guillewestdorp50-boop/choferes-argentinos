@@ -605,6 +605,18 @@ export default {
         return json({liked:!existing},200,cors);
       }
 
+      const activityCommentDeleteMatch=path.match(/^\\/api\\/activity\\/comments\\/([0-9a-f-]{36})$/i);
+      if(request.method==="DELETE" && activityCommentDeleteMatch){
+        if(user.role!=="owner")return fail("Solo el administrador puede retirar comentarios.",403,cors);
+        const comment=await env.DB.prepare("SELECT c.id,c.profile_id FROM activity_comments c JOIN driver_activity a ON a.id=c.activity_id WHERE c.id=? AND a.community_id=? AND a.status='approved'").bind(activityCommentDeleteMatch[1],user.community_id).first();
+        if(!comment)return fail("Comentario no encontrado.",404,cors);
+        const reason=cleanText((await bodyJson(request))?.reason,240)||"incumplía las normas de convivencia";
+        const statements=[env.DB.prepare("DELETE FROM activity_comments WHERE id=?").bind(comment.id)];
+        if(comment.profile_id!==user.profile_id)statements.push(env.DB.prepare("INSERT INTO comment_removal_notices(id,community_id,recipient_profile_id,reason,created_at) VALUES(?,?,?,?,?)").bind(id(),user.community_id,comment.profile_id,reason,now()));
+        await env.DB.batch(statements);
+        return json({ok:true,removed:true},200,cors);
+      }
+
       if (request.method === "GET" && path === "/api/activity/comments") {
         const activityId=cleanText(url.searchParams.get("activity_id"),64);
         const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
@@ -706,6 +718,24 @@ export default {
         if (!storedBytes || !bytes.byteLength) return fail("La imagen existe, pero quedó guardada sin contenido (0 bytes).", 500, cors);
         if (bytes.byteLength !== storedBytes) return fail("La imagen quedó incompleta en la base de datos: se esperaban " + storedBytes + " bytes y se recuperaron " + bytes.byteLength + ".", 500, cors);
         return new Response(bytes, { status: 200, headers: { ...cors, "content-type": row.mime_type, "content-length": String(bytes.byteLength), "x-media-bytes": String(bytes.byteLength), "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
+      }
+
+      if (request.method === "GET" && path === "/api/comment-notices") {
+        const result=await env.DB.prepare("SELECT id,reason,created_at FROM comment_removal_notices WHERE recipient_profile_id=? AND community_id=? AND seen_at IS NULL ORDER BY created_at DESC LIMIT 20").bind(user.profile_id,user.community_id).all();
+        if(result.results?.length) await env.DB.prepare("UPDATE comment_removal_notices SET seen_at=? WHERE recipient_profile_id=? AND community_id=? AND seen_at IS NULL").bind(now(),user.profile_id,user.community_id).run();
+        return json({notices:result.results||[]},200,cors);
+      }
+
+      const commentDeleteMatch=path.match(/^\\/api\\/comments\\/([0-9a-f-]{36})$/i);
+      if(request.method==="DELETE" && commentDeleteMatch){
+        if(user.role!=="owner")return fail("Solo el administrador puede retirar comentarios.",403,cors);
+        const comment=await env.DB.prepare("SELECT c.id,c.profile_id FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=? AND p.community_id=? AND p.status='approved'").bind(commentDeleteMatch[1],user.community_id).first();
+        if(!comment)return fail("Comentario no encontrado.",404,cors);
+        const reason=cleanText((await bodyJson(request))?.reason,240)||"incumplía las normas de convivencia";
+        const statements=[env.DB.prepare("DELETE FROM comments WHERE id=?").bind(comment.id)];
+        if(comment.profile_id!==user.profile_id)statements.push(env.DB.prepare("INSERT INTO comment_removal_notices(id,community_id,recipient_profile_id,reason,created_at) VALUES(?,?,?,?,?)").bind(id(),user.community_id,comment.profile_id,reason,now()));
+        await env.DB.batch(statements);
+        return json({ok:true,removed:true},200,cors);
       }
 
       if (request.method === "GET" && path === "/api/comments") {
