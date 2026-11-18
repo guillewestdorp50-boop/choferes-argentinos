@@ -1,4 +1,4 @@
-const CACHE="choferes-live-v15-colleagues";
+const CACHE="choferes-live-v16-colleagues-directory";
 const ASSETS=["./manifest.webmanifest","./icon-192.svg","./icon-512.svg"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
