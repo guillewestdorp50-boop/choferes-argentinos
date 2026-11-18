@@ -46,7 +46,7 @@ async function auth(request, env) {
   if (!token || token.length !== 64) return null;
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT d.id AS device_id, d.last_seen_at, p.id AS profile_id, p.community_id, p.nickname, p.role, p.bio, p.avatar_key
+    `SELECT d.id AS device_id, d.last_seen_at, p.id AS profile_id, p.community_id, p.nickname, p.role, p.bio, p.avatar_key, p.avatar_media_id
      FROM devices d JOIN profiles p ON p.id=d.profile_id
      WHERE d.token_hash=? AND d.revoked_at IS NULL LIMIT 1`
   ).bind(tokenHash).first();
@@ -267,7 +267,7 @@ export default {
       if (request.method === "GET" && path === "/api/badges") {
         const targetId = cleanText(url.searchParams.get("profile_id") || user.profile_id, 64);
         const target = await env.DB.prepare(
-          `SELECT p.id,p.nickname,p.bio,p.role,p.avatar_key,
+          `SELECT p.id,p.nickname,p.bio,p.role,p.avatar_key,p.avatar_media_id,
              (SELECT COUNT(*) FROM friend_links f WHERE f.profile_id=p.id) AS friend_count,
              EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online
            FROM profiles p WHERE p.id=? AND p.community_id=?`
@@ -378,11 +378,19 @@ export default {
         const bio = cleanText(input?.bio, 160);
         const avatarKey = cleanText(input?.avatar_key || user.avatar_key || "truck", 24);
         const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus"];
+        const avatarMediaId = Object.prototype.hasOwnProperty.call(input || {}, "avatar_media_id")
+          ? (input.avatar_media_id ? cleanText(input.avatar_media_id, 64) : null)
+          : (user.avatar_media_id || null);
         if (nickname.length < 2) return fail("El apodo debe tener al menos 2 caracteres.", 400, cors);
         if (!allowedAvatars.includes(avatarKey)) return fail("Avatar no válido.", 400, cors);
-        await env.DB.prepare("UPDATE profiles SET nickname=?,bio=?,avatar_key=?,updated_at=? WHERE id=? AND community_id=?")
-          .bind(nickname, bio, avatarKey, now(), user.profile_id, user.community_id).run();
-        return json({ ok: true, nickname, bio, avatar_key: avatarKey }, 200, cors);
+        if (avatarMediaId) {
+          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?")
+            .bind(avatarMediaId, user.community_id, user.profile_id).first();
+          if (!media) return fail("La foto no pertenece a tu perfil o no está disponible.", 400, cors);
+        }
+        await env.DB.prepare("UPDATE profiles SET nickname=?,bio=?,avatar_key=?,avatar_media_id=?,updated_at=? WHERE id=? AND community_id=?")
+          .bind(nickname, bio, avatarKey, avatarMediaId, now(), user.profile_id, user.community_id).run();
+        return json({ ok: true, nickname, bio, avatar_key: avatarKey, avatar_media_id: avatarMediaId }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/invites") {
@@ -396,7 +404,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/friends") {
         const result = await env.DB.prepare(
-          `SELECT p.id,p.nickname,p.bio,p.avatar_key,
+          `SELECT p.id,p.nickname,p.bio,p.avatar_key,p.avatar_media_id,
              EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online
            FROM friend_links f JOIN profiles p ON p.id=f.friend_profile_id
            WHERE f.profile_id=? AND p.community_id=? ORDER BY p.nickname LIMIT 200`
@@ -408,7 +416,7 @@ export default {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
         const result = await env.DB.prepare(
-          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,pr.avatar_key,
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
              (SELECT COUNT(*) * CASE WHEN datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
@@ -475,7 +483,7 @@ export default {
       if (request.method === "GET" && path === "/api/activity") {
         const result = await env.DB.prepare(
           `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
-                  pr.nickname,pr.avatar_key
+                  pr.nickname,pr.avatar_key,pr.avatar_media_id
            FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
            WHERE a.community_id=? AND a.status='approved'
            ORDER BY a.created_at DESC LIMIT 100`
@@ -557,7 +565,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/route/status") {
         const result = await env.DB.prepare(
-          `SELECT s.profile_id,s.status,s.location_label,s.note,s.updated_at,s.expires_at,p.nickname
+          `SELECT s.profile_id,s.status,s.location_label,s.note,s.updated_at,s.expires_at,p.nickname,p.avatar_key,p.avatar_media_id
            FROM route_status s JOIN profiles p ON p.id=s.profile_id
            WHERE s.community_id=? AND s.expires_at>? ORDER BY s.updated_at DESC LIMIT 100`
         ).bind(user.community_id, now()).all();
