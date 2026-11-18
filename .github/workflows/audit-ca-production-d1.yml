@@ -6,6 +6,7 @@ on:
       - ca-supabase-adapter-draft
     paths:
       - ".github/workflows/audit-ca-production-d1.yml"
+      - "cloudflare/README.md"
 
 permissions:
   contents: read
@@ -23,8 +24,7 @@ jobs:
         id: counts
         uses: cloudflare/wrangler-action@v4
         with:
-          apiToken: \${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
-          accountId: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
           wranglerVersion: "4"
           workingDirectory: cloudflare
           command: >-
@@ -46,7 +46,7 @@ jobs:
             UNION ALL SELECT 'driver_activity', COUNT(*) FROM driver_activity"
       - name: Publish counts only
         env:
-          RESULT: \${{ steps.counts.outputs.command-output }}
+          RESULT: ${{ steps.counts.outputs.command-output }}
         run: |
           {
             echo '### Inventario D1 de producción (solo lectura)'
