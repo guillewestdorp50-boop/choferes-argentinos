@@ -1,37 +1,44 @@
-name: Manually deploy isolated Choferes Argentinos preview Worker
+name: Manually deploy isolated Choferes Argentinos Supabase preview Worker
 
 on:
-  # This file exists on the default branch so GitHub exposes Run workflow.
-  # The production/main branch is deliberately blocked from deploying anything.
+  # Kept on the default branch so GitHub exposes Run workflow.
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: choferes-argentinos-preview
+  cancel-in-progress: false
+
 jobs:
   deploy-preview:
-    if: github.ref == 'refs/heads/cloudflare-backend-prep'
-    name: Apply preview D1 migrations and deploy preview Worker
+    # Only the tested Supabase adapter branch can use this preview deploy path.
+    if: github.ref == 'refs/heads/ca-supabase-adapter-draft'
+    name: Deploy preview Worker only (no D1 migrations)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout repository
+      - name: Checkout selected adapter branch
         uses: actions/checkout@v6
-
-      - name: Apply preview D1 migrations only
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4"
-          workingDirectory: cloudflare
-          command: d1 migrations apply choferes-argentinos-preview --remote --env preview
 
       - name: Deploy preview Worker only
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
           workingDirectory: cloudflare
           command: deploy --env preview
+
+      - name: Verify preview Worker health
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error https://choferes-argentinos-api-preview.chazoncba.workers.dev/api/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Preview Worker health check failed."
+          exit 1
