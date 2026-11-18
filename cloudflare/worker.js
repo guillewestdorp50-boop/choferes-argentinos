@@ -402,6 +402,18 @@ export default {
         return json(invite, 201, cors);
       }
 
+      if (request.method === "GET" && path === "/api/community/colleagues") {
+        const result = await env.DB.prepare(
+          `SELECT p.id,p.nickname,p.avatar_key,p.avatar_media_id,
+             EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online,
+             s.status AS route_status,s.updated_at AS route_updated_at
+           FROM profiles p
+           LEFT JOIN route_status s ON s.profile_id=p.id AND s.community_id=p.community_id AND s.expires_at>?
+           WHERE p.community_id=? ORDER BY p.nickname COLLATE NOCASE LIMIT 500`
+        ).bind(now(), user.community_id).all();
+        return json({ colleagues: result.results || [] }, 200, cors);
+      }
+
       if (request.method === "GET" && path === "/api/friends") {
         const result = await env.DB.prepare(
           `SELECT p.id,p.nickname,p.bio,p.avatar_key,p.avatar_media_id,
