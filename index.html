@@ -913,6 +913,21 @@ async function loadPadFeed(){
    card.append(head,meta,body);
    if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Fotografía del parte verificado';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
    if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
+   const actions=document.createElement('div');actions.className='actions';
+   const like=document.createElement('button');like.type='button';like.className='action';like.textContent=(item.liked_by_me?'❤️':'🤍')+' Me gusta · '+(item.likes||0);if(item.liked_by_me)like.style.borderColor='var(--cyan)';
+   like.addEventListener('click',async()=>{like.disabled=true;try{await api('/api/activity/reactions',{method:'POST',body:{activity_id:item.id}});await loadPadFeed();}catch(error){alert(error.message||String(error));like.disabled=false;}});
+   actions.append(like);
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='action';toggle.textContent='💬 Comentar / conversar';actions.append(toggle);card.append(actions);
+   const thread=document.createElement('div');thread.className='card';thread.style.marginTop='10px';thread.hidden=true;
+   const quick=document.createElement('div');quick.className='actions';quick.style.marginBottom='8px';
+   const messages=document.createElement('div');messages.className='small';
+   const composer=document.createElement('textarea');composer.maxLength=1000;composer.rows=2;composer.placeholder='Escribí libremente tu mensaje…';
+   for(const phrase of ['¿Cómo estás?','¿Necesitás ayuda?','¿Está cortada la ruta?','Voy para allá.']){const q=document.createElement('button');q.type='button';q.className='action';q.textContent=phrase;q.addEventListener('click',()=>{composer.value=phrase;composer.focus();});quick.append(q);}
+   const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Enviar mensaje';
+   async function refreshThread(){try{const data=await api('/api/activity/comments?activity_id='+encodeURIComponent(item.id));messages.replaceChildren();if(!(data.comments||[]).length){messages.textContent='Todavía no hay mensajes. Iniciá la conversación.';return;}for(const c of data.comments){const line=document.createElement('div');line.style.padding='8px 0';line.style.borderBottom='1px solid var(--line)';const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';const msg=document.createElement('span');msg.textContent=c.body;const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);messages.append(line);}}catch(error){messages.textContent='No se pudo cargar: '+(error.message||String(error));}}
+   send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api('/api/activity/comments',{method:'POST',body:{activity_id:item.id,body}});composer.value='';await refreshThread();}catch(error){alert(error.message||String(error));}finally{send.disabled=false;}});
+   toggle.addEventListener('click',async()=>{thread.hidden=!thread.hidden;if(!thread.hidden)await refreshThread();});
+   thread.append(quick,messages,composer,send);card.append(thread);
    box.append(card);
   });
  }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los partes: '+esc(error.message||String(error))+'</div>';}
@@ -941,13 +956,17 @@ async function loadPadModeration(){
   });
  }catch(error){box.innerHTML='<div class="empty">No se pudo cargar la cola del PAD: '+esc(error.message||String(error))+'</div>';}
 }
+async function loadModerationBadge(){
+ if(!profile||!['owner','moderator'].includes(profile.role))return;
+ try{const [posts,pad]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity')]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
+}
 async function loadModerationQueue(){
   if(!profile || !['owner','moderator'].includes(profile.role)) return;
   const box=$('pendingPosts');
   try{
     const result=await api('/api/moderation/posts');
     const posts=result.posts || [];
-    $('pendingBadge').textContent=String(posts.length);
+    await loadModerationBadge();
     if(!posts.length){ box.innerHTML='<div class="empty">No hay publicaciones pendientes. ¡Todo al día!</div>'; return; }
     box.replaceChildren();
     posts.forEach(post=>{
