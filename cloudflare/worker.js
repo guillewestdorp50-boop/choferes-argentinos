@@ -587,7 +587,7 @@ export default {
           const activity=await env.DB.prepare("SELECT id,profile_id,kind,location_label,body,media_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityModerationMatch[1],user.community_id).first();
           if(activity){
             const label=({accidente:"🚨 ACCIDENTE",demorado:"⏳ DEMORA",otro:"⚠️ AVISO",libre:"🟢 LIBRE",cargando:"🟡 CARGANDO",cargado:"🔵 CARGADO",descargando:"🟠 DESCARGANDO"})[activity.kind]||activity.kind.toUpperCase();
-            const wallBody=[label,activity.location_label||"",activity.body||""].filter(Boolean).join("\\n\\n");
+            const wallBody=[label,activity.location_label||"",activity.body||""].filter(Boolean).join("\n\n");
             await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status,moderated_by_profile_id,moderated_at,source_activity_id) VALUES(?,?,?,?,?,?,'approved',?,?,?)")
               .bind(id(),user.community_id,activity.profile_id,wallBody,activity.media_id,now(),user.profile_id,now(),activity.id).run();
           }
