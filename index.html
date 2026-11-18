@@ -594,6 +594,36 @@ $('awardBadge').addEventListener('click',async()=>{
   finally{$('awardBadge').disabled=false;}
 });
 
+async function renderPostComments(post){
+ const panel=document.createElement('div');panel.className='card';panel.style.marginTop='10px';
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='action';toggle.textContent='💬 Comentarios';
+ const content=document.createElement('div');content.hidden=true;content.style.marginTop='10px';
+ const list=document.createElement('div');list.className='small';
+ const composer=document.createElement('textarea');composer.maxLength=1000;composer.placeholder='Escribí libremente tu comentario…';composer.rows=2;
+ const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Publicar comentario';
+ const endpoint=post.source_activity_id?'/api/activity/comments':'/api/comments';
+ const query=post.source_activity_id?'?activity_id='+encodeURIComponent(post.source_activity_id):'?post_id='+encodeURIComponent(post.id);
+ async function refresh(){
+  const data=await api(endpoint+query);list.replaceChildren();const comments=data.comments||[];
+  if(!comments.length){list.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';return;}
+  comments.forEach(c=>{
+   const line=document.createElement('div');line.style.padding='9px 0';line.style.borderBottom='1px solid var(--line)';
+   const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';
+   const msg=document.createElement('span');msg.textContent=c.body;
+   const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);
+   if(profile?.role==='owner'){
+    const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Eliminar comentario';
+    remove.addEventListener('click',async()=>{const reason=prompt('Motivo que recibirá en privado quien escribió el comentario:','Tu mensaje contenía expresiones agresivas o inapropiadas.');if(reason===null)return;remove.disabled=true;try{await api(endpoint+'/'+encodeURIComponent(c.id),{method:'DELETE',body:{reason}});await refresh();}catch(error){alert(error.message||String(error));remove.disabled=false;}});
+    line.append(remove);
+   }
+   list.append(line);
+  });
+ }
+ toggle.addEventListener('click',async()=>{content.hidden=!content.hidden;if(!content.hidden){try{await refresh();}catch(error){list.textContent=error.message||String(error);}}});
+ send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){alert(error.message||String(error));}finally{send.disabled=false;}});
+ content.append(list,composer,send);panel.append(toggle,content);return panel;
+}
+async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. Motivo: '+notice.reason+'.');}catch{}}
 async function loadFeed(){
   const box = $('feed');
   try{
@@ -646,7 +676,7 @@ async function loadFeed(){
         catch(error){ alert(error.message || String(error)); like.disabled=false; }
       });
       actions.append(like);
-      if(post.source_activity_id){const comment=document.createElement('button');comment.type='button';comment.className='action';comment.textContent='💬 Comentar / conversar';comment.addEventListener('click',async()=>{document.querySelector('[data-tab="ruta"]')?.click();await loadPadFeed();const target=$('pad-alert-'+post.source_activity_id);const opener=target?.querySelector('.pad-conversation-toggle');if(target){target.scrollIntoView({behavior:'smooth',block:'center'});opener?.click();}});actions.append(comment);}
+
       if(profile && post.profile_id===profile.id){
         const edit=document.createElement('button');
         edit.className='action';
@@ -674,6 +704,7 @@ async function loadFeed(){
         actions.append(edit,remove);
       }
       article.append(actions);
+      article.append(await renderPostComments(post));
       box.append(article);
     });
   }catch(error){ box.innerHTML='<div class="empty">No se pudo cargar el muro: '+esc(error.message || String(error))+'</div>'; }
@@ -925,7 +956,7 @@ async function loadPadFeed(){
    const composer=document.createElement('textarea');composer.maxLength=1000;composer.rows=2;composer.placeholder='Escribí libremente tu mensaje…';
    for(const phrase of ['¿Cómo estás?','¿Necesitás ayuda?','¿Está cortada la ruta?','Voy para allá.']){const q=document.createElement('button');q.type='button';q.className='action';q.textContent=phrase;q.addEventListener('click',async()=>{q.disabled=true;try{await api('/api/activity/comments',{method:'POST',body:{activity_id:item.id,body:phrase}});await refreshThread();}catch(error){alert(error.message||String(error));}finally{q.disabled=false;}});quick.append(q);}
    const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Enviar mensaje';
-   async function refreshThread(){try{const data=await api('/api/activity/comments?activity_id='+encodeURIComponent(item.id));messages.replaceChildren();if(!(data.comments||[]).length){messages.textContent='Todavía no hay mensajes. Iniciá la conversación.';return;}for(const c of data.comments){const line=document.createElement('div');line.style.padding='8px 0';line.style.borderBottom='1px solid var(--line)';const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';const msg=document.createElement('span');msg.textContent=c.body;const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);messages.append(line);}}catch(error){messages.textContent='No se pudo cargar: '+(error.message||String(error));}}
+   async function refreshThread(){try{const data=await api('/api/activity/comments?activity_id='+encodeURIComponent(item.id));messages.replaceChildren();if(!(data.comments||[]).length){messages.textContent='Todavía no hay mensajes. Iniciá la conversación.';return;}for(const c of data.comments){const line=document.createElement('div');line.style.padding='8px 0';line.style.borderBottom='1px solid var(--line)';const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';const msg=document.createElement('span');msg.textContent=c.body;const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);if(profile?.role==='owner'){const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Eliminar comentario';remove.addEventListener('click',async()=>{const reason=prompt('Motivo que recibirá en privado quien escribió el comentario:','Tu mensaje contenía expresiones agresivas o inapropiadas.');if(reason===null)return;remove.disabled=true;try{await api('/api/activity/comments/'+encodeURIComponent(c.id),{method:'DELETE',body:{reason}});await refreshThread();}catch(error){alert(error.message||String(error));remove.disabled=false;}});line.append(remove);}messages.append(line);}}catch(error){messages.textContent='No se pudo cargar: '+(error.message||String(error));}}
    send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api('/api/activity/comments',{method:'POST',body:{activity_id:item.id,body}});composer.value='';await refreshThread();}catch(error){alert(error.message||String(error));}finally{send.disabled=false;}});
    toggle.addEventListener('click',async()=>{thread.hidden=!thread.hidden;if(!thread.hidden)await refreshThread();});
    thread.append(quick,messages,composer,send);card.append(thread);
@@ -1309,6 +1340,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden || !profile) return;
   api('/api/me').then(result=>{if(result.profile)profile={...profile,...result.profile};}).catch(()=>{});
   if(currentTab==='muro') loadFeed();
+  loadCommentNotices();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='amigos') loadFriends();
   if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden') && !elViejoChatOpen) loadColleagues();
@@ -1317,6 +1349,7 @@ document.addEventListener('visibilitychange',()=>{
 setInterval(()=>{
   if(document.hidden || !profile) return;
   if(currentTab==='muro') loadFeed();
+  loadCommentNotices();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(currentTab==='moderacion') loadModerationQueue();
   if(currentTab==='colegas' && $('publicProfileCard').classList.contains('hidden')) loadColleagues();
