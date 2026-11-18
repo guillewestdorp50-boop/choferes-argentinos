@@ -15,7 +15,7 @@ nav button,.action{border:1px solid var(--line);background:var(--panel);color:va
 nav button.active,.action.primary{background:var(--cyan);color:#102023;border-color:var(--cyan);font-weight:750}
 main{max-width:820px;margin:auto;padding:15px 13px 40px}.section-title{font-size:20px;margin:4px 0 14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;margin:0 0 13px}
-.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
+.row{display:flex;align-items:center;gap:10px}.avatar{width:42px;height:42px;border-radius:50%;background:#34575c;display:grid;place-items:center;color:#dffafa;font-weight:800;flex:none;font-size:23px;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.avatar.admin-avatar{background:radial-gradient(circle at 35% 25%,#5c4820,#171a1c 72%);border:2px solid #d6ad4d;box-shadow:0 0 0 2px #d6ad4d35,0 0 12px #d6ad4d45;color:#ffe29a}.avatar.admin-avatar.admin-avatar-crown{background:radial-gradient(circle at 35% 25%,#72551b,#20180b 75%)}.avatar.admin-avatar.admin-avatar-shield{background:radial-gradient(circle at 35% 25%,#31546a,#101b29 75%)}.avatar.admin-avatar.admin-avatar-star{background:radial-gradient(circle at 35% 25%,#6b4a19,#251a0b 75%)}.avatar.admin-avatar.admin-avatar-wheel{background:radial-gradient(circle at 35% 25%,#46504c,#151b19 75%)}.avatar.admin-avatar.admin-avatar-eagle{background:radial-gradient(circle at 35% 25%,#64422b,#21150f 75%)}.presence{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.presence-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#e05252;box-shadow:0 0 0 2px #e0525228}.presence.online .presence-dot{background:#39d879;box-shadow:0 0 0 2px #39d87930}.profile-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px}.profile-stats strong{color:var(--ink);font-size:15px}
 .name{font-weight:750}.meta,.small{color:var(--muted);font-size:13px}.post{margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.action{padding:8px 13px;font-size:14px}.action:disabled{opacity:.5}.photo-preview{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#101a1d}.photo-preview img{width:auto;max-width:44%;max-height:150px;object-fit:contain;border-radius:8px}.photo-preview>div{min-width:0;overflow-wrap:anywhere}.feed-photo{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#0b1214;border-radius:13px;margin-top:10px;cursor:zoom-in}.photo-load-error{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px}
 input,textarea,select{width:100%;background:#101a1d;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;margin:7px 0}
@@ -215,7 +215,7 @@ let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoReq
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
 const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-const avatarGlyphs = {truck:'🚛',truck2:'🚚',tractor:'🚜',wheel:'🛞',road:'🛣️',gear:'⚙️',flag:'🏁',fuel:'⛽',wrench:'🔧',construction:'🚧',pickup:'🛻',bus:'🚌'};
+const avatarGlyphs = {truck:'🚛',truck2:'🚚',tractor:'🚜',wheel:'🛞',road:'🛣️',gear:'⚙️',flag:'🏁',fuel:'⛽',wrench:'🔧',construction:'🚧',pickup:'🛻',bus:'🚌',admin_crown:'👑',admin_shield:'🛡️',admin_star:'🏆',admin_wheel:'⚙️',admin_eagle:'🦅'};
 const avatarGlyph = (key,name) => avatarGlyphs[key] || initials(name);
 function setPresence(elementId,textId,isOnline){
   const el=$(elementId); if(!el)return;
@@ -379,6 +379,13 @@ function updateProfileUI(){
   renderAvatar($('profileAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   $('profileName').textContent = nickname;
   $('editNick').value = nickname;
+  const adminAvatarGroup=$('editAvatar').querySelector('optgroup[data-admin-avatars]');
+  if(adminAvatarGroup)adminAvatarGroup.remove();
+  if(profile.role==='owner'){
+    const group=document.createElement('optgroup');group.label='★ Avatares exclusivos de administración';group.dataset.adminAvatars='true';
+    [['admin_crown','👑 Administrador corona'],['admin_shield','🛡️ Administrador escudo'],['admin_star','🏆 Administrador campeón'],['admin_wheel','⚙️ Administrador rutero'],['admin_eagle','🦅 Administrador águila']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;group.append(option);});
+    $('editAvatar').append(group);
+  }
   $('editAvatar').value = profile.avatar_key || 'truck';
   $('editBio').value = profile.bio || '';
   const canModerate=['owner','moderator'].includes(profile.role);
@@ -613,6 +620,9 @@ function imageLoadError(error){
 }
 function renderAvatar(element,mediaId,avatarKey,nickname,previewUrl=''){
   const fallback=avatarGlyph(avatarKey,nickname);
+  element.classList.toggle('admin-avatar',!!(avatarKey||'').startsWith('admin_'));
+  element.classList.remove('admin-avatar-crown','admin-avatar-shield','admin-avatar-star','admin-avatar-wheel','admin-avatar-eagle');
+  if((avatarKey||'').startsWith('admin_'))element.classList.add('admin-avatar-'+avatarKey.slice(6));
   element.replaceChildren();element.textContent=fallback;
   const requestKey=previewUrl?'preview:'+previewUrl:(mediaId||'');
   element.dataset.avatarRequest=requestKey;
