@@ -127,14 +127,6 @@ test("sends modern Supabase secret keys only through the apikey header", async (
 
 test("prefers SUPABASE_SECRET_KEY over the legacy service role variable", async () => {
   let captured;
-  createSupabaseDb({
-    SUPABASE_URL: "https://example.supabase.co",
-    SUPABASE_SECRET_KEY: "sb_secret_preferred",
-    SUPABASE_SERVICE_ROLE_KEY: "legacy-jwt"
-  }, async (_url, init) => {
-    captured = init;
-    return new Response(JSON.stringify({ success: true, results: [] }), { status: 200 });
-  });
   const db = createSupabaseDb({
     SUPABASE_URL: "https://example.supabase.co",
     SUPABASE_SECRET_KEY: "sb_secret_preferred",
