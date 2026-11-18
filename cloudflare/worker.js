@@ -46,7 +46,7 @@ function constantTimeEqual(a, b) {
 async function nicknameTaken(env, nickname, excludeProfileId = null) {
   const key = nicknameKey(nickname);
   const row = await env.DB.prepare(
-    "SELECT id FROM profiles WHERE nickname_key=? AND (? IS NULL OR id<>?) LIMIT 1"
+    "SELECT id FROM profiles WHERE nickname_key=? AND id NOT LIKE 'el-viejo-%' AND (? IS NULL OR id<>?) LIMIT 1"
   ).bind(key, excludeProfileId, excludeProfileId).first();
   return !!row;
 }
@@ -224,6 +224,46 @@ export default {
       }
       if (request.method === "GET" && path === "/api/push/public-key") {
         return json({ enabled: Boolean(env.VAPID_PUBLIC_KEY), public_key: env.VAPID_PUBLIC_KEY || null }, 200, cors);
+      }
+
+      if (request.method === "POST" && path === "/api/recover-pin") {
+        const input = await bodyJson(request);
+        const nickname = cleanText(input?.nickname, 32);
+        const pin = String(input?.pin || "");
+        const key = nicknameKey(nickname);
+        if (nickname.length < 2 || !/^\d{4}$/.test(pin)) return fail("Apodo o PIN incorrectos.", 401, cors);
+        const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+        const attemptKey = await sha256("pin|" + key + "|" + ip);
+        const previous = await env.DB.prepare("SELECT failed_count,window_started_at,locked_until FROM login_attempts WHERE attempt_key=?")
+          .bind(attemptKey).first();
+        if (previous?.locked_until && Date.parse(previous.locked_until) > Date.now()) {
+          return fail("Apodo o PIN incorrectos. Esperá unos minutos e intentá nuevamente.", 429, cors);
+        }
+        const profile = await env.DB.prepare(
+          "SELECT id,recovery_pin_salt,recovery_pin_hash FROM profiles WHERE nickname_key=? AND id NOT LIKE 'el-viejo-%' LIMIT 1"
+        ).bind(key).first();
+        let valid = false;
+        if (profile?.recovery_pin_salt && profile?.recovery_pin_hash) {
+          const candidate = await derivePassword(pin, profile.recovery_pin_salt, 120000);
+          valid = constantTimeEqual(candidate, profile.recovery_pin_hash);
+        } else {
+          await derivePassword(pin, "00000000000000000000000000000000", 120000);
+        }
+        if (!valid) {
+          const withinWindow = previous?.window_started_at && Date.now() - Date.parse(previous.window_started_at) < 15 * 60 * 1000;
+          const failedCount = withinWindow ? Number(previous.failed_count || 0) + 1 : 1;
+          const windowStarted = withinWindow ? previous.window_started_at : now();
+          const lockedUntil = failedCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+          await env.DB.prepare(
+            `INSERT INTO login_attempts(attempt_key,failed_count,window_started_at,locked_until)
+             VALUES(?,?,?,?)
+             ON CONFLICT(attempt_key) DO UPDATE SET failed_count=excluded.failed_count,window_started_at=excluded.window_started_at,locked_until=excluded.locked_until`
+          ).bind(attemptKey, failedCount, windowStarted, lockedUntil).run();
+          return fail("Apodo o PIN incorrectos.", 401, cors);
+        }
+        await env.DB.prepare("DELETE FROM login_attempts WHERE attempt_key=?").bind(attemptKey).run();
+        const token = await issueDevice(env, profile.id);
+        return json({ token, recovered: true }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/login") {
