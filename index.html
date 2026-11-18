@@ -212,6 +212,14 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small" style="margin-top:14px">Tu perfil, publicaciones y compañeros permanecen guardados aunque cierres sesión. Para volver a entrar en este teléfono necesitarás vincularlo nuevamente.</p>
 </div>
 <div class="card">
+  <div class="name">Código de recuperación</div>
+  <p class="small">Guardá aquí el mismo código original que recibiste para entrar a la comunidad. Te servirá para recuperar tu cuenta si cambiás o perdés el teléfono.</p>
+  <label for="recoveryCodeInput">Código original de invitación</label>
+  <input id="recoveryCodeInput" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="Ingresá tu código original">
+  <button class="action primary" id="saveRecoveryCode" type="button">Guardar mi código de recuperación</button>
+  <p class="small" id="recoveryCodeStatus" aria-live="polite"></p>
+</div>
+<div class="card">
   <div class="name">Sesión de este teléfono</div>
   <p class="small">Cerrar sesión desconecta únicamente este dispositivo. No elimina tu cuenta ni cierra las sesiones de tus otros teléfonos.</p>
   <button class="action" id="logoutBtn" type="button">Cerrar sesión en este teléfono</button>
@@ -1277,6 +1285,18 @@ async function createCode(kind,target){
     });
   }catch(error){ area.textContent=error.message || String(error); }
 }
+$('saveRecoveryCode').addEventListener('click',async()=>{
+  const code=$('recoveryCodeInput').value.trim().toUpperCase();
+  $('recoveryCodeStatus').textContent='';
+  if(!code){$('recoveryCodeStatus').textContent='Ingresá tu código original.';return;}
+  $('saveRecoveryCode').disabled=true;
+  try{
+    const result=await api('/api/recovery/setup',{method:'POST',body:{code}});
+    $('recoveryCodeInput').value='';
+    $('recoveryCodeStatus').textContent='Código de recuperación guardado correctamente.';
+  }catch(error){$('recoveryCodeStatus').textContent=error.message||'No se pudo guardar el código.';}
+  finally{$('saveRecoveryCode').disabled=false;}
+});
 $('logoutBtn').addEventListener('click',async()=>{
   const button=$('logoutBtn');button.disabled=true;$('logoutMsg').textContent='Cerrando esta sesión…';
   try{
