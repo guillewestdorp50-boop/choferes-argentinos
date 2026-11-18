@@ -3,8 +3,8 @@ name: Deploy Choferes Argentinos production Worker (worker only)
 on:
   workflow_dispatch:
     inputs:
-      confirm_production:
-        description: "Type DEPLOY-PRODUCTION to apply pending production D1 migrations and deploy the Worker"
+      confirm_worker_deploy:
+        description: "Type DEPLOY-WORKER to deploy the production Worker only (no D1 changes)"
         required: true
         type: string
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   deploy-production:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_production == 'DEPLOY-PRODUCTION' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_worker_deploy == 'DEPLOY-WORKER' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -25,25 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Reconcile manually applied production D1 migrations
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4"
-          workingDirectory: cloudflare
-          command: d1 execute choferes-argentinos --remote --file=reconcile-manual-migrations.sql
-
-      - name: Apply pending production D1 migrations
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4"
-          workingDirectory: cloudflare
-          command: d1 migrations apply choferes-argentinos --remote
-
-      - name: Deploy production Worker
+      - name: Deploy production Worker only (no D1 migrations)
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_PRODUCTION_API_TOKEN }}
