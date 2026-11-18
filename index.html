@@ -832,7 +832,7 @@ $('publish').addEventListener('click',async()=>{
   if(!body && !selectedPhoto) return;
   publishingPost=true;
   $('publish').disabled=true;
-  $('choosePhoto').disabled=true;
+  $('choosePhoto').disabled=true;$('takePhoto').disabled=true;
   $('removePhoto').disabled=true;
   $('postText').disabled=true;
   try{
