@@ -26,6 +26,7 @@ preview_urls = true
 [env.preview.vars]
 APP_ORIGIN = "https://choferes-argentinos-preview.onrender.com"
 ENVIRONMENT = "development"
+SUPABASE_URL = "https://wihbxfebobfmohmqqhkt.supabase.co"
 
 [[env.preview.d1_databases]]
 binding = "DB"
