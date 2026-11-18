@@ -68,7 +68,7 @@ async function createInvite(env, communityId, kind, creatorId, targetProfileId =
   const timestamp = now();
   const days = kind === "device" ? 1 : 30;
   const expires = new Date(Date.now() + days * 86400000).toISOString();
-  const maxUses = kind === "community" ? 45 : 1;
+  const maxUses = 1;
   await env.DB.prepare(
     `INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,target_profile_id,max_uses,uses,expires_at,created_at)
      VALUES(?,?,?,?,?,?,?,?,?,?)`
@@ -211,12 +211,12 @@ export default {
         const existing = await env.DB.prepare("SELECT id FROM communities LIMIT 1").first();
         if (existing) return fail("La comunidad ya fue inicializada.", 409, cors);
         const communityId = id(), profileId = id(), timestamp = now();
-        const inviteCode = makeCode(), token = makeToken();
+        const inviteCode = makeCode(), recoveryCode = makeCode(), token = makeToken();
         await env.DB.batch([
           env.DB.prepare("INSERT INTO communities(id,name,created_at) VALUES(?,?,?)").bind(communityId, communityName, timestamp),
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at) VALUES(?,?,?,'owner',?,?)").bind(profileId, communityId, nickname, timestamp, timestamp),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'owner',?,?,?)").bind(profileId, communityId, nickname, timestamp, timestamp, recoveryCode),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp),
-          env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,45,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
+          env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,1,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
         ]);
         return json({
           token, invite_code: inviteCode,
@@ -235,7 +235,8 @@ export default {
         if (!invite) return fail("Código inválido, vencido o ya utilizado.", 400, cors);
         const profileId = id(), timestamp = now(), token = makeToken();
         const stmts = [
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at) VALUES(?,?,?,'member',?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, code),
+          env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(profileId, invite.id),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp)
         ];
         if (invite.kind === "friend" && invite.created_by_profile_id) {
@@ -244,6 +245,24 @@ export default {
         }
         await env.DB.batch(stmts);
         return json({ token, profile: { id: profileId, nickname, role: "member", community_id: invite.community_id } }, 201, cors);
+      }
+
+      if (request.method === "POST" && path === "/api/recover") {
+        const input = await bodyJson(request);
+        const nickname = cleanText(input?.nickname, 32);
+        const code = cleanText(input?.code, 32).toUpperCase();
+        if (!nickname || !code) return fail("Apodo y código de recuperación son obligatorios.", 400, cors);
+        const profile = await env.DB.prepare(
+          "SELECT id FROM profiles WHERE lower(nickname)=lower(?) AND recovery_code=? LIMIT 1"
+        ).bind(nickname, code).first();
+        if (!profile) return fail("No encontramos una cuenta con ese apodo y código. Revisá los datos e intentá nuevamente.", 400, cors);
+        const token = makeToken(), timestamp = now();
+        const deviceId = id();
+        await env.DB.batch([
+          env.DB.prepare("UPDATE devices SET revoked_at=? WHERE profile_id=? AND revoked_at IS NULL").bind(timestamp, profile.id),
+          env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(deviceId, profile.id, await sha256(token), timestamp, timestamp)
+        ]);
+        return json({ token, recovered: true }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/link-device") {
@@ -259,6 +278,61 @@ export default {
       const user = await auth(request, env);
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
+      if (request.method === "GET" && path === "/api/account-data") {
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash }, 200, cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/setup") {
+        const input = await bodyJson(request);
+        const code = cleanText(input?.code, 32).toUpperCase();
+        if (!code) return fail("Ingresá tu código original de invitación.", 400, cors);
+        const hash = await sha256(code);
+        const invite = await env.DB.prepare("SELECT id,used_by_profile_id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash,user.community_id).first();
+        if (!invite || (invite.used_by_profile_id && invite.used_by_profile_id !== user.profile_id)) return fail("Ese código no corresponde a tu cuenta o todavía no fue utilizado.", 400, cors);
+        try {
+          const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND (recovery_code IS NULL OR recovery_code=?)").bind(code,user.profile_id,code).run();
+          if (result.success && result.meta.changes === 1 && !invite.used_by_profile_id) {
+            await env.DB.prepare("UPDATE invites SET used_by_profile_id=? WHERE id=? AND used_by_profile_id IS NULL").bind(user.profile_id,invite.id).run();
+          }
+          if (!result.success || result.meta.changes !== 1) return fail("Ese código ya está asociado a otra cuenta o no pudo guardarse.", 409, cors);
+        } catch (error) {
+          return fail("No está aplicada todavía la actualización de recuperación en el servidor.", 503, cors);
+        }
+        return json({ ok:true, has_recovery_code:true }, 200, cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/owner-code") {
+        if (user.role !== "owner") return fail("Solo el administrador principal puede generar este código.", 403, cors);
+        const code = makeCode();
+        const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND recovery_code IS NULL").bind(code,user.profile_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("Ya existe un código personal o no se pudo generar.", 409, cors);
+        return json({ok:true,has_recovery_code:true},200,cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/pin") {
+        const input = await bodyJson(request);
+        const pin = String(input?.pin || "");
+        if (!/^\d{4}$/.test(pin)) return fail("El PIN debe tener exactamente cuatro números.", 400, cors);
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = Array.from(saltBytes, b => b.toString(16).padStart(2,"0")).join("");
+        const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+        const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
+        const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("El PIN ya está configurado o no se pudo guardar.", 409, cors);
+        return json({ok:true,has_pin:true},200,cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/reveal") {
+        const input = await bodyJson(request);
+        const pin = String(input?.pin || "");
+        if (!/^\d{4}$/.test(pin)) return fail("Ingresá tu PIN de cuatro números.", 400, cors);
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_salt,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        if (!row?.recovery_pin_hash || !row?.recovery_pin_salt) return fail("Primero tenés que crear tu PIN en DATOS.", 400, cors);
+        const saltBytes = Uint8Array.from(row.recovery_pin_salt.match(/.{2}/g).map(x=>parseInt(x,16)));
+        const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+        const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
+        if (pinHash !== row.recovery_pin_hash) return fail("PIN incorrecto. Podés volver a intentarlo; tu cuenta no se bloquea.", 400, cors);
+        return json({nickname:row.nickname,recovery_code:row.recovery_code || null},200,cors);
+      }
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
       if (request.method === "POST" && path === "/api/logout") {
         await env.DB.prepare("UPDATE devices SET revoked_at=? WHERE id=? AND revoked_at IS NULL").bind(now(), user.device_id).run();
@@ -402,7 +476,7 @@ export default {
         const input = await bodyJson(request);
         const kind = input?.kind;
         if (!["friend", "device", "community"].includes(kind)) return fail("Tipo de invitación inválido.", 400, cors);
-        if (kind === "community" && !["owner", "moderator"].includes(user.role)) return fail("Solo un administrador puede crear invitaciones de comunidad.", 403, cors);
+        if (user.role !== "owner") return fail("Solo el administrador principal puede emitir códigos de invitación.", 403, cors);
         const invite = await createInvite(env, user.community_id, kind, user.profile_id, kind === "device" ? user.profile_id : null);
         return json(invite, 201, cors);
       }

@@ -76,7 +76,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Entrá a la comunidad</h1>
 <p class="small">Tu apodo será tu identidad. No pedimos DNI, teléfono ni agenda de contactos.</p>
 <label for="joinMode">¿Qué código tenés?</label>
-<select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option></select>
+<select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option><option value="recovery">Iniciar sesión / recuperar mi cuenta</option></select>
 <label for="joinCode">Código de invitación</label><input id="joinCode" autocomplete="off" autocapitalize="none" placeholder="Pegá acá el código">
 <div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" placeholder="Ej.: El Cordobés"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
@@ -150,7 +150,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <div style="margin-top:12px"><button class="action hidden" id="addCommunityInvite">＋ Invitar a toda la comunidad</button><div id="communityCodeArea"></div></div>
 </div>
 <div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
-<div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
+<div class="card" id="deviceLinkCard"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
 </section>
 
 <section id="colegas" hidden>
@@ -206,15 +206,58 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Mis datos</h1>
 <div class="card">
   <div class="name">Mi cuenta en Choferes Argentinos</div>
-  <p class="small">Estos son los datos de tu cuenta vinculada.</p>
-  <div class="row" style="justify-content:space-between;margin-top:12px"><span class="small">Apodo</span><strong id="accountNickname">—</strong></div>
-  <div class="row" style="justify-content:space-between;margin-top:8px"><span class="small">Tipo de cuenta</span><strong id="accountRole">—</strong></div>
-  <p class="small" style="margin-top:14px">Tu perfil, publicaciones y compañeros permanecen guardados aunque cierres sesión. Para volver a entrar en este teléfono necesitarás vincularlo nuevamente.</p>
+  <p class="small">Tus datos de acceso quedan guardados para que puedas volver a entrar desde otro teléfono.</p>
+  <div class="row" style="justify-content:space-between;align-items:center;margin-top:14px">
+    <span class="small">Nombre de usuario</span><strong id="accountNicknameDisplay">••••••••</strong>
+  </div>
+  <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px">
+    <span class="small">Tipo de cuenta</span><strong id="accountRole">—</strong>
+  </div>
+  <div class="actions" style="margin-top:12px">
+    <button class="action" id="revealUsernameBtn" type="button">👁 Ver usuario</button>
+    <button class="action" id="hideUsernameBtn" type="button" hidden>Ocultar usuario</button>
+  </div>
+</div>
+<div class="card">
+  <div class="name">Código de recuperación</div>
+  <p class="small">Es el mismo código original que te enviaron para entrar a la comunidad. Guardalo: junto con tu nombre de usuario te permite iniciar sesión si cambiás o perdés el teléfono.</p>
+  <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
+    <span class="small">Código original</span><strong id="recoveryCodeDisplay">••••••••••</strong>
+  </div>
+  <div class="actions" style="margin-top:12px">
+    <button class="action" id="revealRecoveryCodeBtn" type="button">👁 Ver código</button>
+    <button class="action" id="hideRecoveryCodeBtn" type="button" hidden>Ocultar código</button>
+  </div>
+  <div id="recoveryCodeSetup">
+    <p class="small" style="margin-top:14px">Todavía no guardaste tu código original. Ingresalo una sola vez para dejarlo asociado a tu cuenta.</p>
+    <label for="recoveryCodeInput">Código original de invitación</label>
+    <input id="recoveryCodeInput" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="Ingresá tu código original">
+    <button class="action primary" id="saveRecoveryCode" type="button">Guardar mi código</button>
+    <button class="action primary" id="generateOwnerRecoveryCode" type="button" hidden>Generar mi código personal</button>
+    <p class="small" id="ownerRecoveryCodeStatus" aria-live="polite"></p>
+    <p class="small" id="recoveryCodeStatus" aria-live="polite"></p>
+  </div>
+</div>
+<div class="card" id="pinSetupCard">
+  <div class="name">Tu PIN personal</div>
+  <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu usuario y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
+  <label for="pinSetupInput">Crear PIN de cuatro números</label>
+  <input id="pinSetupInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="••••">
+  <button class="action primary" id="saveRecoveryPin" type="button">Guardar mi PIN</button>
+  <p class="small" id="pinSetupStatus" aria-live="polite"></p>
+</div>
+<div class="card" id="pinRevealCard" hidden>
+  <div class="name">Mostrar mis datos</div>
+  <p class="small">Ingresá tu PIN personal para ver el usuario y el código guardado.</p>
+  <label for="pinRevealInput">Tu PIN de cuatro números</label>
+  <input id="pinRevealInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••">
+  <button class="action primary" id="verifyRecoveryPin" type="button">Verificar PIN</button>
+  <p class="small" id="pinRevealStatus" aria-live="polite"></p>
 </div>
 <div class="card">
   <div class="name">Sesión de este teléfono</div>
-  <p class="small">Cerrar sesión desconecta únicamente este dispositivo. No elimina tu cuenta ni cierra las sesiones de tus otros teléfonos.</p>
-  <button class="action" id="logoutBtn" type="button">Cerrar sesión en este teléfono</button>
+  <p class="small">Cerrar sesión desconecta únicamente este dispositivo. Tu cuenta, publicaciones y compañeros siguen guardados. Para volver a entrar usás el mismo nombre de usuario y código original.</p>
+  <button class="action" id="logoutBtn" type="button">Cerrar sesión</button>
   <p class="small" id="logoutMsg" aria-live="polite"></p>
 </div>
 </section>
@@ -353,15 +396,24 @@ function setTab(tab){
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
+  if(tab==='datos') loadAccountData();
 }
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('joinMode').addEventListener('change',()=>{
-  $('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');
-  $('joinHelp').textContent = $('joinMode').value==='community'
+  const mode=$('joinMode').value;
+  $('nickWrap').classList.toggle('hidden',mode==='device');
+  const codeLabel=document.querySelector('label[for="joinCode"]');
+  if(codeLabel)codeLabel.textContent=mode==='recovery'?'Código original de invitación':'Código de invitación';
+  $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme';
+  const nickLabel=document.querySelector('label[for="joinNick"]');
+  if(nickLabel)nickLabel.textContent=mode==='recovery'?'Nombre de usuario':'Tu apodo en la ruta';
+  $('joinHelp').textContent = mode==='community'
     ? 'El primer ingreso crea tu perfil.'
-    : $('joinMode').value==='friend'
+    : mode==='friend'
       ? 'La invitación crea tu perfil y conecta ambos compañeros.'
-      : 'Este código vincula el segundo teléfono al mismo perfil.';
+      : mode==='recovery'
+        ? 'Ingresá el mismo nombre de usuario y el código original que usaste al entrar. Son los mismos datos para iniciar sesión después de cerrar sesión o recuperar tu cuenta en otro teléfono.'
+        : 'Este código vincula el segundo teléfono al mismo perfil.';
 });
 $('ownerToggle').addEventListener('click',()=>{
   $('ownerPanel').classList.toggle('hidden');
@@ -406,20 +458,22 @@ $('joinBtn').addEventListener('click',async()=>{
   const nickname = $('joinNick').value.trim();
   const mode = $('joinMode').value;
   showError('joinError','');
-  if(!code){ showError('joinError','Pegá el código de invitación.'); return; }
-  if(mode!=='device' && nickname.length<2){ showError('joinError','Escribí un apodo de al menos 2 caracteres.'); return; }
+  if(!code){ showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.'); return; }
+  if(mode!=='device' && nickname.length<2){ showError('joinError',mode==='recovery'?'Escribí tu nombre de usuario.':'Escribí un apodo de al menos 2 caracteres.'); return; }
   $('joinBtn').disabled = true;
-  $('joinBtn').textContent = 'Vinculando…';
+  $('joinBtn').textContent = mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
     const result = mode==='device'
       ? await api('/api/link-device',{method:'POST',body:{code}})
-      : await api('/api/join',{method:'POST',body:{code,nickname}});
+      : mode==='recovery'
+        ? await api('/api/recover',{method:'POST',body:{code,nickname}})
+        : await api('/api/join',{method:'POST',body:{code,nickname}});
     if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
     saveToken(result.token);
     $('joinCode').value = '';
     await boot();
   }catch(error){ showError('joinError',error.message || String(error)); }
-  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent='Vincularme'; }
+  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme'; }
 });
 $('ownerBootstrap').addEventListener('click',async()=>{
   const setupSecret=$('ownerSecret').value;
@@ -467,7 +521,7 @@ function updateProfileUI(){
   renderAvatar($('myAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   renderAvatar($('profileAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   $('profileName').textContent = nickname;
-  $('accountNickname').textContent = nickname;
+  $('accountNicknameDisplay').textContent = '••••••••';
   $('accountRole').textContent = profile.role==='owner'?'Administrador principal':profile.role==='moderator'?'Moderador':'Integrante';
   $('editNick').value = nickname;
   const adminAvatarGroup=$('editAvatar').querySelector('optgroup[data-admin-avatars]');
@@ -480,7 +534,10 @@ function updateProfileUI(){
   $('editAvatar').value = profile.avatar_key || 'truck';
   $('editBio').value = profile.bio || '';
   const canModerate=['owner','moderator'].includes(profile.role);
-  $('addCommunityInvite').classList.toggle('hidden',!canModerate);
+  const canIssueInvites=profile.role==='owner';
+  $('addFriend').classList.toggle('hidden',!canIssueInvites);
+  $('addCommunityInvite').classList.toggle('hidden',!canIssueInvites);
+  $('deviceLinkCard').classList.toggle('hidden',!canIssueInvites);
   $('moderationNav').classList.toggle('hidden',!canModerate);
   loadOwnBadges();
   if(canModerate) loadBadgeAdmin();
@@ -1271,6 +1328,103 @@ async function createCode(kind,target){
     });
   }catch(error){ area.textContent=error.message || String(error); }
 }
+async function loadAccountData(){
+  try{
+    const data=await api('/api/account-data');
+    $('accountNicknameDisplay').textContent='••••••••';
+    $('recoveryCodeDisplay').textContent='••••••••••';
+    $('accountRole').textContent=profile?.role==='owner'?'Administrador principal':profile?.role==='moderator'?'Moderador':'Integrante';
+    $('recoveryCodeSetup').hidden=!!data.has_recovery_code;
+    const isOwner=profile?.role==='owner';
+    $('generateOwnerRecoveryCode').hidden=!!data.has_recovery_code || !isOwner;
+    $('recoveryCodeInput').hidden=isOwner;
+    $('saveRecoveryCode').hidden=isOwner;
+    const recoveryLabel=document.querySelector('label[for="recoveryCodeInput"]');
+    if(recoveryLabel)recoveryLabel.hidden=isOwner;
+    $('pinSetupCard').hidden=!!data.has_pin;
+    $('pinRevealCard').hidden=!data.has_pin;
+    $('revealUsernameBtn').hidden=!data.has_pin;
+    $('revealRecoveryCodeBtn').hidden=!data.has_pin;
+    $('hideUsernameBtn').hidden=true;
+    $('hideRecoveryCodeBtn').hidden=true;
+    $('pinRevealInput').value='';
+    $('pinRevealStatus').textContent='';
+  }catch(error){
+    $('recoveryCodeStatus').textContent=error.message||'No se pudieron cargar tus datos.';
+  }
+}
+$('saveRecoveryCode').addEventListener('click',async()=>{
+  const code=$('recoveryCodeInput').value.trim().toUpperCase();
+  $('recoveryCodeStatus').textContent='';
+  if(!code){$('recoveryCodeStatus').textContent='Ingresá tu código original.';return;}
+  $('saveRecoveryCode').disabled=true;
+  try{
+    await api('/api/recovery/setup',{method:'POST',body:{code}});
+    $('recoveryCodeInput').value='';
+    $('recoveryCodeStatus').textContent='Código guardado y asociado a tu cuenta.';
+    await loadAccountData();
+  }catch(error){$('recoveryCodeStatus').textContent=error.message||'No se pudo guardar el código.';}
+  finally{$('saveRecoveryCode').disabled=false;}
+});
+$('generateOwnerRecoveryCode').addEventListener('click',async()=>{
+  const button=$('generateOwnerRecoveryCode');
+  button.disabled=true;
+  $('ownerRecoveryCodeStatus').textContent='Generando tu código personal…';
+  try{
+    await api('/api/recovery/owner-code',{method:'POST',body:{}});
+    $('ownerRecoveryCodeStatus').textContent='Código personal creado. Configurá tu PIN y luego usalo para mostrarlo.';
+    await loadAccountData();
+  }catch(error){$('ownerRecoveryCodeStatus').textContent=error.message||'No se pudo generar el código.';}
+  finally{button.disabled=false;}
+});
+$('saveRecoveryPin').addEventListener('click',async()=>{
+  const pin=$('pinSetupInput').value.trim();
+  $('pinSetupStatus').textContent='';
+  if(!/^\d{4}$/.test(pin)){$('pinSetupStatus').textContent='El PIN debe tener exactamente cuatro números.';return;}
+  $('saveRecoveryPin').disabled=true;
+  try{
+    await api('/api/recovery/pin',{method:'POST',body:{pin}});
+    $('pinSetupInput').value='';
+    $('pinSetupStatus').textContent='PIN guardado. Ya podés mostrar tus datos cuando lo necesites.';
+    await loadAccountData();
+  }catch(error){$('pinSetupStatus').textContent=error.message||'No se pudo guardar el PIN.';}
+  finally{$('saveRecoveryPin').disabled=false;}
+});
+function openPinReveal(){
+  $('pinRevealCard').hidden=false;
+  $('pinRevealStatus').textContent='Ingresá tu PIN para mostrar los datos.';
+  $('pinRevealInput').focus();
+}
+$('revealUsernameBtn').addEventListener('click',openPinReveal);
+$('revealRecoveryCodeBtn').addEventListener('click',openPinReveal);
+$('hideUsernameBtn').addEventListener('click',()=>{
+  $('accountNicknameDisplay').textContent='••••••••';
+  $('hideUsernameBtn').hidden=true;
+  $('revealUsernameBtn').hidden=false;
+});
+$('hideRecoveryCodeBtn').addEventListener('click',()=>{
+  $('recoveryCodeDisplay').textContent='••••••••••';
+  $('hideRecoveryCodeBtn').hidden=true;
+  $('revealRecoveryCodeBtn').hidden=false;
+});
+$('verifyRecoveryPin').addEventListener('click',async()=>{
+  const pin=$('pinRevealInput').value.trim();
+  $('pinRevealStatus').textContent='';
+  if(!/^\d{4}$/.test(pin)){$('pinRevealStatus').textContent='Ingresá tu PIN de cuatro números.';return;}
+  $('verifyRecoveryPin').disabled=true;
+  try{
+    const data=await api('/api/recovery/reveal',{method:'POST',body:{pin}});
+    $('accountNicknameDisplay').textContent=data.nickname||'—';
+    $('recoveryCodeDisplay').textContent=data.recovery_code||'Todavía no guardado';
+    $('hideUsernameBtn').hidden=false;
+    $('revealUsernameBtn').hidden=true;
+    $('hideRecoveryCodeBtn').hidden=false;
+    $('revealRecoveryCodeBtn').hidden=true;
+    $('pinRevealStatus').textContent=data.recovery_code?'Datos verificados.':'Tu código todavía no está guardado en DATOS.';
+    $('pinRevealInput').value='';
+  }catch(error){$('pinRevealStatus').textContent=error.message||'No se pudo verificar el PIN.';}
+  finally{$('verifyRecoveryPin').disabled=false;}
+});
 $('logoutBtn').addEventListener('click',async()=>{
   const button=$('logoutBtn');button.disabled=true;$('logoutMsg').textContent='Cerrando esta sesión…';
   try{
@@ -1279,7 +1433,7 @@ $('logoutBtn').addEventListener('click',async()=>{
     if('speechSynthesis'in window)window.speechSynthesis.cancel();
     $('nav').classList.add('hidden');$('app').classList.add('hidden');$('onboarding').classList.remove('hidden');
     $('footer').textContent='Sesión cerrada en este teléfono';
-    $('joinCode').value='';$('joinNick').value='';showError('joinError','La sesión de este teléfono se cerró. Tu cuenta y tus datos siguen guardados.');
+    $('joinMode').value='recovery';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Para iniciar sesión, usá el mismo nombre de usuario y el código original de invitación.');
   }catch(error){$('logoutMsg').textContent=error.message||'No se pudo cerrar la sesión. Intentá nuevamente.';button.disabled=false;}
 });
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
