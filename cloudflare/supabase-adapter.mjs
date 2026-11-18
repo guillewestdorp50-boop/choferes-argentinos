@@ -81,8 +81,10 @@ function decodeRows(value) {
 
 export function createSupabaseDb(env, fetchImpl = fetch) {
   const baseUrl = String(env.SUPABASE_URL || "").replace(/\/$/, "");
-  const secret = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!baseUrl || !secret) throw new Error("Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.");
+  // Prefer the modern Supabase secret key. Keep the legacy service_role name
+  // as a backwards-compatible fallback while existing deployments migrate.
+  const secret = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!baseUrl || !secret) throw new Error("Faltan SUPABASE_URL o SUPABASE_SECRET_KEY.");
 
   async function rpc(name, payload) {
     const response = await fetchImpl(baseUrl + "/rest/v1/rpc/" + name, {
@@ -90,7 +92,9 @@ export function createSupabaseDb(env, fetchImpl = fetch) {
       headers: {
         "content-type": "application/json",
         apikey: secret,
-        authorization: "Bearer " + secret
+        // New sb_secret keys are opaque and must be sent only as apikey.
+        // Legacy service_role keys are JWTs and continue to use Bearer auth.
+        ...(secret.startsWith("sb_secret_") ? {} : { authorization: "Bearer " + secret })
       },
       body: JSON.stringify(payload)
     });
