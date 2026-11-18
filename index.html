@@ -456,10 +456,10 @@ $('joinBtn').addEventListener('click',async()=>{
   const nickname = $('joinNick').value.trim();
   const mode = $('joinMode').value;
   showError('joinError','');
-  if(!code){ showError('joinError','Pegá el código de invitación.'); return; }
+  if(!code){ showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.'); return; }
   if(mode!=='device' && nickname.length<2){ showError('joinError',mode==='recovery'?'Escribí tu nombre de usuario.':'Escribí un apodo de al menos 2 caracteres.'); return; }
   $('joinBtn').disabled = true;
-  $('joinBtn').textContent = 'Vinculando…';
+  $('joinBtn').textContent = mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
     const result = mode==='device'
       ? await api('/api/link-device',{method:'POST',body:{code}})
