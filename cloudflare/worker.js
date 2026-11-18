@@ -235,7 +235,7 @@ export default {
         if (!invite) return fail("Código inválido, vencido o ya utilizado.", 400, cors);
         const profileId = id(), timestamp = now(), token = makeToken();
         const stmts = [
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at) VALUES(?,?,?,'member',?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'member',?,?,?)").bind(profileId, invite.community_id, nickname, timestamp, timestamp, code),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp)
         ];
         if (invite.kind === "friend" && invite.created_by_profile_id) {
@@ -244,6 +244,24 @@ export default {
         }
         await env.DB.batch(stmts);
         return json({ token, profile: { id: profileId, nickname, role: "member", community_id: invite.community_id } }, 201, cors);
+      }
+
+      if (request.method === "POST" && path === "/api/recover") {
+        const input = await bodyJson(request);
+        const nickname = cleanText(input?.nickname, 32);
+        const code = cleanText(input?.code, 32).toUpperCase();
+        if (!nickname || !code) return fail("Apodo y código de recuperación son obligatorios.", 400, cors);
+        const profile = await env.DB.prepare(
+          "SELECT id FROM profiles WHERE lower(nickname)=lower(?) AND recovery_code=? LIMIT 1"
+        ).bind(nickname, code).first();
+        if (!profile) return fail("No encontramos una cuenta con ese apodo y código. Revisá los datos e intentá nuevamente.", 400, cors);
+        const token = makeToken(), timestamp = now();
+        const deviceId = id();
+        await env.DB.batch([
+          env.DB.prepare("UPDATE devices SET revoked_at=? WHERE profile_id=? AND revoked_at IS NULL").bind(timestamp, profile.id),
+          env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(deviceId, profile.id, await sha256(token), timestamp, timestamp)
+        ]);
+        return json({ token, recovered: true }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/link-device") {
@@ -259,6 +277,25 @@ export default {
       const user = await auth(request, env);
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
+      if (request.method === "GET" && path === "/api/account-data") {
+        const row = await env.DB.prepare("SELECT nickname,recovery_code FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        return json({ nickname: row?.nickname || user.nickname, recovery_code: row?.recovery_code || null }, 200, cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/setup") {
+        const input = await bodyJson(request);
+        const code = cleanText(input?.code, 32).toUpperCase();
+        if (!code) return fail("Ingresá tu código original de invitación.", 400, cors);
+        const hash = await sha256(code);
+        const invite = await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(hash).first();
+        if (!invite) return fail("Ese código no coincide con una invitación utilizada de la comunidad.", 400, cors);
+        try {
+          const result = await env.DB.prepare("UPDATE profiles SET recovery_code=? WHERE id=? AND (recovery_code IS NULL OR recovery_code=?)").bind(code,user.profile_id,code).run();
+          if (!result.success || result.meta.changes !== 1) return fail("Ese código ya está asociado a otra cuenta o no pudo guardarse.", 409, cors);
+        } catch (error) {
+          return fail("No está aplicada todavía la actualización de recuperación en el servidor.", 503, cors);
+        }
+        return json({ ok:true, recovery_code:code }, 200, cors);
+      }
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
       if (request.method === "POST" && path === "/api/logout") {
         await env.DB.prepare("UPDATE devices SET revoked_at=? WHERE id=? AND revoked_at IS NULL").bind(now(), user.device_id).run();
