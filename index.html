@@ -35,7 +35,7 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
 .profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
 .profile-link:active{color:var(--cyan)}
-.colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.viejo-row{border-color:#b58a3d;background:linear-gradient(110deg,#29251b,var(--panel) 58%)}.viejo-row .avatar{width:52px;height:52px;border:2px solid #d6ad4d}.viejo-badge{color:#f3d58c;border-color:#9d7838;background:#302716}.viejo-chat{display:flex;flex-direction:column;min-height:60vh}.viejo-messages{display:flex;flex-direction:column;gap:9px;overflow:auto;max-height:55vh;padding:8px 0}.viejo-bubble{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere}.viejo-bubble.user{align-self:flex-end;background:#214447;border:1px solid #397b7a}.viejo-bubble.assistant{align-self:flex-start}.viejo-compose{display:flex;gap:8px;align-items:flex-end}.viejo-compose textarea{flex:1;min-height:54px;max-height:130px;margin:0}.viejo-compose button{flex:none}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
+.colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.viejo-row{border-color:#b58a3d;background:linear-gradient(110deg,#29251b,var(--panel) 58%)}.viejo-row .avatar{width:52px;height:52px;border:2px solid #d6ad4d}.viejo-badge{color:#f3d58c;border-color:#9d7838;background:#302716}.viejo-chat{display:flex;flex-direction:column;min-height:60vh}.viejo-messages{display:flex;flex-direction:column;gap:9px;overflow:auto;max-height:55vh;padding:8px 0}.viejo-bubble{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere}.viejo-bubble.user{align-self:flex-end;background:#214447;border:1px solid #397b7a}.viejo-bubble.assistant{align-self:flex-start}.viejo-compose{display:flex;gap:8px;align-items:flex-end}.viejo-compose textarea{flex:1;min-height:54px;max-height:130px;margin:0}.viejo-compose button{flex:none}.viejo-photo{max-width:180px;max-height:180px;border-radius:12px;object-fit:contain;margin-top:8px}.viejo-image{display:block;max-width:min(100%,360px);max-height:320px;border-radius:12px;margin:8px 0;object-fit:contain;background:#101a1d}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
 .badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
 .badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
@@ -105,8 +105,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div class="card">
 <div class="row"><div class="avatar" id="myAvatar">YO</div><div><div class="name" id="composerName">Compartí con la comunidad</div><div class="meta">Tu publicación llega a los miembros vinculados</div></div></div>
 <textarea id="postText" maxlength="2000" placeholder="¿Qué querés compartir, compañero?"></textarea>
-<div class="actions" style="margin-top:8px"><button type="button" class="action" id="choosePhoto">📷 Agregar foto</button><span class="small" id="photoHint">Opcional · JPG, PNG o WebP</span></div>
-<input id="postPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+<div class="actions" style="margin-top:8px"><button type="button" class="action" id="takePhoto">📷 Cámara</button><button type="button" class="action" id="choosePhoto">🖼️ Galería</button><span class="small" id="photoHint">Opcional · JPG, PNG o WebP</span></div>
+<input id="postCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden><input id="postPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden>
 <div id="photoPreview" class="photo-preview hidden"><img id="photoPreviewImage" alt="Vista previa de la foto seleccionada"><div><div class="small" id="photoName"></div><button type="button" class="action" id="removePhoto">Quitar foto</button></div></div>
 <button class="action primary" id="publish" disabled>Publicar</button><span class="small" id="publishMsg"></span>
 </div>
@@ -764,7 +764,7 @@ function syncPublishButton(){
 function clearSelectedPhoto(){
   if(selectedPhotoUrl) URL.revokeObjectURL(selectedPhotoUrl);
   selectedPhoto=null; selectedPhotoUrl=''; uploadedPhotoId='';
-  $('postPhoto').value='';
+  $('postPhoto').value='';$('postCamera').value='';
   $('photoPreviewImage').removeAttribute('src');
   $('photoName').textContent='';
   $('photoPreview').classList.add('hidden');
@@ -799,11 +799,12 @@ async function optimizePhoto(file){
   }finally{ bitmap.close?.(); }
 }
 $('choosePhoto').addEventListener('click',()=>$('postPhoto').click());
-$('postPhoto').addEventListener('change',async()=>{
-  const file=$('postPhoto').files?.[0];
+$('takePhoto').addEventListener('click',()=>$('postCamera').click());
+async function handleWallPhotoChange(event){
+  const file=event.target.files?.[0];
   if(!file) return;
   preparingPhoto=true;
-  $('choosePhoto').disabled=true;
+  $('choosePhoto').disabled=true;$('takePhoto').disabled=true;
   $('removePhoto').disabled=true;
   syncPublishButton();
   $('photoHint').textContent='Preparando foto…';
@@ -820,8 +821,10 @@ $('postPhoto').addEventListener('change',async()=>{
   }catch(error){
     clearSelectedPhoto();
     $('photoHint').textContent=error.message || 'No se pudo preparar la foto.';
-  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('removePhoto').disabled=false; syncPublishButton(); }
-});
+  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('takePhoto').disabled=false; $('removePhoto').disabled=false; syncPublishButton(); }
+}
+$('postPhoto').addEventListener('change',handleWallPhotoChange);
+$('postCamera').addEventListener('change',handleWallPhotoChange);
 $('removePhoto').addEventListener('click',clearSelectedPhoto);
 $('postText').addEventListener('input',syncPublishButton);
 $('publish').addEventListener('click',async()=>{
@@ -852,7 +855,7 @@ $('publish').addEventListener('click',async()=>{
   }catch(error){ $('publishMsg').textContent=error.message || String(error); }
   finally{
     publishingPost=false;
-    $('choosePhoto').disabled=false;
+    $('choosePhoto').disabled=false;$('takePhoto').disabled=false;
     $('removePhoto').disabled=false;
     $('postText').disabled=false;
     syncPublishButton();
@@ -1295,23 +1298,36 @@ async function loadColleagues(){
     });
   }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los colegas: '+esc(error.message||String(error))+'</div>';}
 }
-async function elViejoRequest(action,message){
-  const response=await fetch(EL_VIEJO_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':EL_VIEJO_PUBLIC_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,message}),cache:'no-store'});
+async function elViejoRequest(action,message='',mediaId=''){
+  const response=await fetch(EL_VIEJO_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':EL_VIEJO_PUBLIC_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,message,media_id:mediaId||null}),cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||'No se pudo comunicar con El Viejo.');
   return data;
 }
+function parseElViejoContent(content){
+  if(content&&typeof content==='object')return {text:String(content.text||''),media_id:content.media_id||null};
+  const raw=String(content||'');
+  if(raw.startsWith('{"ca_el_viejo_image":1')){
+    try{const parsed=JSON.parse(raw);return {text:String(parsed.text||''),media_id:parsed.media_id||null};}catch{}
+  }
+  return {text:raw,media_id:null};
+}
 function appendElViejoMessage(box,role,content){
+  const data=parseElViejoContent(content);
   const bubble=document.createElement('div');bubble.className='viejo-bubble '+(role==='user'?'user':'assistant');
-  const parts=String(content||'').split(/```/);
-  parts.forEach((part,index)=>{
-    if(index%2===1){const pre=document.createElement('pre');const code=document.createElement('code');code.textContent=part.replace(/^\w+\n/,'').trim();pre.append(code);bubble.append(pre);return;}
-    part.split(/\n{2,}/).forEach(paragraph=>{
-      if(!paragraph.trim())return;
-      const p=document.createElement('p');p.textContent=paragraph.replace(/^\s*[-*]\s+/gm,'• ');bubble.append(p);
+  if(data.text){
+    const parts=data.text.split(/```/);
+    parts.forEach((part,index)=>{
+      if(index%2===1){const pre=document.createElement('pre');const code=document.createElement('code');code.textContent=part.replace(/^\w+\n/,'').trim();pre.append(code);bubble.append(pre);return;}
+      part.split(/\n{2,}/).forEach(paragraph=>{if(!paragraph.trim())return;const p=document.createElement('p');p.textContent=paragraph.replace(/^\s*[-*]\s+/gm,'• ');bubble.append(p);});
     });
-  });
-  box.append(bubble);
+  }
+  if(data.media_id){
+    const photo=document.createElement('img');photo.className='viejo-image';photo.alt='Foto compartida en la charla con El Viejo';photo.loading='lazy';
+    const loading=document.createElement('span');loading.className='small';loading.textContent='Cargando foto…';bubble.append(loading,photo);
+    loadMedia(data.media_id).then(url=>{photo.src=url;loading.remove();}).catch(()=>{loading.textContent='No se pudo recuperar esta foto.';photo.remove();});
+  }
+  box.append(bubble);return bubble;
 }
 async function openElViejoChat(){
   elViejoChatOpen=true;setTab('colegas');
@@ -1325,13 +1341,31 @@ async function openElViejoChat(){
   const info=document.createElement('div');const name=document.createElement('div');name.className='name';name.textContent='El Viejo';const sub=document.createElement('div');sub.className='meta';sub.textContent='Siempre en la ruta · EN LÍNEA';const badge=document.createElement('span');badge.className='badge-chip viejo-badge';badge.textContent='🏅 De la vieja escuela · Diamante';info.append(name,sub,badge);identity.append(avatar,info);
   const close=document.createElement('button');close.className='action';close.type='button';close.textContent='Volver';close.addEventListener('click',()=>{elViejoChatOpen=false;slot.replaceChildren();$('colleagueProfileIntro').classList.remove('hidden');loadColleagues();});
   head.append(identity,close);
-  const intro=document.createElement('p');intro.className='small';intro.textContent='¿Qué hacés, colega? Preguntame tranquilo. Acá estoy para darte una mano.';
+  const intro=document.createElement('p');intro.className='small';intro.textContent='¿Qué hacés, colega? Preguntame tranquilo. Podés escribir, mandarme una foto o las dos cosas.';
   const messages=document.createElement('div');messages.className='viejo-messages';messages.id='elViejoMessages';
   const status=document.createElement('div');status.className='small';status.textContent='Abriendo la charla…';
   const compose=document.createElement('div');compose.className='viejo-compose';
   const input=document.createElement('textarea');input.rows=2;input.maxLength=1200;input.placeholder='Escribile al Viejo…';
   const send=document.createElement('button');send.className='action primary';send.type='button';send.textContent='Enviar';
-  compose.append(input,send);card.append(head,intro,messages,status,compose);slot.append(card);
+  const mediaActions=document.createElement('div');mediaActions.className='actions';mediaActions.style.marginTop='8px';
+  const camera=document.createElement('button');camera.type='button';camera.className='action';camera.textContent='📷 Cámara';
+  const gallery=document.createElement('button');gallery.type='button';gallery.className='action';gallery.textContent='🖼️ Galería';
+  const cameraInput=document.createElement('input');cameraInput.type='file';cameraInput.accept='image/jpeg,image/png,image/webp';cameraInput.setAttribute('capture','environment');cameraInput.hidden=true;
+  const galleryInput=document.createElement('input');galleryInput.type='file';galleryInput.accept='image/jpeg,image/png,image/webp';galleryInput.hidden=true;
+  const preview=document.createElement('div');preview.className='photo-preview hidden';
+  const previewImage=document.createElement('img');previewImage.className='viejo-photo';previewImage.alt='Vista previa de la foto para El Viejo';
+  const previewInfo=document.createElement('div');const previewName=document.createElement('div');previewName.className='small';
+  const removePhoto=document.createElement('button');removePhoto.type='button';removePhoto.className='action';removePhoto.textContent='Quitar foto';previewInfo.append(previewName,removePhoto);preview.append(previewImage,previewInfo);
+  let selectedViejoPhoto=null,selectedViejoPhotoUrl='';
+  const clearViejoPhoto=()=>{if(selectedViejoPhotoUrl)URL.revokeObjectURL(selectedViejoPhotoUrl);selectedViejoPhoto=null;selectedViejoPhotoUrl='';cameraInput.value='';galleryInput.value='';previewImage.removeAttribute('src');previewName.textContent='';preview.classList.add('hidden');};
+  const chooseViejoPhoto=async event=>{
+    const file=event.target.files?.[0];if(!file)return;
+    try{const prepared=await optimizePhoto(file);if(selectedViejoPhotoUrl)URL.revokeObjectURL(selectedViejoPhotoUrl);selectedViejoPhoto=prepared;selectedViejoPhotoUrl=URL.createObjectURL(prepared);previewImage.src=selectedViejoPhotoUrl;previewName.textContent=file.name+' · '+Math.round(prepared.size/1024)+' KB';preview.classList.remove('hidden');}
+    catch(error){clearViejoPhoto();status.textContent=error.message||'No se pudo preparar la foto.';}
+  };
+  camera.addEventListener('click',()=>cameraInput.click());gallery.addEventListener('click',()=>galleryInput.click());
+  cameraInput.addEventListener('change',chooseViejoPhoto);galleryInput.addEventListener('change',chooseViejoPhoto);removePhoto.addEventListener('click',clearViejoPhoto);
+  compose.append(input,send);mediaActions.append(camera,gallery,cameraInput,galleryInput);card.append(head,intro,messages,status,preview,mediaActions,compose);slot.append(card);
   try{
     const history=await elViejoRequest('history');messages.replaceChildren();
     if(!(history.messages||[]).length)appendElViejoMessage(messages,'assistant','¿Qué hacés, colega? Soy El Viejo. Decime, ¿en qué te puedo ayudar?');
@@ -1339,11 +1373,23 @@ async function openElViejoChat(){
     messages.scrollTop=messages.scrollHeight;status.textContent='';
   }catch(error){status.textContent=error.message||String(error);}
   const sendMessage=async()=>{
-    const message=input.value.trim();if(!message||send.disabled)return;
-    input.value='';input.disabled=true;send.disabled=true;appendElViejoMessage(messages,'user',message);messages.scrollTop=messages.scrollHeight;status.textContent='El Viejo está pensando…';
-    try{const result=await elViejoRequest('send',message);appendElViejoMessage(messages,'assistant',result.reply);status.textContent='';}
-    catch(error){status.textContent=error.message||String(error);appendElViejoMessage(messages,'assistant','Se cortó la comunicación, colega. Probá de nuevo en un momento.');}
-    finally{input.disabled=false;send.disabled=false;input.focus();messages.scrollTop=messages.scrollHeight;}
+    const message=input.value.trim();if((!message&&!selectedViejoPhoto)||send.disabled)return;
+    input.value='';input.disabled=true;send.disabled=true;camera.disabled=true;gallery.disabled=true;
+    try{
+      let mediaId='';
+      if(selectedViejoPhoto){
+        status.textContent='Guardando foto…';
+        const form=new FormData();form.append('file',selectedViejoPhoto,selectedViejoPhoto.name||'foto.webp');
+        const uploaded=await api('/api/media',{method:'POST',body:form});
+        if(!uploaded.media_id)throw new Error('No se pudo confirmar la foto subida.');
+        mediaId=uploaded.media_id;
+      }
+      appendElViejoMessage(messages,'user',{text:message,media_id:mediaId||null});clearViejoPhoto();messages.scrollTop=messages.scrollHeight;
+      status.textContent='El Viejo está mirando la foto y pensando…';
+      const result=await elViejoRequest('send',message,mediaId);
+      appendElViejoMessage(messages,'assistant',result.reply);status.textContent='';
+    }catch(error){status.textContent=error.message||String(error);appendElViejoMessage(messages,'assistant','Se cortó la comunicación, colega. Probá de nuevo en un momento.');}
+    finally{input.disabled=false;send.disabled=false;camera.disabled=false;gallery.disabled=false;input.focus();messages.scrollTop=messages.scrollHeight;}
   };
   send.addEventListener('click',sendMessage);input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
 }
