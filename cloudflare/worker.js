@@ -670,8 +670,68 @@ export default {
           `INSERT INTO route_status(profile_id,community_id,status,location_label,note,updated_at,expires_at)
            VALUES(?,?,?,?,?,?,?) ON CONFLICT(profile_id) DO UPDATE SET community_id=excluded.community_id,status=excluded.status,
            location_label=excluded.location_label,note=excluded.note,updated_at=excluded.updated_at,expires_at=excluded.expires_at`
-        ).bind(user.profile_id, user.community_id, status, cleanText(input?.location, 100) || null, cleanText(input?.note, 500), timestamp, expires).run();
+        ).bind(user.profile_id, user.community_id, status, cleanText(input?.location, 100) || null, "", timestamp, expires).run();
         return json({ ok: true, expires_at: expires }, 200, cors);
+      }
+
+      // Optional route-status descriptions are reviewed separately from the automatic wall post.
+      if (request.method === "POST" && path === "/api/route/status/description") {
+        const input = await bodyJson(request);
+        const postId = cleanText(input?.post_id, 64);
+        const body = cleanText(input?.body, 500);
+        const mediaId = cleanText(input?.media_id, 64) || null;
+        if (!postId || (!body && !mediaId)) return fail("Escribí un detalle o adjuntá una imagen.", 400, cors);
+        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL").bind(postId,user.community_id,user.profile_id).first();
+        if (!post) return fail("No encontramos el aviso original para adjuntar el detalle.",404,cors);
+        if (mediaId) {
+          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();
+          if (!media) return fail("La imagen no está disponible.",400,cors);
+        }
+        const descriptionId=id();
+        try {
+          await env.DB.prepare("INSERT INTO route_status_descriptions(id,community_id,profile_id,post_id,body,media_id,status,created_at) VALUES(?,?,?,?,?,?,'pending',?)")
+            .bind(descriptionId,user.community_id,user.profile_id,postId,body,mediaId,now()).run();
+        } catch {
+          return fail("Este aviso ya tiene un detalle enviado a revisión.",409,cors);
+        }
+        return json({id:descriptionId,status:"pending"},201,cors);
+      }
+
+      if (request.method === "GET" && path === "/api/moderation/route-descriptions") {
+        if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar descripciones.",403,cors);
+        const result=await env.DB.prepare(
+          `SELECT d.id,d.body,d.media_id,d.created_at,p.body AS original_body,
+                  pr.nickname
+           FROM route_status_descriptions d
+           JOIN posts p ON p.id=d.post_id AND p.community_id=d.community_id
+           JOIN profiles pr ON pr.id=d.profile_id
+           WHERE d.community_id=? AND d.status='pending' AND p.deleted_at IS NULL
+           ORDER BY d.created_at ASC LIMIT 100`
+        ).bind(user.community_id).all();
+        return json({descriptions:result.results||[]},200,cors);
+      }
+
+      const routeDescriptionMatch=path.match(/^\\/api\\/moderation\\/route-descriptions\\/([0-9a-f-]{36})$/i);
+      if (request.method === "PATCH" && routeDescriptionMatch) {
+        if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar descripciones.",403,cors);
+        const input=await bodyJson(request);
+        if (!["approve","reject"].includes(input?.action)) return fail("Acción de moderación inválida.",400,cors);
+        const description=await env.DB.prepare("SELECT * FROM route_status_descriptions WHERE id=? AND community_id=? AND status='pending'").bind(routeDescriptionMatch[1],user.community_id).first();
+        if(!description)return fail("La descripción ya fue revisada o no existe.",404,cors);
+        if(input.action==="approve"){
+          const post=await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL").bind(description.post_id,user.community_id,description.profile_id).first();
+          if(!post)return fail("El aviso original ya no está disponible; no se modificó nada.",404,cors);
+          await env.DB.batch([
+            env.DB.prepare("UPDATE posts SET body=CASE WHEN ?='' THEN body WHEN body='' THEN ? ELSE body || char(10) || char(10) || ? END,media_id=COALESCE(media_id,?) WHERE id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL")
+              .bind(description.body,description.body,description.body,description.media_id,description.post_id,user.community_id,description.profile_id),
+            env.DB.prepare("UPDATE route_status_descriptions SET status='approved',moderated_by_profile_id=?,moderated_at=?,rejection_reason=NULL WHERE id=? AND community_id=? AND status='pending'")
+              .bind(user.profile_id,now(),description.id,user.community_id)
+          ]);
+        } else {
+          await env.DB.prepare("UPDATE route_status_descriptions SET status='rejected',moderated_by_profile_id=?,moderated_at=?,rejection_reason=? WHERE id=? AND community_id=? AND status='pending'")
+            .bind(user.profile_id,now(),cleanText(input?.reason,240)||"El detalle no cumple las normas de convivencia.",description.id,user.community_id).run();
+        }
+        return json({ok:true,status:input.action==="approve"?"approved":"rejected"},200,cors);
       }
 
       if (request.method === "GET" && path === "/api/route/alerts") {
