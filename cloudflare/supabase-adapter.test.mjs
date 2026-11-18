@@ -91,3 +91,20 @@ test("schema RPC is service-role-only and restricts referenced tables", async ()
   assert.match(schema, /GRANT EXECUTE ON FUNCTION public\.ca_worker_query\(text, jsonb\) TO service_role/);
   assert.match(schema, /La consulta intentó acceder a una tabla ajena a Choferes Argentinos/);
 });
+
+
+test("translates all 65 Worker SQL statements without SQLite-only syntax", async () => {
+  const worker = await readFile(new URL("./worker.js", import.meta.url), "utf8");
+  const statements = [];
+  const pattern = /env\.DB\.prepare\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|\`([\s\S]*?)\`)\s*\)/g;
+  let match;
+  while ((match = pattern.exec(worker)) !== null) {
+    const sql = (match[1] ?? match[2] ?? match[3]).replace(/\\n/g, "\n");
+    statements.push(translateD1Sql(sql));
+  }
+  assert.equal(statements.length, 65, "cambió el número de consultas: revisar el inventario");
+  for (const sql of statements) {
+    assert.doesNotMatch(sql, /\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:communities|profiles|devices|invites|friend_links|media|posts|comments|reactions|route_status|route_alerts|messages|push_subscriptions|badge_awards|driver_activity)\b/i);
+    assert.doesNotMatch(sql, /INSERT\s+OR\s+IGNORE|datetime\s*\(|json_group_array|json_object\s*\(/i);
+  }
+});
