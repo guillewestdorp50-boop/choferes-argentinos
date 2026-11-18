@@ -711,7 +711,7 @@ export default {
         return json({descriptions:result.results||[]},200,cors);
       }
 
-      const routeDescriptionMatch=path.match(/^\\/api\\/moderation\\/route-descriptions\\/([0-9a-f-]{36})$/i);
+      const routeDescriptionMatch=path.match(/^\/api\/moderation\/route-descriptions\/([0-9a-f-]{36})$/i);
       if (request.method === "PATCH" && routeDescriptionMatch) {
         if (!["owner","moderator"].includes(user.role)) return fail("No tenés permiso para moderar descripciones.",403,cors);
         const input=await bodyJson(request);
