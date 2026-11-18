@@ -3,7 +3,7 @@ name: Validate Choferes Argentinos PWA
 on:
   push:
     branches:
-      - cloudflare-backend-prep
+      - production-pwa-cutover
     paths:
       - "index.html"
       - "sw.js"
@@ -11,7 +11,7 @@ on:
       - ".github/workflows/validate-pwa.yml"
   pull_request:
     branches:
-      - cloudflare-backend-prep
+      - main
 
 permissions:
   contents: read
