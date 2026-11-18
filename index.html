@@ -1078,7 +1078,7 @@ async function loadRouteDescriptionModeration(){
 }
 async function loadModerationBadge(){
  if(!profile||!['owner','moderator'].includes(profile.role))return;
- try{const [posts,pad,descriptions]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity'),api('/api/moderation/route-descriptions')]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length+(descriptions.descriptions||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
+ try{const [posts,pad,descriptions]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity'),api('/api/moderation/route-descriptions').catch(()=>({descriptions:[]}))]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length+(descriptions.descriptions||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
 }
 async function loadModerationQueue(){
   if(!profile || !['owner','moderator'].includes(profile.role)) return;
