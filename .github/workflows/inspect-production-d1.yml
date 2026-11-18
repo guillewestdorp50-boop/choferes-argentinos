@@ -87,3 +87,48 @@ jobs:
           wranglerVersion: "4"
           workingDirectory: cloudflare
           command: d1 execute choferes-argentinos --remote --command "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('push_subscriptions','badge_awards') ORDER BY name;" --json
+
+      - name: Inspect complete table and index definitions
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%' ORDER BY type,name;" --json
+
+      - name: Count existing records without exposing personal content
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT 'profiles' AS table_name,COUNT(*) AS row_count FROM profiles UNION ALL SELECT 'posts',COUNT(*) FROM posts UNION ALL SELECT 'comments',COUNT(*) FROM comments UNION ALL SELECT 'reactions',COUNT(*) FROM reactions UNION ALL SELECT 'media',COUNT(*) FROM media UNION ALL SELECT 'route_status',COUNT(*) FROM route_status UNION ALL SELECT 'driver_activity',COUNT(*) FROM driver_activity UNION ALL SELECT 'messages',COUNT(*) FROM messages;" --json
+
+      - name: Inspect route status distribution
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT status,COUNT(*) AS row_count FROM route_status GROUP BY status ORDER BY status;" --json
+
+      - name: Inspect PAD activity distribution
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "SELECT kind,status,COUNT(*) AS row_count FROM driver_activity GROUP BY kind,status ORDER BY kind,status;" --json
+
+      - name: Verify foreign key integrity
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: d1 execute choferes-argentinos --remote --command "PRAGMA foreign_key_check;" --json
