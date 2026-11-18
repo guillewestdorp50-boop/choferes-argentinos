@@ -54,3 +54,8 @@ Fuentes oficiales consultadas el 17-11-2026:
 8. Integrar la PWA contra esta API en una versión de prueba. No cambiar el sitio de producción hasta verificar registro, persistencia, muro, estados, invitaciones, fotos y privacidad.
 
 No hay despliegue ni recursos Cloudflare creados desde este repositorio. No se habilitó facturación ni se agregó un medio de pago.
+
+
+## Inventario de datos (solo lectura)
+
+El workflow `.github/workflows/audit-ca-production-d1.yml` consulta únicamente conteos por tabla de la D1 de producción para preparar la migración. No exporta mensajes, nombres, fotos ni otros contenidos personales y no ejecuta escrituras.
