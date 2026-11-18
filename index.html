@@ -394,6 +394,7 @@ function setTab(tab){
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
+  if(tab==='datos') loadAccountData();
 }
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('joinMode').addEventListener('change',()=>{
@@ -514,7 +515,7 @@ function updateProfileUI(){
   renderAvatar($('myAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   renderAvatar($('profileAvatar'),profile.avatar_media_id,profile.avatar_key,nickname,selectedProfilePhotoUrl);
   $('profileName').textContent = nickname;
-  $('accountNickname').textContent = nickname;
+  $('accountNicknameDisplay').textContent = '••••••••';
   $('accountRole').textContent = profile.role==='owner'?'Administrador principal':profile.role==='moderator'?'Moderador':'Integrante';
   $('editNick').value = nickname;
   const adminAvatarGroup=$('editAvatar').querySelector('optgroup[data-admin-avatars]');
@@ -1318,17 +1319,85 @@ async function createCode(kind,target){
     });
   }catch(error){ area.textContent=error.message || String(error); }
 }
+async function loadAccountData(){
+  try{
+    const data=await api('/api/account-data');
+    $('accountNicknameDisplay').textContent='••••••••';
+    $('recoveryCodeDisplay').textContent='••••••••••';
+    $('accountRole').textContent=profile?.role==='owner'?'Administrador principal':profile?.role==='moderator'?'Moderador':'Integrante';
+    $('recoveryCodeSetup').hidden=!!data.has_recovery_code;
+    $('pinSetupCard').hidden=!!data.has_pin;
+    $('pinRevealCard').hidden=!data.has_pin;
+    $('revealUsernameBtn').hidden=!data.has_pin;
+    $('revealRecoveryCodeBtn').hidden=!data.has_pin;
+    $('hideUsernameBtn').hidden=true;
+    $('hideRecoveryCodeBtn').hidden=true;
+    $('pinRevealInput').value='';
+    $('pinRevealStatus').textContent='';
+  }catch(error){
+    $('recoveryCodeStatus').textContent=error.message||'No se pudieron cargar tus datos.';
+  }
+}
 $('saveRecoveryCode').addEventListener('click',async()=>{
   const code=$('recoveryCodeInput').value.trim().toUpperCase();
   $('recoveryCodeStatus').textContent='';
   if(!code){$('recoveryCodeStatus').textContent='Ingresá tu código original.';return;}
   $('saveRecoveryCode').disabled=true;
   try{
-    const result=await api('/api/recovery/setup',{method:'POST',body:{code}});
+    await api('/api/recovery/setup',{method:'POST',body:{code}});
     $('recoveryCodeInput').value='';
-    $('recoveryCodeStatus').textContent='Código de recuperación guardado correctamente.';
+    $('recoveryCodeStatus').textContent='Código guardado y asociado a tu cuenta.';
+    await loadAccountData();
   }catch(error){$('recoveryCodeStatus').textContent=error.message||'No se pudo guardar el código.';}
   finally{$('saveRecoveryCode').disabled=false;}
+});
+$('saveRecoveryPin').addEventListener('click',async()=>{
+  const pin=$('pinSetupInput').value.trim();
+  $('pinSetupStatus').textContent='';
+  if(!/^\\d{4}$/.test(pin)){$('pinSetupStatus').textContent='El PIN debe tener exactamente cuatro números.';return;}
+  $('saveRecoveryPin').disabled=true;
+  try{
+    await api('/api/recovery/pin',{method:'POST',body:{pin}});
+    $('pinSetupInput').value='';
+    $('pinSetupStatus').textContent='PIN guardado. Ya podés mostrar tus datos cuando lo necesites.';
+    await loadAccountData();
+  }catch(error){$('pinSetupStatus').textContent=error.message||'No se pudo guardar el PIN.';}
+  finally{$('saveRecoveryPin').disabled=false;}
+});
+function openPinReveal(){
+  $('pinRevealCard').hidden=false;
+  $('pinRevealStatus').textContent='Ingresá tu PIN para mostrar los datos.';
+  $('pinRevealInput').focus();
+}
+$('revealUsernameBtn').addEventListener('click',openPinReveal);
+$('revealRecoveryCodeBtn').addEventListener('click',openPinReveal);
+$('hideUsernameBtn').addEventListener('click',()=>{
+  $('accountNicknameDisplay').textContent='••••••••';
+  $('hideUsernameBtn').hidden=true;
+  $('revealUsernameBtn').hidden=false;
+});
+$('hideRecoveryCodeBtn').addEventListener('click',()=>{
+  $('recoveryCodeDisplay').textContent='••••••••••';
+  $('hideRecoveryCodeBtn').hidden=true;
+  $('revealRecoveryCodeBtn').hidden=false;
+});
+$('verifyRecoveryPin').addEventListener('click',async()=>{
+  const pin=$('pinRevealInput').value.trim();
+  $('pinRevealStatus').textContent='';
+  if(!/^\\d{4}$/.test(pin)){$('pinRevealStatus').textContent='Ingresá tu PIN de cuatro números.';return;}
+  $('verifyRecoveryPin').disabled=true;
+  try{
+    const data=await api('/api/recovery/reveal',{method:'POST',body:{pin}});
+    $('accountNicknameDisplay').textContent=data.nickname||'—';
+    $('recoveryCodeDisplay').textContent=data.recovery_code||'Todavía no guardado';
+    $('hideUsernameBtn').hidden=false;
+    $('revealUsernameBtn').hidden=true;
+    $('hideRecoveryCodeBtn').hidden=false;
+    $('revealRecoveryCodeBtn').hidden=true;
+    $('pinRevealStatus').textContent=data.recovery_code?'Datos verificados.':'Tu código todavía no está guardado en DATOS.';
+    $('pinRevealInput').value='';
+  }catch(error){$('pinRevealStatus').textContent=error.message||'No se pudo verificar el PIN.';}
+  finally{$('verifyRecoveryPin').disabled=false;}
 });
 $('logoutBtn').addEventListener('click',async()=>{
   const button=$('logoutBtn');button.disabled=true;$('logoutMsg').textContent='Cerrando esta sesión…';
@@ -1338,7 +1407,7 @@ $('logoutBtn').addEventListener('click',async()=>{
     if('speechSynthesis'in window)window.speechSynthesis.cancel();
     $('nav').classList.add('hidden');$('app').classList.add('hidden');$('onboarding').classList.remove('hidden');
     $('footer').textContent='Sesión cerrada en este teléfono';
-    $('joinCode').value='';$('joinNick').value='';showError('joinError','La sesión de este teléfono se cerró. Tu cuenta y tus datos siguen guardados.');
+    $('joinMode').value='recovery';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Para iniciar sesión, usá el mismo nombre de usuario y el código original de invitación.');
   }catch(error){$('logoutMsg').textContent=error.message||'No se pudo cerrar la sesión. Intentá nuevamente.';button.disabled=false;}
 });
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
