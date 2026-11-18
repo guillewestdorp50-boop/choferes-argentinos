@@ -558,7 +558,7 @@ function renderPublicWall(posts){
     wall.innerHTML='<div class="empty">Todavía no tiene publicaciones en su muro.</div>';
     return;
   }
-  posts.forEach(post=>{
+  posts.forEach(async post=>{
     const article=document.createElement('article');
     article.className='card';
     article.style.margin='10px 0 0';
@@ -623,7 +623,7 @@ async function renderPostComments(post){
  send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){alert(error.message||String(error));}finally{send.disabled=false;}});
  content.append(list,composer,send);panel.append(toggle,content);return panel;
 }
-async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. Motivo: '+notice.reason+'.');}catch{}}
+async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. porque contenía: '+notice.reason+'.');}catch{}}
 async function loadFeed(){
   const box = $('feed');
   try{
@@ -1356,6 +1356,7 @@ setInterval(()=>{
 },45000);
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 await boot();
+await loadCommentNotices();
 const requestedTab=new URLSearchParams(location.search).get('tab');
 if(requestedTab==='moderacion' && profile && ['owner','moderator'].includes(profile.role)) setTab('moderacion');
 </script>
