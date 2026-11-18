@@ -214,7 +214,7 @@ export default {
         const inviteCode = makeCode(), token = makeToken();
         await env.DB.batch([
           env.DB.prepare("INSERT INTO communities(id,name,created_at) VALUES(?,?,?)").bind(communityId, communityName, timestamp),
-          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at) VALUES(?,?,?,'owner',?,?)").bind(profileId, communityId, nickname, timestamp, timestamp),
+          env.DB.prepare("INSERT INTO profiles(id,community_id,nickname,role,created_at,updated_at,recovery_code) VALUES(?,?,?,'owner',?,?,?)").bind(profileId, communityId, nickname, timestamp, timestamp, inviteCode),
           env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(id(), profileId, await sha256(token), timestamp, timestamp),
           env.DB.prepare("INSERT INTO invites(id,community_id,code_hash,kind,created_by_profile_id,max_uses,uses,expires_at,created_at) VALUES(?,?,?,'community',?,45,0,?,?)").bind(id(), communityId, await sha256(inviteCode), profileId, new Date(Date.now() + 30 * 86400000).toISOString(), timestamp)
         ]);
