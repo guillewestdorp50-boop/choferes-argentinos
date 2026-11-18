@@ -361,15 +361,10 @@ export default {
         const code = cleanText(input?.code, 32).toUpperCase();
         if (!nickname || !code) return fail("Apodo y código de recuperación son obligatorios.", 400, cors);
         const profile = await env.DB.prepare(
-          "SELECT id FROM profiles WHERE lower(nickname)=lower(?) AND recovery_code=? LIMIT 1"
-        ).bind(nickname, code).first();
-        if (!profile) return fail("No encontramos una cuenta con ese apodo y código. Revisá los datos e intentá nuevamente.", 400, cors);
-        const token = makeToken(), timestamp = now();
-        const deviceId = id();
-        await env.DB.batch([
-          env.DB.prepare("UPDATE devices SET revoked_at=? WHERE profile_id=? AND revoked_at IS NULL").bind(timestamp, profile.id),
-          env.DB.prepare("INSERT INTO devices(id,profile_id,token_hash,created_at,last_seen_at) VALUES(?,?,?,?,?)").bind(deviceId, profile.id, await sha256(token), timestamp, timestamp)
-        ]);
+          "SELECT id FROM profiles WHERE nickname_key=? AND recovery_code=? AND id NOT LIKE 'el-viejo-%' LIMIT 1"
+        ).bind(nicknameKey(nickname), code).first();
+        if (!profile) return fail("No encontramos una cuenta con esos datos. Revisá el apodo y el código e intentá nuevamente.", 400, cors);
+        const token = await issueDevice(env, profile.id);
         return json({ token, recovered: true }, 200, cors);
       }
 
