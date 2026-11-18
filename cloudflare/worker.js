@@ -252,9 +252,10 @@ export default {
         const nickname = cleanText(input?.nickname, 32);
         const code = cleanText(input?.code, 32).toUpperCase();
         if (!nickname || !code) return fail("Apodo y código de recuperación son obligatorios.", 400, cors);
+        const codeHash=await sha256(code);
         const profile = await env.DB.prepare(
-          "SELECT id FROM profiles WHERE lower(nickname)=lower(?) AND recovery_code=? LIMIT 1"
-        ).bind(nickname, code).first();
+          "SELECT p.id FROM profiles p WHERE lower(p.nickname)=lower(?) AND p.recovery_code=? AND NOT EXISTS (SELECT 1 FROM invites i WHERE i.code_hash=? AND i.community_id=p.community_id AND i.kind IN ('community','friend') AND i.uses>0) LIMIT 1"
+        ).bind(nickname, code, codeHash).first();
         if (!profile) return fail("No encontramos una cuenta con ese apodo y código. Revisá los datos e intentá nuevamente.", 400, cors);
         const token = makeToken(), timestamp = now();
         const deviceId = id();
@@ -333,7 +334,13 @@ export default {
         const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
         const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
         if (pinHash !== row.recovery_pin_hash) return fail("PIN incorrecto. Podés volver a intentarlo; tu cuenta no se bloquea.", 400, cors);
-        return json({nickname:row.nickname,recovery_code:row.recovery_code || null},200,cors);
+        let recoveryCode=row.recovery_code || null;
+        if (recoveryCode) {
+          const legacyHash=await sha256(recoveryCode);
+          const legacyInvite=await env.DB.prepare("SELECT id FROM invites WHERE code_hash=? AND community_id=? AND kind IN ('community','friend') AND uses>0 LIMIT 1").bind(legacyHash,user.community_id).first();
+          if (legacyInvite) recoveryCode=null;
+        }
+        return json({nickname:row.nickname,recovery_code:recoveryCode},200,cors);
       }
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
       if (request.method === "POST" && path === "/api/logout") {
