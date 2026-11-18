@@ -377,12 +377,13 @@ export default {
         const nickname = cleanText(input?.nickname, 32);
         const bio = cleanText(input?.bio, 160);
         const avatarKey = cleanText(input?.avatar_key || user.avatar_key || "truck", 24);
-        const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus"];
+        const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus","admin_crown","admin_shield","admin_star","admin_wheel","admin_eagle"];
         const avatarMediaId = Object.prototype.hasOwnProperty.call(input || {}, "avatar_media_id")
           ? (input.avatar_media_id ? cleanText(input.avatar_media_id, 64) : null)
           : (user.avatar_media_id || null);
         if (nickname.length < 2) return fail("El apodo debe tener al menos 2 caracteres.", 400, cors);
         if (!allowedAvatars.includes(avatarKey)) return fail("Avatar no válido.", 400, cors);
+        if (avatarKey.startsWith("admin_") && user.role !== "owner") return fail("Estos avatares son exclusivos de la cuenta administradora.", 403, cors);
         if (avatarMediaId) {
           const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?")
             .bind(avatarMediaId, user.community_id, user.profile_id).first();
