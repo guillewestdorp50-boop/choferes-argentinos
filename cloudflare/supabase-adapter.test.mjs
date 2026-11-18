@@ -55,6 +55,7 @@ test("uses server-only Supabase RPC and decodes returned bytea", async () => {
   const row = await db.prepare("SELECT data FROM media WHERE id=?").bind("media-id").first();
   assert.equal(captured.url, "https://example.supabase.co/rest/v1/rpc/ca_worker_query");
   assert.equal(captured.init.headers.apikey, "server-secret");
+  assert.equal(captured.init.headers.authorization, "Bearer server-secret");
   assert.deepEqual(Array.from(row.data), [0x41, 0x42]);
 });
 
