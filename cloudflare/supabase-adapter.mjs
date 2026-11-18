@@ -12,41 +12,41 @@ function asHexBytea(value) {
   if (value instanceof ArrayBuffer) value = new Uint8Array(value);
   if (ArrayBuffer.isView(value)) {
     const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-    return "\\\\x" + Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    return "\\x" + Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
   }
   return value;
 }
 
 export function translateD1Sql(input) {
   let sql = String(input).trim();
-  const ignoreInsert = /^INSERT\\s+OR\\s+IGNORE\\s+INTO\\s+/i.test(sql);
-  if (ignoreInsert) sql = sql.replace(/^INSERT\\s+OR\\s+IGNORE\\s+INTO\\s+/i, "INSERT INTO ");
+  const ignoreInsert = /^INSERT\s+OR\s+IGNORE\s+INTO\s+/i.test(sql);
+  if (ignoreInsert) sql = sql.replace(/^INSERT\s+OR\s+IGNORE\s+INTO\s+/i, "INSERT INTO ");
 
   for (const table of TABLES) {
     sql = sql.replace(new RegExp("\\b" + table + "\\b", "gi"), "ca_" + table);
   }
 
   sql = sql.replace(
-    /datetime\\(d\\.last_seen_at\\)\\s*>=\\s*datetime\\('now'\\s*,\\s*'-3 minutes'\\)/gi,
+    /datetime\(d\.last_seen_at\)\s*>=\s*datetime\('now'\s*,\s*'-3 minutes'\)/gi,
     "d.last_seen_at::timestamptz >= now() - interval '3 minutes'"
   );
   sql = sql.replace(
-    /datetime\\(COALESCE\\(p\\.moderated_at\\s*,\\s*p\\.created_at\\)\\)\\s*<=\\s*datetime\\('now'\\s*,\\s*'-5 minutes'\\)/gi,
+    /datetime\(COALESCE\(p\.moderated_at\s*,\s*p\.created_at\)\)\s*<=\s*datetime\('now'\s*,\s*'-5 minutes'\)/gi,
     "COALESCE(p.moderated_at,p.created_at)::timestamptz <= now() - interval '5 minutes'"
   );
-  sql = sql.replace(/json_group_array\\s*\\(/gi, "jsonb_agg(");
-  sql = sql.replace(/json_object\\s*\\(/gi, "jsonb_build_object(");
+  sql = sql.replace(/json_group_array\s*\(/gi, "jsonb_agg(");
+  sql = sql.replace(/json_object\s*\(/gi, "jsonb_build_object(");
 
   // Postgres bytea accepts its hex input representation. The RPC receives it as text.
-  if (/^INSERT INTO ca_media\\b/i.test(sql)) {
-    sql = sql.replace(/VALUES\\s*\\(([^)]*)\\)/i, (_, values) => {
+  if (/^INSERT INTO ca_media\b/i.test(sql)) {
+    sql = sql.replace(/VALUES\s*\(([^)]*)\)/i, (_, values) => {
       const parts = values.split(",");
       if (parts.length === 6) parts[4] = parts[4].trim() + "::bytea";
       return "VALUES(" + parts.join(",") + ")";
     });
   }
-  if (/^INSERT INTO ca_driver_activity\\b/i.test(sql)) {
-    sql = sql.replace(/VALUES\\s*\\(([^)]*)\\)/i, (_, values) => {
+  if (/^INSERT INTO ca_driver_activity\b/i.test(sql)) {
+    sql = sql.replace(/VALUES\s*\(([^)]*)\)/i, (_, values) => {
       const parts = values.split(",");
       if (parts.length === 11) parts[8] = parts[8].trim() + "::bytea";
       return "VALUES(" + parts.join(",") + ")";
@@ -62,7 +62,7 @@ function encodeParams(params) {
 }
 
 function decodeBytea(value) {
-  if (typeof value !== "string" || !/^\\\\x(?:[0-9a-f]{2})*$/i.test(value)) return value;
+  if (typeof value !== "string" || !/^\\x(?:[0-9a-f]{2})*$/i.test(value)) return value;
   const hex = value.slice(2);
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
@@ -80,7 +80,7 @@ function decodeRows(value) {
 }
 
 export function createSupabaseDb(env, fetchImpl = fetch) {
-  const baseUrl = String(env.SUPABASE_URL || "").replace(/\\/$/, "");
+  const baseUrl = String(env.SUPABASE_URL || "").replace(/\/$/, "");
   const secret = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!baseUrl || !secret) throw new Error("Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.");
 
