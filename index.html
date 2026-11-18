@@ -210,7 +210,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <div class="name">Mi cuenta en Choferes Argentinos</div>
   <p class="small">Tus datos de acceso quedan guardados para que puedas volver a entrar desde otro teléfono.</p>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:14px">
-    <span class="small">Nombre de usuario</span><strong id="accountNicknameDisplay">••••••••</strong>
+    <span class="small">Apodo público</span><strong id="accountNicknameDisplay">••••••••</strong>
   </div>
   <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px">
     <span class="small">Tipo de cuenta</span><strong id="accountRole">—</strong>
@@ -257,7 +257,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card" id="pinSetupCard">
   <div class="name">Tu PIN personal</div>
-  <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu usuario y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
+  <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu apodo público y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
   <label for="pinSetupInput">Crear PIN de cuatro números</label>
   <input id="pinSetupInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="••••">
   <button class="action primary" id="saveRecoveryPin" type="button">Guardar mi PIN</button>
@@ -497,7 +497,7 @@ $('joinBtn').addEventListener('click',async()=>{
     if(mode!=='device' && nickname.length<2){showError('joinError',mode==='recovery'?'Escribí tu apodo público.':'Escribí un apodo de al menos 2 caracteres.');return;}
   }
   $('joinBtn').disabled = true;
-  $('joinBtn').textContent = mode==='password'||mode==='recovery'?'Ingresando…':'Vinculando…';
+  $('joinBtn').textContent = mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
     const result = mode==='password'
       ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
@@ -1506,7 +1506,7 @@ $('logoutBtn').addEventListener('click',async()=>{
     if('speechSynthesis'in window)window.speechSynthesis.cancel();
     $('nav').classList.add('hidden');$('app').classList.add('hidden');$('onboarding').classList.remove('hidden');
     $('footer').textContent='Sesión cerrada en este teléfono';
-    $('joinMode').value='recovery';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Elegí Usuario y contraseña para entrar, o Recuperar con PIN si lo configuraste.');
+    $('joinMode').value='password';$('joinMode').dispatchEvent(new Event('change'));$('joinCode').value='';$('joinNick').value='';showError('joinError','Sesión cerrada. Elegí Usuario y contraseña para entrar, o Recuperar con PIN si lo configuraste.');
   }catch(error){$('logoutMsg').textContent=error.message||'No se pudo cerrar la sesión. Intentá nuevamente.';button.disabled=false;}
 });
 $('addFriend').addEventListener('click',()=>createCode('friend','pairCodeArea'));
