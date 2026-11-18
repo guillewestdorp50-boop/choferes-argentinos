@@ -58,3 +58,6 @@ No hay despliegue ni recursos Cloudflare creados desde este repositorio. No se h
 ## Inventario de datos (solo lectura)
 
 El workflow `.github/workflows/audit-ca-production-d1.yml` consulta únicamente conteos por tabla. Lee el Account ID desde la variable `CLOUDFLARE_ACCOUNT_ID` del Environment `production` y usa un token de API de solo lectura configurado como secreto. No exporta contenido personal ni ejecuta escrituras.
+
+
+La auditoría de producción separa los conteos en dos consultas de solo lectura para respetar el límite de términos compuestos de SQLite.
