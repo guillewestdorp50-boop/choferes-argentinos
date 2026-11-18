@@ -108,3 +108,42 @@ test("translates all 65 Worker SQL statements without SQLite-only syntax", async
     assert.doesNotMatch(sql, /INSERT\s+OR\s+IGNORE|datetime\s*\(|json_group_array|json_object\s*\(/i);
   }
 });
+
+
+test("sends modern Supabase secret keys only through the apikey header", async () => {
+  let captured;
+  const db = createSupabaseDb({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "sb_secret_test-secret"
+  }, async (url, init) => {
+    captured = { url, init };
+    return new Response(JSON.stringify({ success: true, results: [{ total: 0 }] }), { status: 200 });
+  });
+  const row = await db.prepare("SELECT COUNT(*) AS total FROM communities").first();
+  assert.equal(row.total, 0);
+  assert.equal(captured.init.headers.apikey, "sb_secret_test-secret");
+  assert.equal("authorization" in captured.init.headers, false);
+});
+
+test("prefers SUPABASE_SECRET_KEY over the legacy service role variable", async () => {
+  let captured;
+  createSupabaseDb({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "sb_secret_preferred",
+    SUPABASE_SERVICE_ROLE_KEY: "legacy-jwt"
+  }, async (_url, init) => {
+    captured = init;
+    return new Response(JSON.stringify({ success: true, results: [] }), { status: 200 });
+  });
+  const db = createSupabaseDb({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "sb_secret_preferred",
+    SUPABASE_SERVICE_ROLE_KEY: "legacy-jwt"
+  }, async (_url, init) => {
+    captured = init;
+    return new Response(JSON.stringify({ success: true, results: [] }), { status: 200 });
+  });
+  await db.prepare("SELECT id FROM profiles").first();
+  assert.equal(captured.headers.apikey, "sb_secret_preferred");
+  assert.equal("authorization" in captured.headers, false);
+});
