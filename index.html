@@ -400,6 +400,8 @@ document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',(
 $('joinMode').addEventListener('change',()=>{
   const mode=$('joinMode').value;
   $('nickWrap').classList.toggle('hidden',mode==='device');
+  const codeLabel=document.querySelector('label[for="joinCode"]');
+  if(codeLabel)codeLabel.textContent=mode==='recovery'?'Código original de invitación':'Código de invitación';
   $('joinBtn').textContent=mode==='recovery'?'Iniciar sesión':'Vincularme';
   const nickLabel=document.querySelector('label[for="joinNick"]');
   if(nickLabel)nickLabel.textContent=mode==='recovery'?'Nombre de usuario':'Tu apodo en la ruta';
