@@ -522,11 +522,13 @@ export default {
       if (request.method === "GET" && path === "/api/activity") {
         const result = await env.DB.prepare(
           `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
-                  pr.nickname,pr.avatar_key,pr.avatar_media_id
+                  pr.nickname,pr.avatar_key,pr.avatar_media_id,
+                  (SELECT COUNT(*) FROM activity_reactions r WHERE r.activity_id=a.id) AS likes,
+                  EXISTS(SELECT 1 FROM activity_reactions r WHERE r.activity_id=a.id AND r.profile_id=?) AS liked_by_me
            FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
            WHERE a.community_id=? AND a.status='approved'
            ORDER BY a.created_at DESC LIMIT 100`
-        ).bind(user.community_id).all();
+        ).bind(user.profile_id,user.community_id).all();
         return json({ activities: result.results || [] }, 200, cors);
       }
 
@@ -581,7 +583,43 @@ export default {
           "UPDATE driver_activity SET status=?,moderated_by_profile_id=?,moderated_at=?,rejection_reason=? WHERE id=? AND community_id=? AND status='pending'"
         ).bind(status,user.profile_id,now(),status === "rejected" ? cleanText(input?.reason,240) || "El aviso necesita algunos cambios para cumplir las normas de convivencia." : null,activityModerationMatch[1],user.community_id).run();
         if (!result.success || result.meta.changes !== 1) return fail("El aviso ya no está pendiente o no existe.",404,cors);
+        if(status==="approved"){
+          const activity=await env.DB.prepare("SELECT id,profile_id,kind,location_label,body,media_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityModerationMatch[1],user.community_id).first();
+          if(activity){
+            const label=({accidente:"🚨 ACCIDENTE",demorado:"⏳ DEMORA",otro:"⚠️ AVISO",libre:"🟢 LIBRE",cargando:"🟡 CARGANDO",cargado:"🔵 CARGADO",descargando:"🟠 DESCARGANDO"})[activity.kind]||activity.kind.toUpperCase();
+            const wallBody=[label,activity.location_label||"",activity.body||""].filter(Boolean).join("\\n\\n");
+            await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status,moderated_by_profile_id,moderated_at,source_activity_id) VALUES(?,?,?,?,?,?,'approved',?,?,?)")
+              .bind(id(),user.community_id,activity.profile_id,wallBody,activity.media_id,now(),user.profile_id,now(),activity.id).run();
+          }
+        }
         return json({ok:true,status},200,cors);
+      }
+
+      if (request.method === "POST" && path === "/api/activity/reactions") {
+        const input=await bodyJson(request), activityId=cleanText(input?.activity_id,64);
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        if(!activity)return fail("Aviso no encontrado.",404,cors);
+        const existing=await env.DB.prepare("SELECT activity_id FROM activity_reactions WHERE activity_id=? AND profile_id=?").bind(activityId,user.profile_id).first();
+        if(existing)await env.DB.prepare("DELETE FROM activity_reactions WHERE activity_id=? AND profile_id=?").bind(activityId,user.profile_id).run();
+        else await env.DB.prepare("INSERT INTO activity_reactions(activity_id,profile_id,created_at) VALUES(?,?,?)").bind(activityId,user.profile_id,now()).run();
+        return json({liked:!existing},200,cors);
+      }
+
+      if (request.method === "GET" && path === "/api/activity/comments") {
+        const activityId=cleanText(url.searchParams.get("activity_id"),64);
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        if(!activity)return fail("Aviso no encontrado.",404,cors);
+        const result=await env.DB.prepare("SELECT c.id,c.profile_id,c.body,c.created_at,p.nickname FROM activity_comments c JOIN profiles p ON p.id=c.profile_id WHERE c.activity_id=? ORDER BY c.created_at ASC LIMIT 200").bind(activityId).all();
+        return json({comments:result.results||[]},200,cors);
+      }
+
+      if (request.method === "POST" && path === "/api/activity/comments") {
+        const input=await bodyJson(request),activityId=cleanText(input?.activity_id,64),body=cleanText(input?.body,1000);
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        if(!activity||!body)return fail("Aviso o mensaje inválido.",400,cors);
+        const commentId=id();
+        await env.DB.prepare("INSERT INTO activity_comments(id,activity_id,profile_id,body,created_at) VALUES(?,?,?,?,?)").bind(commentId,activityId,user.profile_id,body,now()).run();
+        return json({id:commentId},201,cors);
       }
 
       const activityAudioMatch = path.match(/^\/api\/activity\/([0-9a-f-]{36})\/audio$/i);
