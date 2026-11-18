@@ -190,8 +190,9 @@ async function notifyModerators(env, communityId, postId, nickname) {
 
 export default {
   async fetch(request, env) {
-    const hasSupabaseConfig = Boolean(env.SUPABASE_URL || env.SUPABASE_SERVICE_ROLE_KEY);
-    if (hasSupabaseConfig && !(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)) {
+    const hasSupabaseConfig = Boolean(env.SUPABASE_URL || env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY);
+    const hasSupabaseSecret = Boolean(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY);
+    if (hasSupabaseConfig && !(env.SUPABASE_URL && hasSupabaseSecret)) {
       return fail("Configuración Supabase incompleta.", 503);
     }
     if (hasSupabaseConfig) {
