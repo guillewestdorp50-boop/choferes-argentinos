@@ -61,3 +61,5 @@ El workflow `.github/workflows/audit-ca-production-d1.yml` consulta únicamente 
 
 
 La auditoría de producción separa los conteos en dos consultas de solo lectura para respetar el límite de términos compuestos de SQLite.
+
+La auditoría limita cada consulta compuesta a tres tablas para ajustarse al límite del motor D1.
