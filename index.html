@@ -1076,7 +1076,7 @@ $('saveNick').addEventListener('click',async()=>{
       if(!uploaded.media_id||!uploaded.bytes)throw new Error('El servidor no confirmó el guardado de la foto de perfil.');
       avatarMediaId=uploaded.media_id;
     }else if(removeProfilePhotoRequested){avatarMediaId=null;}
-    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio,avatar_media_id:avatarMediaId}});
+    const result=await api('/api/profile',{method:'PATCH',body:{nickname,bio,avatar_key:$('editAvatar').value,avatar_media_id:avatarMediaId}});
     profile.nickname=result.nickname || nickname;
     profile.bio=result.bio ?? bio;
     profile.avatar_key=result.avatar_key || profile.avatar_key;
