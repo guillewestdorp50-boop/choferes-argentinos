@@ -278,8 +278,8 @@ export default {
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
       if (request.method === "GET" && path === "/api/account-data") {
-        const row = await env.DB.prepare("SELECT nickname,recovery_code FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
-        return json({ nickname: row?.nickname || user.nickname, recovery_code: row?.recovery_code || null }, 200, cors);
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash }, 200, cors);
       }
       if (request.method === "POST" && path === "/api/recovery/setup") {
         const input = await bodyJson(request);
@@ -294,7 +294,33 @@ export default {
         } catch (error) {
           return fail("No está aplicada todavía la actualización de recuperación en el servidor.", 503, cors);
         }
-        return json({ ok:true, recovery_code:code }, 200, cors);
+        return json({ ok:true, has_recovery_code:true }, 200, cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/pin") {
+        const input = await bodyJson(request);
+        const pin = String(input?.pin || "");
+        if (!/^\\d{4}$/.test(pin)) return fail("El PIN debe tener exactamente cuatro números.", 400, cors);
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = Array.from(saltBytes, b => b.toString(16).padStart(2,"0")).join("");
+        const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+        const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
+        const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=?").bind(salt,pinHash,user.profile_id).run();
+        if (!result.success || result.meta.changes !== 1) return fail("No se pudo guardar el PIN.", 500, cors);
+        return json({ok:true,has_pin:true},200,cors);
+      }
+      if (request.method === "POST" && path === "/api/recovery/reveal") {
+        const input = await bodyJson(request);
+        const pin = String(input?.pin || "");
+        if (!/^\\d{4}$/.test(pin)) return fail("Ingresá tu PIN de cuatro números.", 400, cors);
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_salt,recovery_pin_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        if (!row?.recovery_pin_hash || !row?.recovery_pin_salt) return fail("Primero tenés que crear tu PIN en DATOS.", 400, cors);
+        const saltBytes = Uint8Array.from(row.recovery_pin_salt.match(/.{2}/g).map(x=>parseInt(x,16)));
+        const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+        const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
+        if (pinHash !== row.recovery_pin_hash) return fail("PIN incorrecto. Podés volver a intentarlo; tu cuenta no se bloquea.", 400, cors);
+        return json({nickname:row.nickname,recovery_code:row.recovery_code || null},200,cors);
       }
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
       if (request.method === "POST" && path === "/api/logout") {
