@@ -1147,7 +1147,7 @@ async function loadFriends(){
       card.className='card row';
       const avatar=document.createElement('div');
       avatar.className='avatar';
-      renderAvatar(avatar,friend.avatar_media_id,friend.avatar_key,friend.nickname);
+      if(friend.id&&friend.id.startsWith('el-viejo-')){const img=document.createElement('img');img.src='./el-viejo.svg';img.alt='El Viejo';avatar.append(img);}else{renderAvatar(avatar,friend.avatar_media_id,friend.avatar_key,friend.nickname);}
       const info=document.createElement('div');
       const name=document.createElement('div');
       name.className='name';
