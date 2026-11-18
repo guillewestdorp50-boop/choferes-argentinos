@@ -234,6 +234,13 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <input id="loginPasswordConfirmInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña">
   <button class="action primary" id="saveLoginCredentials" type="button">Guardar acceso</button>
   <p class="small" id="loginCredentialsStatus" aria-live="polite"></p>
+  <button class="action" id="showLoginErrorReport" type="button" hidden>Ver informe del error</button>
+  <div class="card" id="loginErrorReportCard" hidden style="margin-top:10px">
+    <div class="name">Informe técnico del guardado</div>
+    <p class="small">Este informe no incluye tu contraseña ni los datos que escribiste.</p>
+    <textarea id="loginErrorReportText" readonly rows="9" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+    <button class="action primary" id="copyLoginErrorReport" type="button">Copiar informe de error</button>
+  </div>
 </div>
 <div class="card">
   <div class="name">Código de recuperación</div>
@@ -386,12 +393,21 @@ async function api(path, options = {}){
     headers.set('Content-Type','application/json');
     body = JSON.stringify(body);
   }
-  const response = await fetch(API_BASE + path,{method:options.method || 'GET',headers,body,cache:'no-store'});
+  const method=options.method || 'GET';
+  const response = await fetch(API_BASE + path,{method,headers,body,cache:'no-store'});
+  let rawResponse='';
   let data = {};
-  try { data = await response.json(); } catch {}
+  try { rawResponse=await response.text(); data=rawResponse?JSON.parse(rawResponse):{}; }
+  catch { data={}; }
   if(!response.ok){
-    const error = new Error(data.error || ('Error de conexión ('+response.status+').'));
+    const error = new Error(data.error || data.message || ('Error de conexión ('+response.status+').'));
     error.status = response.status;
+    error.apiPath = path;
+    error.apiMethod = method;
+    error.serverCode = data.code || data.error_code || null;
+    error.serverDetails = data.details || data.message || null;
+    error.requestId = response.headers.get('cf-ray') || response.headers.get('x-request-id') || response.headers.get('x-correlation-id') || null;
+    error.responseBody = rawResponse.slice(0,1200);
     throw error;
   }
   return data;
@@ -1403,6 +1419,16 @@ async function loadAccountData(){
     $('recoveryCodeStatus').textContent=error.message||'No se pudieron cargar tus datos.';
   }
 }
+let lastLoginCredentialsErrorReport='';
+$('showLoginErrorReport').addEventListener('click',()=>{
+  $('loginErrorReportCard').hidden=false;
+  $('loginErrorReportText').value=lastLoginCredentialsErrorReport;
+});
+$('copyLoginErrorReport').addEventListener('click',async()=>{
+  const report=$('loginErrorReportText').value;
+  try{await navigator.clipboard.writeText(report);$('copyLoginErrorReport').textContent='Informe copiado';}
+  catch{$('loginErrorReportText').focus();$('loginErrorReportText').select();$('copyLoginErrorReport').textContent='Seleccioná y copiá el informe';}
+});
 $('saveLoginCredentials').addEventListener('click',async()=>{
   const username=$('loginUsernameInput').value.trim();
   const password=$('loginPasswordInput').value;
@@ -1410,6 +1436,9 @@ $('saveLoginCredentials').addEventListener('click',async()=>{
   const currentPassword=$('currentPasswordInput').value;
   const status=$('loginCredentialsStatus');
   status.textContent='';
+  $('showLoginErrorReport').hidden=true;
+  $('loginErrorReportCard').hidden=true;
+  lastLoginCredentialsErrorReport='';
   if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,23}$/.test(username)){status.textContent='El usuario debe tener entre 3 y 24 caracteres: letras, números, punto, guion o guion bajo.';return;}
   if(password.length<10||password.length>128){status.textContent='La contraseña debe tener entre 10 y 128 caracteres.';return;}
   if(password!==confirmation){status.textContent='Las dos contraseñas no coinciden.';return;}
@@ -1423,7 +1452,24 @@ $('saveLoginCredentials').addEventListener('click',async()=>{
     $('loginPasswordInput').value='';
     $('loginPasswordConfirmInput').value='';
     status.textContent='Acceso guardado. Ya podés iniciar sesión desde otro teléfono; las sesiones actuales siguen activas.';
-  }catch(error){status.textContent=error.message||'No se pudo guardar el acceso.';}
+  }catch(error){
+    status.textContent=error.message||'No se pudo guardar el acceso.';
+    const report={
+      informe:'Choferes Argentinos - error al guardar usuario y contraseña',
+      fecha_hora:new Date().toISOString(),
+      mensaje:error.message||String(error),
+      tipo:error.name||'Error',
+      http_status:error.status||null,
+      endpoint:error.apiPath||'/api/account/credentials',
+      metodo:error.apiMethod||'POST',
+      codigo_servidor:error.serverCode||null,
+      detalle_servidor:error.serverDetails||null,
+      identificador_solicitud:error.requestId||null,
+      respuesta_servidor:error.responseBody||null
+    };
+    lastLoginCredentialsErrorReport=JSON.stringify(report,null,2);
+    $('showLoginErrorReport').hidden=false;
+  }
   finally{button.disabled=false;}
 });
 $('saveRecoveryCode').addEventListener('click',async()=>{
