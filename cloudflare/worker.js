@@ -311,14 +311,23 @@ export default {
         const input = await bodyJson(request);
         const pin = String(input?.pin || "");
         if (!/^\d{4}$/.test(pin)) return fail("El PIN debe tener exactamente cuatro números.", 400, cors);
-        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-        const salt = Array.from(saltBytes, b => b.toString(16).padStart(2,"0")).join("");
-        const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
-        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
-        const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
-        const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
-        if (!result.success || result.meta.changes !== 1) return fail("El PIN ya está configurado o no se pudo guardar.", 409, cors);
-        return json({ok:true,has_pin:true},200,cors);
+        try {
+          const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+          const salt = Array.from(saltBytes, b => b.toString(16).padStart(2,"0")).join("");
+          const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+          const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+          const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
+          const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
+          if (!result.success) {
+            console.error("recovery pin database update failed", result);
+            return fail("No se pudo guardar el PIN en la base de datos. Tus datos siguen intactos.", 503, cors);
+          }
+          if (result.meta?.changes !== 1) return fail("El PIN ya está configurado o el perfil no pudo actualizarse.", 409, cors);
+          return json({ok:true,has_pin:true},200,cors);
+        } catch (error) {
+          console.error("recovery pin setup failed", error);
+          return fail("No se pudo configurar el PIN. No se modificó tu cuenta; intentá nuevamente.", 500, cors);
+        }
       }
       if (request.method === "POST" && path === "/api/recovery/reveal") {
         const input = await bodyJson(request);
