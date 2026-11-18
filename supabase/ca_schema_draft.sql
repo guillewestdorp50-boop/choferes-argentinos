@@ -256,6 +256,8 @@ DECLARE
   v_param jsonb;
   v_literal text;
   v_row record;
+  v_match text[];
+  v_table text;
   v_rows jsonb := '[]'::jsonb;
   v_changes bigint := 0;
   v_param_count integer := COALESCE(jsonb_array_length(p_params), 0);
@@ -276,6 +278,22 @@ BEGIN
      OR p_sql ~* '\m(multiplayer_[a-z0-9_]*|ilox_[a-z0-9_]*)\M' THEN
     RAISE EXCEPTION 'La consulta debe limitarse a las tablas de Choferes Argentinos';
   END IF;
+
+  -- Reject every referenced table outside the explicit CA allowlist. This prevents
+  -- this RPC from being used to query or mutate ILOX or unrelated application data.
+  FOR v_match IN
+    SELECT regexp_matches(p_sql, '\m(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]*)', 'gi')
+  LOOP
+    v_table := lower(v_match[1]);
+    IF v_table NOT IN (
+      'ca_communities','ca_profiles','ca_devices','ca_invites','ca_friend_links',
+      'ca_media','ca_posts','ca_comments','ca_reactions','ca_route_status',
+      'ca_route_alerts','ca_messages','ca_push_subscriptions','ca_badge_awards',
+      'ca_driver_activity'
+    ) THEN
+      RAISE EXCEPTION 'La consulta intentó acceder a una tabla ajena a Choferes Argentinos';
+    END IF;
+  END LOOP;
 
   -- Substitute only positional placeholders, quoting every JSON value as a SQL
   -- literal. This avoids treating user-supplied values as executable SQL.
