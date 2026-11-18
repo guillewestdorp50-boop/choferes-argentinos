@@ -139,7 +139,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </section>
 
 <section id="perfil" hidden>
-<h1 class="section-title">Mi perfil</h1>
+<h1 class="section-title" id="profileSectionTitle">Mi perfil</h1>
+<button class="action" id="viewMyPublicProfile" type="button">Ver mi perfil</button>
 <div class="card"><div class="row"><div class="avatar" id="profileAvatar">YO</div><div><div class="name" id="profileName">Tu perfil</div><div class="meta">Miembro de Choferes Argentinos</div></div></div>
 <label for="editNick">Apodo</label><input id="editNick" maxlength="32">
 <label for="editAvatar">Elegí tu avatar camionero</label><select id="editAvatar">
@@ -442,6 +443,7 @@ $('badgeMember').addEventListener('change',loadMemberBadges);
 async function openPublicProfile(profileId){
   if(!profileId)return;
   setTab('perfil');
+  $('profileSectionTitle').textContent='Perfil público';
   $('publicProfileCard').classList.remove('hidden');
   $('publicName').textContent='Cargando perfil…';
   $('publicBio').textContent='';
@@ -494,7 +496,8 @@ function renderPublicWall(posts){
     wall.append(article);
   });
 }
-$('closePublicProfile').addEventListener('click',()=>$('publicProfileCard').classList.add('hidden'));
+$('closePublicProfile').addEventListener('click',()=>{$('publicProfileCard').classList.add('hidden');$('profileSectionTitle').textContent='Mi perfil';});
+$('viewMyPublicProfile').addEventListener('click',()=>{if(profile?.id)openPublicProfile(profile.id);});
 $('awardBadge').addEventListener('click',async()=>{
   const profileId=$('badgeMember').value,badge_key=$('badgeType').value,level=$('badgeLevel').value;
   if(!profileId||!badge_key){$('badgeAwardMsg').textContent='Elegí un compañero y una insignia.';return;}
@@ -526,16 +529,15 @@ async function loadFeed(){
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
       avatar.textContent = avatarGlyph(post.avatar_key,post.nickname);
-      avatar.style.cursor='pointer';
-      avatar.setAttribute('role','button');
-      avatar.setAttribute('aria-label','Ver perfil de '+(post.nickname||'Compañero'));
-      avatar.addEventListener('click',()=>openPublicProfile(post.profile_id));
       const who = document.createElement('div');
       const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
       const liveStatus=routeStatusByProfile.get(post.profile_id);
       const statusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 Descansando',cafe:'☕ Tomando un café',ypf:'⛽ En la YPF',repostando:'🛢️ Repostando'};
       who.innerHTML = '<button type="button" class="profile-link">'+esc(post.nickname || 'Compañero')+'</button>'+(liveStatus?'<span class="route-status-glow">'+esc(statusLabels[liveStatus.status]||liveStatus.status)+'</span>':'')+'<div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
-      who.querySelector('.profile-link').addEventListener('click',()=>openPublicProfile(post.profile_id));
+      const viewProfile=document.createElement('button');
+      viewProfile.type='button';viewProfile.className='action';viewProfile.textContent='Ver perfil';
+      viewProfile.addEventListener('click',()=>openPublicProfile(post.profile_id));
+      who.append(viewProfile);
       head.append(avatar,who);
       const body = document.createElement('div');
       body.className = 'post';
