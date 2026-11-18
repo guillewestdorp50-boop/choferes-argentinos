@@ -1302,7 +1302,16 @@ async function elViejoRequest(action,message){
   return data;
 }
 function appendElViejoMessage(box,role,content){
-  const bubble=document.createElement('div');bubble.className='viejo-bubble '+(role==='user'?'user':'assistant');bubble.textContent=content;box.append(bubble);
+  const bubble=document.createElement('div');bubble.className='viejo-bubble '+(role==='user'?'user':'assistant');
+  const parts=String(content||'').split(/```/);
+  parts.forEach((part,index)=>{
+    if(index%2===1){const pre=document.createElement('pre');const code=document.createElement('code');code.textContent=part.replace(/^\w+\n/,'').trim();pre.append(code);bubble.append(pre);return;}
+    part.split(/\n{2,}/).forEach(paragraph=>{
+      if(!paragraph.trim())return;
+      const p=document.createElement('p');p.textContent=paragraph.replace(/^\s*[-*]\s+/gm,'• ');bubble.append(p);
+    });
+  });
+  box.append(bubble);
 }
 async function openElViejoChat(){
   elViejoChatOpen=true;setTab('colegas');
