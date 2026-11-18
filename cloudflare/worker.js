@@ -469,7 +469,7 @@ export default {
         const input = await bodyJson(request);
         const kind = input?.kind;
         if (!["friend", "device", "community"].includes(kind)) return fail("Tipo de invitación inválido.", 400, cors);
-        if (!["owner", "moderator"].includes(user.role)) return fail("Solo el administrador puede emitir códigos de invitación.", 403, cors);
+        if (user.role !== "owner") return fail("Solo el administrador principal puede emitir códigos de invitación.", 403, cors);
         const invite = await createInvite(env, user.community_id, kind, user.profile_id, kind === "device" ? user.profile_id : null);
         return json(invite, 201, cors);
       }
