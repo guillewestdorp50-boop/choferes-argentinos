@@ -403,7 +403,32 @@ export default {
         return json(invite, 201, cors);
       }
 
-      if (request.method === "GET" && path === "/api/community/colleagues") {
+            if (request.method === "POST" && path === "/api/friends/el-viejo") {
+        const timestamp = now();
+        const viejoId = "el-viejo-" + user.community_id;
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO profiles(id,community_id,nickname,bio,role,created_at,updated_at,avatar_key)
+           VALUES(?,?,? ,?,'member',?,?,?)`
+        ).bind(viejoId,user.community_id,"El Viejo","Siempre en la ruta · Chofer argentino",timestamp,timestamp,"el-viejo").run();
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO badge_awards(id,community_id,profile_id,badge_key,level,awarded_by_profile_id,awarded_at)
+           VALUES(?,?,?,?,?,?,?)`
+        ).bind(id(),user.community_id,viejoId,"vieja_escuela","Diamante",user.profile_id,timestamp).run();
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)"
+        ).bind(user.profile_id,viejoId,timestamp).run();
+        return json({ok:true,profile_id:viejoId},200,cors);
+      }
+
+      if (request.method === "GET" && path === "/api/friends") {
+        const result = await env.DB.prepare(
+          `SELECT p.id,p.nickname,p.bio,p.avatar_key,p.avatar_media_id,
+             EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online
+           FROM friend_links f JOIN profiles p ON p.id=f.friend_profile_id
+           WHERE f.profile_id=? AND p.community_id=? ORDER BY p.nickname LIMIT 200`
+        ).bind(user.profile_id, user.community_id).all();
+        return json({ friends: result.results || [] }, 200, cors);
+      }if (request.method === "GET" && path === "/api/community/colleagues") {
         const result = await env.DB.prepare(
           `SELECT p.id,p.nickname,p.avatar_key,p.avatar_media_id,
              EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online,
