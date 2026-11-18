@@ -413,7 +413,9 @@ $('joinBtn').addEventListener('click',async()=>{
   try{
     const result = mode==='device'
       ? await api('/api/link-device',{method:'POST',body:{code}})
-      : await api('/api/join',{method:'POST',body:{code,nickname}});
+      : mode==='recovery'
+        ? await api('/api/recover',{method:'POST',body:{code,nickname}})
+        : await api('/api/join',{method:'POST',body:{code,nickname}});
     if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
     saveToken(result.token);
     $('joinCode').value = '';
