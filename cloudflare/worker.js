@@ -260,6 +260,10 @@ export default {
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
       if (request.method === "GET" && path === "/api/me") return json({ profile: user }, 200, cors);
+      if (request.method === "POST" && path === "/api/logout") {
+        await env.DB.prepare("UPDATE devices SET revoked_at=? WHERE id=? AND revoked_at IS NULL").bind(now(), user.device_id).run();
+        return json({ ok: true, logged_out: true }, 200, cors);
+      }
       if (request.method === "GET" && path === "/api/badges/catalog") {
         return json({ badges: BADGE_CATALOG, levels: BADGE_LEVELS }, 200, cors);
       }
