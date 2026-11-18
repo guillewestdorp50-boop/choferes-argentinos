@@ -41,6 +41,11 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
 .badge-item .small{margin-top:4px}
 
+
+#guideVoice{position:fixed;right:12px;bottom:14px;z-index:20;display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:calc(100vw - 24px);padding:9px 11px;background:#1a282c;border:1px solid #58d2d1;border-radius:15px;box-shadow:0 8px 28px #0008}
+#guideVoice button{border:1px solid #496267;border-radius:999px;background:#223338;color:#f1f2ed;padding:8px 11px;font:700 13px system-ui}
+#guideVoice button.primary{background:#58d2d1;color:#102023;border-color:#58d2d1}
+#guideVoiceStatus{font-size:11px;color:#aebdc0;max-width:150px}
 .hidden{display:none!important}.error{color:var(--danger);font-size:13px;white-space:pre-wrap}.success{color:var(--cyan);font-size:13px;white-space:pre-wrap}
 .code{font:700 19px ui-monospace,monospace;letter-spacing:.09em;overflow-wrap:anywhere;background:#101a1d;border:1px dashed var(--cyan);border-radius:10px;padding:13px;margin:10px 0}
 label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
@@ -56,6 +61,13 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <svg class="logo" viewBox="0 0 100 100" aria-label="Monograma CA"><path d="M46 17C17 8 8 28 8 51s13 39 39 31" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round"/><path d="M48 82 68 18 94 82M57 56H82" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M57 56H82" stroke="#58bfc2" stroke-width="7" stroke-linecap="round"/><path d="M69 56h-8" stroke="#e9e8df" stroke-width="2" stroke-dasharray="3 3"/></svg>
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
 </header>
+<div id="guideVoice" class="hidden" aria-label="Guía hablada privada">
+  <span id="guideVoiceStatus">Guía hablada · apagada</span>
+  <button type="button" id="guideVoiceToggle" class="primary">🔊 LOCUTOR: OFF</button>
+  <button type="button" id="guideVoiceRead">LEER ESTA SECCIÓN</button>
+  <button type="button" id="guideVoiceStop">DETENER</button>
+</div>
+
 <nav id="nav" class="hidden" aria-label="Secciones">
 <button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
 </nav>
@@ -216,6 +228,46 @@ let profile = null, selectedStatus = 'libre', currentTab = 'muro', elViejoChatOp
 let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
+const GUIDE_KEY='ca_guide_voice_v1';
+let guideEnabled=false, guideVoice=null, guideLastSpoken='';
+const guideSections={
+ muro:'Estás en El Muro, el espacio común de Choferes Argentinos. Acá podés compartir novedades, experiencias, fotografías y publicaciones con toda la comunidad. Podés leer lo que publican los demás, indicar que te gusta, comentar y participar de las conversaciones. Para publicar, escribí tu mensaje, si querés agregá una foto y tocá Publicar.',
+ ruta:'Estás en En la Ruta. Desde Mi estado podés indicar si estás libre, cargando, cargado, descargando, demorado, en un depósito, en planta, en tu base, en casa, descansando o haciendo una parada. También podés agregar una ubicación y un detalle antes de compartirlo. Más abajo está el PAD, para informar accidentes, demoras, cortes, desvíos y otras situaciones importantes. Los avisos se revisan antes de publicarse para toda la comunidad.',
+ amigos:'Estás en Amigos. Acá construís tu red privada de compañeros. Podés agregar a una persona mediante una invitación, invitar a toda la comunidad si tenés permiso y generar un código para vincular otro teléfono a tu mismo perfil.',
+ colegas:'Estás en Colegas. Acá podés conocer a los integrantes de Choferes Argentinos, consultar su presencia y estado, y abrir sus perfiles. La comunidad incluye camioneros, colectiveros, taxistas, remiseros, transportistas, repartidores, motociclistas, automovilistas, viajeros y todas las personas que comparten la ruta y el camino.',
+ perfil:'Estás en Mi Perfil. Desde acá podés ver y actualizar tu apodo, elegir o cambiar tu foto, seleccionar un avatar, escribir tu biografía y consultar tus insignias y reconocimientos. Si sos administrador, también vas a encontrar las herramientas de administración disponibles para tu cuenta.',
+ moderacion:'Estás en Moderación. Esta sección está reservada a quienes tienen permisos de administración o moderación. Acá se revisan los reportes del PAD y las publicaciones pendientes, para cuidar la seguridad y la convivencia de toda la comunidad.'
+};
+const guideActions={
+ publish:'Publicar comparte tu mensaje con los integrantes de la comunidad. Antes de tocarlo, revisá el texto y la fotografía que hayas agregado.',
+ choosePhoto:'Agregar foto permite seleccionar una imagen de tu teléfono para acompañar la publicación.',
+ removePhoto:'Quitar foto elimina la imagen seleccionada del borrador. Todavía no modifica ninguna publicación ya compartida.',
+ saveStatus:'Compartir mi estado publica el estado de ruta que seleccionaste, junto con la ubicación y el detalle opcionales.',
+ sendPad:'Enviar parte para revisión manda tu aviso al equipo de moderación. El reporte no se publica automáticamente: primero debe ser revisado.',
+ addFriend:'Agregar nuevo amigo permite vincular a otro integrante mediante una invitación privada.',
+ addCommunityInvite:'Invitar a toda la comunidad permite compartir el código general de ingreso, si tu perfil tiene autorización.',
+ pairDevice:'Generar código para mi otro celular crea un código de un solo uso para vincular otro dispositivo al mismo perfil.',
+ saveNick:'Guardar cambios conserva las modificaciones de tu perfil.',
+ viewMyPublicProfile:'Ver mi perfil muestra cómo ven tu perfil los demás integrantes.',
+ closePublicProfile:'Volver cierra el perfil que estás consultando y regresa a la sección anterior.',
+ awardBadge:'Entregar insignia asigna el reconocimiento seleccionado al compañero indicado.',
+ sendViejo:'Enviar manda tu mensaje a El Viejo, el asistente de la comunidad.',
+ guideVoiceRead:'Voy a volver a explicar la sección en la que estás.',
+ guideVoiceStop:'La narración se detuvo.'
+};
+function guideIsOwner(){return !!profile && profile.role==='owner' && String(profile.nickname||'').trim().toLocaleLowerCase('es-AR')==='westdorp';}
+function guideSetStatus(text){const el=$('guideVoiceStatus');if(el)el.textContent=text;}
+function guideChooseVoice(){if(!('speechSynthesis' in window))return null;const voices=window.speechSynthesis.getVoices()||[];const spanish=voices.filter(v=>/^es(-|_)/i.test(v.lang));return spanish.find(v=>/argentina|español.*(mascul|male)|male/i.test(v.name+' '+v.lang))||spanish.find(v=>/es-AR/i.test(v.lang))||spanish[0]||null;}
+function guideSpeak(text){if(!guideEnabled||!text||!('speechSynthesis' in window))return;const clean=String(text).replace(/\s+/g,' ').trim();if(!clean||clean===guideLastSpoken)return;guideLastSpoken=clean;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(clean);utterance.lang='es-AR';utterance.rate=.92;utterance.pitch=.84;const voice=guideChooseVoice();if(voice)utterance.voice=voice;utterance.onstart=()=>guideSetStatus('LOCUTOR · hablando');utterance.onend=()=>guideSetStatus('LOCUTOR · listo');utterance.onerror=()=>guideSetStatus('No se pudo reproducir la voz');window.speechSynthesis.speak(utterance);}
+function guideDescribeSection(tab){guideSpeak(guideSections[tab]||'Estás en una sección de Choferes Argentinos.');}
+function guideDescribeButton(button){if(!guideEnabled||!button||button.closest('#guideVoice'))return;const id=button.id;const text=button.innerText?.replace(/\s+/g,' ').trim();if(!text)return;const description=guideActions[id]||('Tocaste '+text+'. Esta opción ejecuta la acción indicada en el botón.');guideSpeak(description);}
+function guideReadCurrent(){guideLastSpoken='';guideDescribeSection(currentTab);}
+function guideInit(){if(!guideIsOwner())return;$('guideVoice').classList.remove('hidden');try{guideEnabled=localStorage.getItem(GUIDE_KEY)==='1';}catch{}$('guideVoiceToggle').textContent=guideEnabled?'🔊 LOCUTOR: ON':'🔊 LOCUTOR: OFF';guideSetStatus(guideEnabled?'Guía hablada · activada':'Guía hablada · apagada');if(guideEnabled){setTimeout(()=>guideSpeak('¡Bienvenido a Choferes Argentinos! Esta es una comunidad para todas las personas que comparten la ruta y el camino: camioneros, colectiveros, taxistas, remiseros, transportistas, repartidores, motociclistas, automovilistas y viajeros. Te voy a acompañar para conocer la aplicación, sus secciones y cómo utilizar cada herramienta. Empecemos.'),700);}}
+$('guideVoiceToggle').addEventListener('click',()=>{if(!guideIsOwner())return;guideEnabled=!guideEnabled;try{localStorage.setItem(GUIDE_KEY,guideEnabled?'1':'0');}catch{}$('guideVoiceToggle').textContent=guideEnabled?'🔊 LOCUTOR: ON':'🔊 LOCUTOR: OFF';guideSetStatus(guideEnabled?'Guía hablada · activada':'Guía hablada · apagada');if(guideEnabled){guideLastSpoken='';guideSpeak('Guía hablada activada. Voy a acompañarte por Choferes Argentinos.');}else if('speechSynthesis'in window)window.speechSynthesis.cancel();});
+$('guideVoiceRead').addEventListener('click',guideReadCurrent);
+$('guideVoiceStop').addEventListener('click',()=>{if('speechSynthesis'in window)window.speechSynthesis.cancel();guideSetStatus('LOCUTOR · detenido');});
+document.addEventListener('click',event=>{const button=event.target.closest('button');if(!button||button.closest('#guideVoice')||button.closest('#nav'))return;setTimeout(()=>guideDescribeButton(button),80);});
+
 const initials = name => (name || 'CA').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
 const avatarGlyphs = {truck:'🚛',truck2:'🚚',tractor:'🚜',wheel:'🛞',road:'🛣️',gear:'⚙️',flag:'🏁',fuel:'⛽',wrench:'🔧',construction:'🚧',pickup:'🛻',bus:'🚌',admin_crown:'👑',admin_shield:'🛡️',admin_star:'🏆',admin_wheel:'⚙️',admin_eagle:'🦅'};
 const avatarGlyph = (key,name) => avatarGlyphs[key] || initials(name);
@@ -260,6 +312,7 @@ function showOnboarding(message){
 }
 function setTab(tab){
   currentTab = tab;
+  if(guideEnabled) guideDescribeSection(tab);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   ['muro','ruta','amigos','colegas','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
@@ -298,6 +351,7 @@ async function boot(){
     $('app').classList.remove('hidden');
     $('footer').textContent = 'Comunidad privada · Conexión activa';
     updateProfileUI();
+    guideInit();
     await Promise.all([loadFeed(),loadRoute(),loadPadFeed()]);
     if(['owner','moderator'].includes(profile.role)){
       await Promise.all([loadModerationQueue(),loadPadModeration()]);
