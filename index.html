@@ -57,7 +57,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
 </header>
 <nav id="nav" class="hidden" aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
 </nav>
 <main>
 <section id="onboarding" class="card">
@@ -136,6 +136,12 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div id="friendsList"><div class="empty">Todavía no tenés compañeros vinculados.</div></div>
 <div class="card"><div class="name">Vincular mi otro celular</div><p class="small">Generá un código de un solo uso para abrir tu mismo perfil en otro teléfono.</p><button class="action" id="pairDevice">Generar código para mi otro celular</button><div id="pairCodeArea"></div></div>
+</section>
+
+<section id="colegas" hidden>
+<h1 class="section-title">Colegas</h1>
+<div id="colleagueProfileSlot"></div>
+<div id="colleagueProfileIntro" class="card empty">Elegí «Ver perfil» en una publicación para conocer a un colega.</div>
 </section>
 
 <section id="perfil" hidden>
@@ -250,7 +256,7 @@ function showOnboarding(message){
 function setTab(tab){
   currentTab = tab;
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  ['muro','ruta','amigos','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
+  ['muro','ruta','amigos','colegas','perfil','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
@@ -297,8 +303,7 @@ async function boot(){
       profile = null;
       showOnboarding('La sesión de este dispositivo venció. Volvé a vincularlo con un código.');
     }else{
-      $('footer').textContent = 'No se pudo conectar con la comunidad';
-      showError('joinError',error.message || String(error));
+      $('footer').textContent = 'No se pudo conectar con la comunidad';      showError('joinError',error.message || String(error));
       $('onboarding').classList.remove('hidden');
     }
   }
@@ -443,8 +448,9 @@ async function loadMemberBadges(){
 $('badgeMember').addEventListener('change',loadMemberBadges);
 async function openPublicProfile(profileId){
   if(!profileId)return;
-  setTab('perfil');
-  $('profileSectionTitle').textContent='Perfil público';
+  $('colleagueProfileSlot').appendChild($('publicProfileCard'));
+  $('colleagueProfileIntro').classList.add('hidden');
+  setTab('colegas');
   $('publicProfileCard').classList.remove('hidden');
   $('publicName').textContent='Cargando perfil…';
   $('publicBio').textContent='';
@@ -497,7 +503,7 @@ function renderPublicWall(posts){
     wall.append(article);
   });
 }
-$('closePublicProfile').addEventListener('click',()=>{$('publicProfileCard').classList.add('hidden');$('profileSectionTitle').textContent='Mi perfil';});
+$('closePublicProfile').addEventListener('click',()=>{$('publicProfileCard').classList.add('hidden');$('colleagueProfileIntro').classList.remove('hidden');setTab('muro');});
 $('viewMyPublicProfile').addEventListener('click',()=>{if(profile?.id)openPublicProfile(profile.id);});
 $('awardBadge').addEventListener('click',async()=>{
   const profileId=$('badgeMember').value,badge_key=$('badgeType').value,level=$('badgeLevel').value;
@@ -597,8 +603,7 @@ async function loadFeed(){
 function imageLoadError(error){
   const note=document.createElement('div');
   note.className='photo-load-error';
-  const detail=error?.message ? ' Detalle: '+error.message : '';
-  note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada.'+detail;
+  const detail=error?.message ? ' Detalle: '+error.message : '';  note.textContent='No se pudo mostrar esta foto. La publicación sigue guardada.'+detail;
   return note;
 }
 function renderAvatar(element,mediaId,avatarKey,nickname,previewUrl=''){
@@ -897,8 +902,7 @@ async function loadModerationQueue(){
       const reject=document.createElement('button');
       reject.className='action';
       reject.textContent='Rechazar';
-      const decide=async(action,button)=>{
-        approve.disabled=true; reject.disabled=true;
+      const decide=async(action,button)=>{        approve.disabled=true; reject.disabled=true;
         try{
           await api('/api/moderation/posts/'+encodeURIComponent(post.id),{method:'PATCH',body:{action}});
           await Promise.all([loadModerationQueue(),loadFeed()]);
