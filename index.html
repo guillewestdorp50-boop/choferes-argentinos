@@ -233,6 +233,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
     <label for="recoveryCodeInput">Código original de invitación</label>
     <input id="recoveryCodeInput" maxlength="32" autocomplete="off" autocapitalize="characters" placeholder="Ingresá tu código original">
     <button class="action primary" id="saveRecoveryCode" type="button">Guardar mi código</button>
+    <button class="action primary" id="generateOwnerRecoveryCode" type="button" hidden>Generar mi código personal</button>
+    <p class="small" id="ownerRecoveryCodeStatus" aria-live="polite"></p>
     <p class="small" id="recoveryCodeStatus" aria-live="polite"></p>
   </div>
 </div>
@@ -1333,6 +1335,12 @@ async function loadAccountData(){
     $('recoveryCodeDisplay').textContent='••••••••••';
     $('accountRole').textContent=profile?.role==='owner'?'Administrador principal':profile?.role==='moderator'?'Moderador':'Integrante';
     $('recoveryCodeSetup').hidden=!!data.has_recovery_code;
+    const isOwner=profile?.role==='owner';
+    $('generateOwnerRecoveryCode').hidden=!!data.has_recovery_code || !isOwner;
+    $('recoveryCodeInput').hidden=isOwner;
+    $('saveRecoveryCode').hidden=isOwner;
+    const recoveryLabel=document.querySelector('label[for="recoveryCodeInput"]');
+    if(recoveryLabel)recoveryLabel.hidden=isOwner;
     $('pinSetupCard').hidden=!!data.has_pin;
     $('pinRevealCard').hidden=!data.has_pin;
     $('revealUsernameBtn').hidden=!data.has_pin;
@@ -1357,6 +1365,17 @@ $('saveRecoveryCode').addEventListener('click',async()=>{
     await loadAccountData();
   }catch(error){$('recoveryCodeStatus').textContent=error.message||'No se pudo guardar el código.';}
   finally{$('saveRecoveryCode').disabled=false;}
+});
+$('generateOwnerRecoveryCode').addEventListener('click',async()=>{
+  const button=$('generateOwnerRecoveryCode');
+  button.disabled=true;
+  $('ownerRecoveryCodeStatus').textContent='Generando tu código personal…';
+  try{
+    await api('/api/recovery/owner-code',{method:'POST',body:{}});
+    $('ownerRecoveryCodeStatus').textContent='Código personal creado. Configurá tu PIN y luego usalo para mostrarlo.';
+    await loadAccountData();
+  }catch(error){$('ownerRecoveryCodeStatus').textContent=error.message||'No se pudo generar el código.';}
+  finally{button.disabled=false;}
 });
 $('saveRecoveryPin').addEventListener('click',async()=>{
   const pin=$('pinSetupInput').value.trim();
