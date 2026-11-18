@@ -455,7 +455,7 @@ export default {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
         const result = await env.DB.prepare(
-          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.source_activity_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
              (SELECT COUNT(*) * CASE WHEN datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
