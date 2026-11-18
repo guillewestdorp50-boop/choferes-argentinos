@@ -356,12 +356,16 @@ function setTab(tab){
 }
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('joinMode').addEventListener('change',()=>{
-  $('nickWrap').classList.toggle('hidden',$('joinMode').value==='device');
-  $('joinHelp').textContent = $('joinMode').value==='community'
+  const mode=$('joinMode').value;
+  $('nickWrap').classList.toggle('hidden',mode==='device');
+  $('joinBtn').textContent=mode==='recovery'?'Recuperar cuenta':'Vincularme';
+  $('joinHelp').textContent = mode==='community'
     ? 'El primer ingreso crea tu perfil.'
-    : $('joinMode').value==='friend'
+    : mode==='friend'
       ? 'La invitación crea tu perfil y conecta ambos compañeros.'
-      : 'Este código vincula el segundo teléfono al mismo perfil.';
+      : mode==='recovery'
+        ? 'Escribí tu apodo habitual y el código original con el que ingresaste a la comunidad. Se recuperará tu cuenta y se cerrarán las sesiones anteriores.'
+        : 'Este código vincula el segundo teléfono al mismo perfil.';
 });
 $('ownerToggle').addEventListener('click',()=>{
   $('ownerPanel').classList.toggle('hidden');
