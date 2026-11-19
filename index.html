@@ -277,6 +277,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small">Elegí un PIN de cuatro números que puedas recordar. Lo vas a usar para mostrar tu apodo público y tu código cuando los necesites. Si te equivocás, podés volver a intentarlo: no se bloquea la cuenta.</p>
   <label for="pinSetupInput">Crear PIN de cuatro números</label>
   <input id="pinSetupInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="••••">
+  <p class="small" id="pinResetNotice" aria-live="polite" hidden></p>
   <button class="action primary" id="saveRecoveryPin" type="button">Guardar mi PIN</button>
   <p class="small" id="pinSetupStatus" aria-live="polite"></p>
 </div>
@@ -624,8 +625,6 @@ $('joinBtn').addEventListener('click',async()=>{
     if(passwordResetMode){
       if(password.length<10||password.length>128){showError('joinError','La contraseña nueva debe tener entre 10 y 128 caracteres.');return;}
       if(password!==confirmation){showError('joinError','Las contraseñas no coinciden.');return;}
-      if(!/^\d{4}$/.test(resetPin)){showError('joinError','El PIN nuevo debe tener exactamente cuatro números.');return;}
-      if(resetPin!==resetPinConfirmation){showError('joinError','Los PIN no coinciden.');return;}
     }else if(!password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
   }else if(mode==='pin'){
     if(nickname.length<2||!/^\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
@@ -637,7 +636,7 @@ $('joinBtn').addEventListener('click',async()=>{
   $('joinBtn').textContent=passwordResetMode?'Guardando…':mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
     const result=passwordResetMode
-      ? await api('/api/password-reset/complete',{method:'POST',body:{username:nickname,password,confirmation,pin:resetPin,pin_confirmation:resetPinConfirmation}})
+      ? await api('/api/password-reset/complete',{method:'POST',body:{username:nickname,password,confirmation}})
       : mode==='password'
         ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
         : mode==='pin'
@@ -654,10 +653,10 @@ $('joinBtn').addEventListener('click',async()=>{
       $('joinPassword').autocomplete='new-password';
       $('joinConfirmPasswordWrap').classList.remove('hidden');
       $('joinConfirmPassword').value='';
-      $('joinResetPinWrap').classList.remove('hidden');
-      $('joinConfirmResetPinWrap').classList.remove('hidden');
-      $('joinBtn').textContent='Guardar contraseña y PIN nuevos';
-      $('joinHelp').textContent='La administración habilitó la recuperación. Creá una contraseña y un PIN de cuatro números, y repetí ambos para confirmar.';
+      $('joinResetPinWrap').classList.add('hidden');
+      $('joinConfirmResetPinWrap').classList.add('hidden');
+      $('joinBtn').textContent='Guardar contraseña nueva';
+      $('joinHelp').textContent='La administración habilitó la recuperación. Creá y confirmá tu contraseña nueva. Después, en DATOS, vas a crear un PIN nuevo para mostrar tu código de recuperación.';
       $('joinPassword').focus();
       return;
     }
@@ -670,7 +669,7 @@ $('joinBtn').addEventListener('click',async()=>{
   }catch(error){showError('joinError',error.message||String(error));}
   finally{
     $('joinBtn').disabled=false;
-    $('joinBtn').textContent=passwordResetMode?'Guardar contraseña y PIN nuevos':mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme';
+    $('joinBtn').textContent=passwordResetMode?'Guardar contraseña nueva':mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme';
   }
 });
 $('ownerBootstrap').addEventListener('click',async()=>{
@@ -1559,6 +1558,8 @@ async function createCode(kind,target){
 async function loadAccountData(){
   try{
     const data=await api('/api/account-data');
+    $('pinResetNotice').hidden=!data.pin_reset_required;
+    $('pinResetNotice').textContent=data.pin_reset_required?'Se blanqueó tu contraseña y también tu PIN anterior. Creá un PIN nuevo de cuatro números para volver a proteger y mostrar tu código de recuperación. Tu código de recuperación sigue siendo el mismo.':'';
     $('accountNicknameDisplay').textContent='••••••••';
     $('recoveryCodeDisplay').textContent='••••••••••';
     $('configuredLoginUsername').textContent=data.login_username||'Todavía no configurado';
