@@ -667,7 +667,7 @@ export default {
         const storageLimit=Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES||850000000));
         const usage=await env.DB.prepare("SELECT COALESCE(SUM(byte_size),0) AS total FROM video_media").first();
         if(Number(usage?.total||0)+bytes.byteLength>storageLimit)return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
-        const videoId=id(),objectKey="videos/"+user.community_id+"/"+videoId+".mp4";
+        const videoId=id(),environmentPrefix=env.ENVIRONMENT==="development"?"preview":"production",objectKey=environmentPrefix+"/videos/"+user.community_id+"/"+videoId+".mp4";
         try{
           await env.VIDEO_KV.put(objectKey,bytes.buffer);
           await env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
