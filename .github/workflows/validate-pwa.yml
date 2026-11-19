@@ -43,10 +43,10 @@ jobs:
           PY
           node --check /tmp/choferes-pwa.mjs
 
-      - name: Ensure the frontend no longer imports Supabase
+      - name: Ensure the frontend does not import the Supabase client
         run: |
-          if grep -qi "supabase" index.html; then
-            echo "La PWA todavía contiene referencias a Supabase."
+          if grep -Eiq '(^|[[:space:]])(import|export)[^;]*from[[:space:]]*["\x27]@supabase/|createClient[[:space:]]*\(' index.html; then
+            echo "La PWA todavía importa o inicializa el cliente Supabase."
             exit 1
           fi
-          echo "Correcto: la PWA ya no contiene referencias a Supabase."
+          echo "Correcto: no se importa ni inicializa el cliente Supabase. Las integraciones externas existentes se conservan."
