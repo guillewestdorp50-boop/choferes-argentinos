@@ -6,8 +6,10 @@ Este directorio prepara una API propia para Choferes Argentinos con **Cloudflare
 
 - Workers Free: hasta 100.000 solicitudes por día y 10 ms de CPU por invocación.
 - D1 Free: 5 millones de filas leídas por día, 100.000 filas escritas por día, 5 GB de almacenamiento total por cuenta y 500 MB por base.
-- No se usa Workers Paid, R2, KV, Images ni ningún producto con checkout o suscripción de uso.
-- Las imágenes se guardan como BLOB en D1, comprimidas en el dispositivo y limitadas a 1 MB por archivo. El límite real de almacenamiento de la base sigue siendo 500 MB; hay que vigilarlo y exportar datos periódicamente.
+- No se usa Workers Paid, KV, Images, Stream ni almacenamiento R2 Infrequent Access.
+- Las fotos siguen en D1, comprimidas en el teléfono y limitadas a 1 MB.
+- Los videos se guardan en R2 Standard privado: máximo 15 segundos, MP4, 720p y 15 MB por archivo. R2 incluye mensualmente 10 GB-mes, 1 millón de operaciones Clase A, 10 millones Clase B y transferencia saliente gratuita. El uso por encima de esos cupos se cobra; el nivel gratuito no es un tope de facturación.
+- Para limitar el riesgo, la aplicación reserva hasta 8 GB para producción y 250 MB para preview. El cupo gratuito es compartido por toda la cuenta Cloudflare; revisar el consumo total antes de habilitarlo.
 - Al superar los topes gratuitos de Workers/D1, las operaciones dejan de responder hasta el reinicio del cupo o hasta una actualización manual. No se debe actualizar el plan para resolverlo sin autorización expresa.
 
 Fuentes oficiales consultadas el 17-11-2026:
@@ -17,7 +19,7 @@ Fuentes oficiales consultadas el 17-11-2026:
 
 ## Componentes
 
-- `worker.js`: API HTTP, autenticación por token aleatorio de dispositivo, invitaciones de comunidad/amistad, vinculación de otro teléfono, muro con moderación previa, reacciones, comentarios, estados y alertas de ruta, mensajes privados, medios y notificaciones Web Push para owner/moderator.
+- `worker.js`: API HTTP, autenticación por token aleatorio de dispositivo, invitaciones de comunidad/amistad, vinculación de otro teléfono, muro con moderación previa, fotos y videos cortos privados, reacciones, comentarios, estados y alertas de ruta, mensajes privados y notificaciones Web Push para owner/moderator.
 - `migrations/0001_initial.sql`: esquema inicial e índices.\n- `migrations/0002_moderation_and_push.sql`: estados de moderación y suscripciones de notificaciones.
 - `wrangler.toml`: configuración de ejemplo. El `database_id` es deliberadamente un marcador y debe reemplazarse después de crear D1.
 
@@ -41,6 +43,14 @@ Fuentes oficiales consultadas el 17-11-2026:
 - El administrador debe tocar **Activar notificaciones urgentes** una vez en cada teléfono y permitir notificaciones/sonido/vibración en Android.
 - Las claves VAPID no se guardan en GitHub ni en D1. Generarlas localmente con `npx web-push generate-vapid-keys` y cargarlas como secretos en el Worker de preview: `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY`. No compartir la clave privada. `VAPID_SUBJECT` es opcional; si falta, se usa el origen de la PWA como subject.
 - Antes de probar, aplicar la migración `0002_moderation_and_push.sql` a la D1 de preview y desplegar el Worker de preview manualmente.
+
+## Videos cortos del muro
+
+- Crear los buckets privados Standard `choferes-argentinos-videos` y `choferes-argentinos-videos-preview` en Cloudflare R2.
+- Mantenerlos privados; no habilitar `r2.dev`, dominio público ni acceso público. El Worker entrega videos solo a miembros autenticados de la comunidad.
+- La migración `0009_post_videos.sql` guarda metadatos en D1; el archivo binario va a R2, nunca a D1.
+- Preview limita los videos a 250 MB acumulados y producción a 8 GB. El cupo R2 de 10 GB-mes se comparte con toda la cuenta Cloudflare y los límites de operaciones también son mensuales. Revisar el panel de consumo antes de habilitarlo.
+- Aplicar las migraciones hasta `0009_post_videos.sql` en la D1 correspondiente y desplegar el Worker con el binding R2 configurado.
 
 ## Preparación (no ejecutar hasta verificar la cuenta y el costo)
 
