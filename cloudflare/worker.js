@@ -655,7 +655,7 @@ export default {
       }
 
       if (request.method === "POST" && path === "/api/videos") {
-        if(!env.VIDEO_BUCKET)return fail("La carga de videos todavía no está habilitada.",503,cors);
+        if(!env.VIDEO_KV)return fail("La carga de videos todavía no está habilitada.",503,cors);
         const form=await request.formData(),file=form.get("file");
         if(!file||typeof file.arrayBuffer!=="function")return fail("Elegí un video MP4.",400,cors);
         if(file.type!=="video/mp4")return fail("Por ahora se admite únicamente video MP4.",415,cors);
@@ -664,15 +664,15 @@ export default {
         if(!info)return fail("No se pudo leer la información del video MP4.",415,cors);
         if(info.duration>15.25)return fail("El video no puede durar más de 15 segundos.",413,cors);
         if(Math.max(info.width,info.height)>1280||Math.min(info.width,info.height)>720)return fail("El video debe tener una resolución máxima de 720p.",413,cors);
-        const storageLimit=Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES||8000000000));
+        const storageLimit=Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES||850000000));
         const usage=await env.DB.prepare("SELECT COALESCE(SUM(byte_size),0) AS total FROM video_media").first();
         if(Number(usage?.total||0)+bytes.byteLength>storageLimit)return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
         const videoId=id(),objectKey="videos/"+user.community_id+"/"+videoId+".mp4";
         try{
-          await env.VIDEO_BUCKET.put(objectKey,bytes,{httpMetadata:{contentType:"video/mp4",cacheControl:"private, no-store"},customMetadata:{community_id:user.community_id,profile_id:user.profile_id}});
+          await env.VIDEO_KV.put(objectKey,bytes.buffer);
           await env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
             .bind(videoId,user.community_id,user.profile_id,objectKey,"video/mp4",bytes.byteLength,info.duration,Math.round(info.width),Math.round(info.height),now()).run();
-        }catch(error){try{await env.VIDEO_BUCKET.delete(objectKey);}catch{}return fail("No se pudo guardar el video. Intentá nuevamente.",500,cors);}
+        }catch(error){try{await env.VIDEO_KV.delete(objectKey);}catch{}return fail("No se pudo guardar el video. Intentá nuevamente.",500,cors);}
         return json({video_id:videoId,bytes:bytes.byteLength,duration_seconds:info.duration},201,cors);
       }
 
@@ -690,13 +690,13 @@ export default {
 
       const videoMatch=path.match(/^\/api\/videos\/([0-9a-f-]{36})$/i);
       if(request.method==="GET"&&videoMatch){
-        if(!env.VIDEO_BUCKET)return fail("Video no disponible.",404,cors);
+        if(!env.VIDEO_KV)return fail("Video no disponible.",404,cors);
         const row=await env.DB.prepare("SELECT object_key,mime_type,byte_size,profile_id FROM video_media WHERE id=? AND community_id=?").bind(videoMatch[1],user.community_id).first();
         if(!row)return fail("Video no encontrado.",404,cors);
         const post=await env.DB.prepare("SELECT status,deleted_at FROM posts WHERE video_id=? AND community_id=? ORDER BY created_at DESC LIMIT 1").bind(videoMatch[1],user.community_id).first();
         if(!post||post.deleted_at||(post.status!=="approved"&&row.profile_id!==user.profile_id&&!["owner","moderator"].includes(user.role)))return fail("Video no disponible.",404,cors);
-        const object=await env.VIDEO_BUCKET.get(row.object_key);if(!object)return fail("Video no encontrado en el almacenamiento.",404,cors);
-        return new Response(object.body,{status:200,headers:{...cors,"content-type":row.mime_type,"content-length":String(row.byte_size),"accept-ranges":"none","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+        const object=await env.VIDEO_KV.get(row.object_key,{type:"stream",cacheTtl:30});if(!object)return fail("Video no encontrado en el almacenamiento.",404,cors);
+        return new Response(object,{status:200,headers:{...cors,"content-type":row.mime_type,"content-length":String(row.byte_size),"accept-ranges":"none","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
       }
 
       const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
