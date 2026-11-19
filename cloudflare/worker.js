@@ -292,10 +292,10 @@ export default {
         ).bind(key).first();
         let valid = false;
         if (profile?.recovery_pin_salt && profile?.recovery_pin_hash) {
-          const candidate = await derivePassword(pin, profile.recovery_pin_salt, 120000);
+          const candidate = await derivePassword(pin, profile.recovery_pin_salt, 100000);
           valid = constantTimeEqual(candidate, profile.recovery_pin_hash);
         } else {
-          await derivePassword(pin, "00000000000000000000000000000000", 120000);
+          await derivePassword(pin, "00000000000000000000000000000000", 100000);
         }
         if (!valid) {
           const withinWindow = previous?.window_started_at && Date.now() - Date.parse(previous.window_started_at) < 15 * 60 * 1000;
@@ -336,7 +336,7 @@ export default {
           const candidate = await derivePassword(password, profile.password_salt, profile.password_iterations);
           valid = constantTimeEqual(candidate, profile.password_hash);
         } else {
-          await derivePassword(password, "00000000000000000000000000000000", 120000);
+          await derivePassword(password, "00000000000000000000000000000000", 100000);
         }
         if (!valid) {
           const withinWindow = previous?.window_started_at && Date.now() - Date.parse(previous.window_started_at) < 15 * 60 * 1000;
@@ -463,7 +463,7 @@ export default {
         credentialsStage = "salt_generation";
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, "0")).join("");
-        const iterations = 120000;
+        const iterations = 100000;
         credentialsStage = "pbkdf2";
         const passwordHash = await derivePassword(password, salt, iterations);
         credentialsStage = "database_update";
@@ -515,7 +515,7 @@ export default {
           const saltBytes = crypto.getRandomValues(new Uint8Array(16));
           const salt = Array.from(saltBytes, b => b.toString(16).padStart(2,"0")).join("");
           const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
-          const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+          const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:100000,hash:"SHA-256"},material,256);
           const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
           const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
           if (!result.success) {
@@ -537,7 +537,7 @@ export default {
         if (!row?.recovery_pin_hash || !row?.recovery_pin_salt) return fail("Primero tenés que crear tu PIN en DATOS.", 400, cors);
         const saltBytes = Uint8Array.from(row.recovery_pin_salt.match(/.{2}/g).map(x=>parseInt(x,16)));
         const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
-        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:120000,hash:"SHA-256"},material,256);
+        const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:100000,hash:"SHA-256"},material,256);
         const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
         if (pinHash !== row.recovery_pin_hash) return fail("PIN incorrecto. Podés volver a intentarlo; tu cuenta no se bloquea.", 400, cors);
         return json({nickname:row.nickname,recovery_code:row.recovery_code || null},200,cors);
