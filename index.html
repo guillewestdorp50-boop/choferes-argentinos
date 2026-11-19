@@ -54,6 +54,16 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:16px}
 html,body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,textarea,select,input *,textarea *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 button,a,nav,.action{-webkit-tap-highlight-color:transparent}
+
+/* Confirmación propia de Choferes Argentinos: evita el cuadro nativo que muestra el dominio del hosting. */
+.ca-confirm-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:#050b0ddc;backdrop-filter:blur(5px)}
+.ca-confirm-box{width:min(100%,390px);padding:22px;border:1px solid #a83c35;border-radius:20px;background:linear-gradient(160deg,#263337,#121d20 72%);box-shadow:0 22px 70px #000b;text-align:center}
+.ca-confirm-sign{width:76px;height:76px;margin:0 auto 13px;display:grid;place-items:center;background:#d92328;color:white;font-weight:950;font-size:17px;letter-spacing:.04em;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);filter:drop-shadow(0 4px 8px #0008)}
+.ca-confirm-title{font-size:18px;font-weight:850;margin-bottom:7px}
+.ca-confirm-message{color:#d0dadd;font-size:14px;line-height:1.5;margin-bottom:20px}
+.ca-confirm-actions{display:flex;justify-content:center;gap:10px}
+.ca-confirm-actions button{min-width:118px;padding:11px 16px;border-radius:999px;border:1px solid #52656a;background:#25363a;color:#f1f2ed;font:inherit;font-weight:750}
+.ca-confirm-actions .danger{background:#c93632;border-color:#e45c55;color:white}
 </style>
 </head>
 <body>
@@ -318,6 +328,22 @@ let pendingRoutePostId=null, routeDescriptionPhotoFile=null;
 let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
 const $ = id => document.getElementById(id);
+function confirmInApp(message){
+ return new Promise(resolve=>{
+  const backdrop=document.createElement('div');backdrop.className='ca-confirm-backdrop';
+  backdrop.innerHTML='<section class="ca-confirm-box" role="dialog" aria-modal="true" aria-labelledby="caConfirmTitle"><div class="ca-confirm-sign" aria-label="PARE">PARE</div><div class="ca-confirm-title" id="caConfirmTitle">CHOFERES ARGENTINOS</div><div class="ca-confirm-message"></div><div class="ca-confirm-actions"><button type="button" data-choice="no">Cancelar</button><button type="button" class="danger" data-choice="yes">Eliminar</button></div></section>';
+  backdrop.querySelector('.ca-confirm-message').textContent=message;
+  const finish=value=>{backdrop.remove();resolve(value);};
+  backdrop.addEventListener('click',e=>{if(e.target===backdrop)finish(false);});
+  backdrop.querySelector('[data-choice="no"]').addEventListener('click',()=>finish(false));
+  backdrop.querySelector('[data-choice="yes"]').addEventListener('click',()=>finish(true));
+  const onKey=e=>{if(e.key==='Escape'){document.removeEventListener('keydown',onKey);finish(false);}};
+  document.addEventListener('keydown',onKey);
+  backdrop.querySelector('[data-choice="no"]').focus();
+  document.body.append(backdrop);
+ });
+}
+
 const GUIDE_KEY='ca_guide_voice_v1';
 let guideEnabled=false, guideVoice=null, guideLastSpoken='';
 const guideSections={
@@ -650,7 +676,7 @@ async function loadMemberBadges(){
       const title=document.createElement('div');title.className='name';title.textContent='🏅 '+badgeLabel(award.badge_key)+' · '+award.level;
       const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Quitar insignia';
       remove.addEventListener('click',async()=>{
-        if(!confirm('¿Quitar '+badgeLabel(award.badge_key)+' del perfil de este compañero?'))return;
+        if(!await confirmInApp('¿Quitar '+badgeLabel(award.badge_key)+' del perfil de este compañero?'))return;
         remove.disabled=true;
         try{
           await api('/api/badges/remove',{method:'POST',body:{profile_id:targetId,badge_key:award.badge_key}});
@@ -838,7 +864,7 @@ async function loadFeed(){
         remove.className='action';
         remove.textContent='Eliminar';
         remove.addEventListener('click',async()=>{
-          if(!confirm('¿Eliminar definitivamente tu publicación del muro?'))return;
+          if(!await confirmInApp('¿Eliminar definitivamente tu publicación del muro?'))return;
           remove.disabled=true;
           try{await api('/api/posts/'+encodeURIComponent(post.id),{method:'DELETE'});await loadFeed();}
           catch(error){alert(error.message||String(error));remove.disabled=false;}
