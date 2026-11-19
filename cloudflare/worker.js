@@ -459,7 +459,13 @@ export default {
       if (request.method === "GET" && path === "/api/account-data") {
         await ensureCredentialsSchema(env);
         const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash,login_username,password_hash,recovery_pin_reset_required FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
-        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, pin_reset_required: Number(row?.recovery_pin_reset_required || 0) === 1, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
+        const hasRecoveryCode = !!row?.recovery_code;
+        const hasPin = !!row?.recovery_pin_hash;
+        const hasPassword = !!row?.password_hash;
+        // Recovery PIN is considered pending whenever a member has a saved recovery code
+        // and password but no PIN hash, even if an older reset flow missed the flag.
+        const pinResetRequired = Number(row?.recovery_pin_reset_required || 0) === 1 || (hasRecoveryCode && hasPassword && !hasPin);
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: hasRecoveryCode, has_pin: hasPin, pin_reset_required: pinResetRequired, login_username: row?.login_username || null, has_password: hasPassword }, 200, cors);
       }
       if (request.method === "POST" && path === "/api/account/credentials") {
         let credentialsStage = "schema";
