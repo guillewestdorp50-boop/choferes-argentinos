@@ -1158,7 +1158,6 @@ export default {
       }
 
       if (request.method === "POST" && path === "/api/videos") {
-        if (!env.VIDEO_KV) return fail("La carga de videos todavía no está habilitada.",503,cors);
         const form = await request.formData(), file = form.get("file");
         if (!file || typeof file.arrayBuffer !== "function") return fail("Elegí un video MP4.",400,cors);
         if (file.type !== "video/mp4") return fail("Por ahora se admite únicamente video MP4.",415,cors);
@@ -1170,16 +1169,16 @@ export default {
         const storageLimit = Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES || 850000000));
         const usage = await env.DB.prepare("SELECT COALESCE(SUM(byte_size),0) AS total FROM video_media").first();
         if (Number(usage?.total || 0) + bytes.byteLength > storageLimit) return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
-        const videoId = id();
-        const objectKey = "production/videos/" + user.community_id + "/" + videoId + ".mp4";
-        try {
-          await env.VIDEO_KV.put(objectKey,bytes.buffer);
-          await env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
-            .bind(videoId,user.community_id,user.profile_id,objectKey,"video/mp4",bytes.byteLength,info.duration,Math.round(info.width),Math.round(info.height),now()).run();
-        } catch (error) {
-          try { await env.VIDEO_KV.delete(objectKey); } catch {}
-          throw error;
+        const videoId = id(), objectKey = "d1-chunks/" + videoId, chunkSize = 512 * 1024;
+        const statements = [
+          env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+            .bind(videoId,user.community_id,user.profile_id,objectKey,"video/mp4",bytes.byteLength,info.duration,Math.round(info.width),Math.round(info.height),now())
+        ];
+        for (let offset = 0, chunkIndex = 0; offset < bytes.byteLength; offset += chunkSize, chunkIndex++) {
+          statements.push(env.DB.prepare("INSERT INTO video_chunks(video_id,chunk_index,data) VALUES(?,?,?)")
+            .bind(videoId,chunkIndex,bytes.slice(offset,Math.min(offset + chunkSize,bytes.byteLength))));
         }
+        await env.DB.batch(statements);
         return json({video_id:videoId,bytes:bytes.byteLength,duration_seconds:info.duration},201,cors);
       }
 
@@ -1197,16 +1196,34 @@ export default {
 
       const videoMatch = path.match(/^\/api\/videos\/([0-9a-f-]{36})$/i);
       if (request.method === "GET" && videoMatch) {
-        if (!env.VIDEO_KV) return fail("Video no disponible.",404,cors);
-        const row = await env.DB.prepare("SELECT object_key,mime_type,byte_size,profile_id FROM video_media WHERE id=? AND community_id=?")
-          .bind(videoMatch[1],user.community_id).first();
+        const videoId = videoMatch[1];
+        const row = await env.DB.prepare("SELECT mime_type,byte_size,profile_id FROM video_media WHERE id=? AND community_id=?")
+          .bind(videoId,user.community_id).first();
         if (!row) return fail("Video no encontrado.",404,cors);
         const post = await env.DB.prepare("SELECT status,deleted_at FROM posts WHERE video_id=? AND community_id=? ORDER BY created_at DESC LIMIT 1")
-          .bind(videoMatch[1],user.community_id).first();
+          .bind(videoId,user.community_id).first();
         if (!post || post.deleted_at || (post.status !== "approved" && row.profile_id !== user.profile_id && !["owner","moderator"].includes(user.role))) return fail("Video no disponible.",404,cors);
-        const object = await env.VIDEO_KV.get(row.object_key,{type:"stream",cacheTtl:30});
-        if (!object) return fail("Video no encontrado en el almacenamiento.",404,cors);
-        return new Response(object,{status:200,headers:{...cors,"content-type":row.mime_type,"content-length":String(row.byte_size),"accept-ranges":"none","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+        const integrity = await env.DB.prepare("SELECT COUNT(*) AS chunk_count,COALESCE(SUM(length(data)),0) AS stored_bytes FROM video_chunks WHERE video_id=?")
+          .bind(videoId).first();
+        if (!integrity || Number(integrity.chunk_count || 0) < 1 || Number(integrity.stored_bytes || 0) !== Number(row.byte_size)) return fail("El video está incompleto en el almacenamiento.",500,cors);
+        let chunkIndex = 0;
+        const stream = new ReadableStream({
+          async pull(controller) {
+            try {
+              const part = await env.DB.prepare("SELECT data FROM video_chunks WHERE video_id=? AND chunk_index=?")
+                .bind(videoId,chunkIndex).first();
+              if (!part) { controller.close(); return; }
+              const value = part.data;
+              const chunk = value instanceof ArrayBuffer ? new Uint8Array(value)
+                : ArrayBuffer.isView(value) ? new Uint8Array(value.buffer,value.byteOffset,value.byteLength)
+                : Array.isArray(value) ? new Uint8Array(value) : null;
+              if (!chunk || !chunk.byteLength) throw new Error("Bloque de video inválido.");
+              controller.enqueue(chunk);
+              chunkIndex++;
+            } catch (error) { controller.error(error); }
+          }
+        });
+        return new Response(stream,{status:200,headers:{...cors,"content-type":row.mime_type,"content-length":String(row.byte_size),"accept-ranges":"none","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
       }
 
       const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
