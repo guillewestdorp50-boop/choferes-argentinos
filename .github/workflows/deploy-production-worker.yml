@@ -41,6 +41,33 @@ jobs:
           workingDirectory: cloudflare
           command: d1 migrations apply choferes-argentinos --remote
 
+      - name: Resolve production video KV namespace
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRODUCTION_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd cloudflare
+          namespaces="$(npx --yes wrangler@4 kv namespace list)"
+          configured_id="$(awk '/binding = "VIDEO_KV"/ {getline; if (match($0, /"[^"]+"/)) {v=substr($0,RSTART+1,RLENGTH-2); print v; exit}}' wrangler.toml)"
+          namespace_id="$(printf '%s' "$namespaces" | jq -r --arg id "$configured_id" '.[] | select(.id == $id) | .id' | head -n1)"
+          if [ -z "$namespace_id" ]; then
+            namespace_id="$(printf '%s' "$namespaces" | jq -r '.[] | select(.title == "choferes-argentinos-videos") | .id' | head -n1)"
+          fi
+          if [ -z "$namespace_id" ]; then
+            echo "Configured video KV namespace was not found. Creating the production namespace."
+            created="$(npx --yes wrangler@4 kv namespace create choferes-argentinos-videos)"
+            printf '%s\n' "$created"
+            namespace_id="$(printf '%s\n' "$created" | grep -oE '"id"[[:space:]]*:[[:space:]]*"[0-9a-f]+"' | head -n1 | cut -d '"' -f4)"
+          fi
+          if [ -z "$namespace_id" ]; then
+            echo "Could not resolve or create the production video KV namespace."
+            exit 1
+          fi
+          sed -i '/binding = "VIDEO_KV"/{n;s/id = ".*"/id = "'"$namespace_id"'"/;}' wrangler.toml
+          echo "Production VIDEO_KV namespace resolved."
+
       - name: Deploy production Worker
         uses: cloudflare/wrangler-action@v4
         with:
