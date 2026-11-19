@@ -547,7 +547,7 @@ $('joinBtn').addEventListener('click',async()=>{
       if(password!==confirmation){showError('joinError','Las contraseñas no coinciden.');return;}
     }else if(!password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
   }else if(mode==='pin'){
-    if(nickname.length<2||!/^\\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
+    if(nickname.length<2||!/^\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
   }else{
     if(mode!=='device'&&!code){showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.');return;}
     if(mode!=='device'&&nickname.length<2){showError('joinError',mode==='recovery'?'Escribí tu apodo público.':'Escribí un apodo de al menos 2 caracteres.');return;}
