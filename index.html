@@ -91,6 +91,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" autocomplete="username" autocapitalize="none" placeholder="Ej.: El Cordobés"><p id="joinUsernameStatus" class="small" aria-live="polite" hidden></p></div>
 <div id="joinPasswordWrap" class="hidden"><label id="joinPasswordLabel" for="joinPassword">Contraseña</label><input id="joinPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Tu contraseña"></div>
 <div id="joinConfirmPasswordWrap" class="hidden"><label for="joinConfirmPassword">Confirmar contraseña nueva</label><input id="joinConfirmPassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña nueva"></div>
+<div id="joinResetPinWrap" class="hidden"><label for="joinResetPin">PIN nuevo de recuperación</label><input id="joinResetPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="4 números"></div>
+<div id="joinConfirmResetPinWrap" class="hidden"><label for="joinConfirmResetPin">Confirmar PIN nuevo</label><input id="joinConfirmResetPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="Repetí el PIN de 4 números"></div>
 <div id="joinPinWrap" class="hidden"><label for="joinPin">PIN de recuperación</label><input id="joinPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
 <p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
@@ -316,7 +318,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">MIEMBROS</h1>
 <div class="card" id="passwordResetAdminCard">
   <div class="name">Recuperar acceso de un compañero</div>
-  <p class="small">Seleccioná al compañero y blanqueá su contraseña. No se muestra ni se entrega ninguna clave. Antes de hacerlo, verificá personalmente que estás ayudando al titular de la cuenta.</p>
+  <p class="small">Seleccioná al compañero y blanqueá su contraseña y su PIN de recuperación. La persona podrá crear ambos nuevamente. No se muestra ni se entrega ninguna clave. Antes de hacerlo, verificá personalmente que estás ayudando al titular de la cuenta.</p>
   <label for="passwordResetMember">Miembro</label>
   <select id="passwordResetMember"><option value="">Cargando miembros…</option></select>
   <button class="action primary" id="passwordResetButton" type="button">Blanquear contraseña</button>
@@ -554,7 +556,10 @@ function resetPasswordResetMode(){
   passwordResetMode=false;
   passwordResetLookupValue="";
   $("joinConfirmPasswordWrap").classList.add("hidden");
+  $("joinResetPinWrap").classList.add("hidden");
+  $("joinConfirmResetPinWrap").classList.add("hidden");
   $("joinPassword").value="";$("joinConfirmPassword").value="";
+  $("joinResetPin").value="";$("joinConfirmResetPin").value="";
   $("joinPasswordLabel").textContent="Contraseña";
   $("joinPassword").autocomplete="current-password";
   $("joinPassword").placeholder="Tu contraseña";
@@ -570,8 +575,11 @@ function activatePasswordResetMode(){
   $("joinPassword").placeholder="Mínimo 10 caracteres";
   $("joinConfirmPasswordWrap").classList.remove("hidden");
   $("joinConfirmPassword").value="";
-  $("joinBtn").textContent="Guardar contraseña nueva";
-  $("joinHelp").textContent="Tu cuenta tiene un blanqueo de contraseña pendiente. Creá una contraseña nueva y repetila para recuperar el acceso.";
+  $("joinResetPinWrap").classList.remove("hidden");
+  $("joinConfirmResetPinWrap").classList.remove("hidden");
+  $("joinResetPin").value="";$("joinConfirmResetPin").value="";
+  $("joinBtn").textContent="Guardar contraseña y PIN nuevos";
+  $("joinHelp").textContent="Creá una contraseña nueva y un PIN de recuperación de 4 números. Repetí ambos para confirmar y recuperar el acceso.";
 }
 $("joinNick").addEventListener("input",()=>{
   if($("joinMode").value!=="password")return;
@@ -608,6 +616,7 @@ $("joinNick").addEventListener("input",()=>{
 $('joinBtn').addEventListener('click',async()=>{
   const code=$('joinCode').value.trim(), nickname=$('joinNick').value.trim();
   const password=$('joinPassword').value, confirmation=$('joinConfirmPassword').value, pin=$('joinPin').value;
+  const resetPin=$('joinResetPin').value, resetPinConfirmation=$('joinConfirmResetPin').value;
   const mode=$('joinMode').value;
   showError('joinError','');
   if(mode==='password'){
@@ -615,6 +624,8 @@ $('joinBtn').addEventListener('click',async()=>{
     if(passwordResetMode){
       if(password.length<10||password.length>128){showError('joinError','La contraseña nueva debe tener entre 10 y 128 caracteres.');return;}
       if(password!==confirmation){showError('joinError','Las contraseñas no coinciden.');return;}
+      if(!/^\d{4}$/.test(resetPin)){showError('joinError','El PIN nuevo debe tener exactamente cuatro números.');return;}
+      if(resetPin!==resetPinConfirmation){showError('joinError','Los PIN no coinciden.');return;}
     }else if(!password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
   }else if(mode==='pin'){
     if(nickname.length<2||!/^\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
@@ -626,7 +637,7 @@ $('joinBtn').addEventListener('click',async()=>{
   $('joinBtn').textContent=passwordResetMode?'Guardando…':mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
     const result=passwordResetMode
-      ? await api('/api/password-reset/complete',{method:'POST',body:{username:nickname,password,confirmation}})
+      ? await api('/api/password-reset/complete',{method:'POST',body:{username:nickname,password,confirmation,pin:resetPin,pin_confirmation:resetPinConfirmation}})
       : mode==='password'
         ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
         : mode==='pin'
@@ -643,20 +654,23 @@ $('joinBtn').addEventListener('click',async()=>{
       $('joinPassword').autocomplete='new-password';
       $('joinConfirmPasswordWrap').classList.remove('hidden');
       $('joinConfirmPassword').value='';
-      $('joinBtn').textContent='Guardar contraseña nueva';
-      $('joinHelp').textContent='La administración habilitó la recuperación. Creá tu contraseña y repetila para confirmar.';
+      $('joinResetPinWrap').classList.remove('hidden');
+      $('joinConfirmResetPinWrap').classList.remove('hidden');
+      $('joinBtn').textContent='Guardar contraseña y PIN nuevos';
+      $('joinHelp').textContent='La administración habilitó la recuperación. Creá una contraseña y un PIN de cuatro números, y repetí ambos para confirmar.';
       $('joinPassword').focus();
       return;
     }
     if(!result.token)throw new Error('El servidor no devolvió el acceso del dispositivo.');
     saveToken(result.token);
     $('joinCode').value='';$('joinPassword').value='';$('joinConfirmPassword').value='';$('joinPin').value='';
+    $('joinResetPin').value='';$('joinConfirmResetPin').value='';
     passwordResetMode=false;
     await boot();
   }catch(error){showError('joinError',error.message||String(error));}
   finally{
     $('joinBtn').disabled=false;
-    $('joinBtn').textContent=passwordResetMode?'Guardar contraseña nueva':mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme';
+    $('joinBtn').textContent=passwordResetMode?'Guardar contraseña y PIN nuevos':mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme';
   }
 });
 $('ownerBootstrap').addEventListener('click',async()=>{
