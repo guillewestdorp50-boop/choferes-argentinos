@@ -749,6 +749,20 @@ export default {
         return json({ok:true,profile_id:viejoId},200,cors);
       }
 
+      const addFriendMatch=path.match(/^\/api\/friends\/([0-9a-f-]{36})$/i);
+      if(request.method==="POST" && addFriendMatch){
+        const targetId=addFriendMatch[1];
+        if(targetId===user.profile_id)return fail("No podés agregarte a vos mismo.",400,cors);
+        const target=await env.DB.prepare("SELECT id FROM profiles WHERE id=? AND community_id=? AND id NOT LIKE 'el-viejo-%'").bind(targetId,user.community_id).first();
+        if(!target)return fail("Ese compañero no pertenece a tu comunidad.",404,cors);
+        const timestamp=now();
+        await env.DB.batch([
+          env.DB.prepare("INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)").bind(user.profile_id,targetId,timestamp),
+          env.DB.prepare("INSERT OR IGNORE INTO friend_links(profile_id,friend_profile_id,created_at) VALUES(?,?,?)").bind(targetId,user.profile_id,timestamp)
+        ]);
+        return json({ok:true,profile_id:targetId,added:true},200,cors);
+      }
+
       if (request.method === "GET" && path === "/api/friends") {
         const result = await env.DB.prepare(
           `SELECT p.id,p.nickname,p.bio,p.avatar_key,p.avatar_media_id,
@@ -761,11 +775,12 @@ export default {
         const result = await env.DB.prepare(
           `SELECT p.id,p.nickname,p.avatar_key,p.avatar_media_id,
              EXISTS(SELECT 1 FROM devices d WHERE d.profile_id=p.id AND d.revoked_at IS NULL AND datetime(d.last_seen_at)>=datetime('now','-3 minutes')) AS is_online,
+             EXISTS(SELECT 1 FROM friend_links f WHERE f.profile_id=? AND f.friend_profile_id=p.id) AS is_friend,
              s.status AS route_status,s.updated_at AS route_updated_at
            FROM profiles p
            LEFT JOIN route_status s ON s.profile_id=p.id AND s.community_id=p.community_id AND s.expires_at>?
-           WHERE p.community_id=? AND p.id NOT LIKE 'el-viejo-%' ORDER BY p.nickname COLLATE NOCASE LIMIT 500`
-        ).bind(now(), user.community_id).all();
+           WHERE p.community_id=? AND p.id NOT LIKE 'el-viejo-%' AND p.id<>? ORDER BY p.nickname COLLATE NOCASE LIMIT 500`
+        ).bind(user.profile_id, now(), user.community_id, user.profile_id).all();
         return json({ colleagues: result.results || [] }, 200, cors);
       }
 
