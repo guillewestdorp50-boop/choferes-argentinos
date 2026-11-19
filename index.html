@@ -170,7 +170,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <h1 class="section-title">Colegas</h1>
 <div id="colleagueProfileSlot"></div>
 <div id="colleagueProfileIntro" class="card">
-  <p class="small">Todos los integrantes de Choferes Argentinos · presencia y estado actual del PAD.</p>
+  <p class="small">Todos los integrantes de Choferes Argentinos, aunque todavía no sean amigos. Podés ver sus apodos, perfiles y agregarlos a tu lista de amigos.</p>
   <div id="colleaguesList"><div class="empty">Cargando colegas…</div></div>
 </div>
 </section>
@@ -1741,9 +1741,13 @@ async function loadColleagues(){
       }else{
         const noStatus=document.createElement('span');noStatus.className='meta';noStatus.textContent='Sin estado';row.append(noStatus);
       }
-      row.tabIndex=0;row.setAttribute('role','button');row.setAttribute('aria-label','Ver perfil de '+(colleague.nickname||'Compañero'));
-      row.addEventListener('click',()=>openPublicProfile(colleague.id));
-      row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPublicProfile(colleague.id);}});
+      const actions=document.createElement('div');actions.className='row';actions.style.gap='6px';actions.style.flexWrap='wrap';
+      const view=document.createElement('button');view.type='button';view.className='action';view.textContent='Ver perfil';
+      view.addEventListener('click',()=>openPublicProfile(colleague.id));
+      const add=document.createElement('button');add.type='button';add.className='action primary';
+      add.textContent=colleague.is_friend?'✓ En Amigos':'＋ Agregar amigo';add.disabled=!!colleague.is_friend;
+      add.addEventListener('click',async()=>{add.disabled=true;try{await api('/api/friends/'+encodeURIComponent(colleague.id),{method:'POST',body:{}});add.textContent='✓ En Amigos';colleague.is_friend=true;await loadFriends();}catch(error){add.disabled=false;alert(error.message||'No se pudo agregar a este compañero.');}});
+      actions.append(view,add);row.append(actions);
       box.append(row);
     });
   }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los colegas: '+esc(error.message||String(error))+'</div>';}
