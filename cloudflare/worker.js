@@ -51,36 +51,52 @@ async function nicknameTaken(env, nickname, excludeProfileId = null) {
   return !!row;
 }
 async function ensureCredentialsSchema(env) {
-  const info = await env.DB.prepare("PRAGMA table_info(profiles)").all();
-  const columns = new Set((info.results || []).map(column => column.name));
+  // Detect columns by preparing a harmless SELECT. D1 does not expose
+  // consistent PRAGMA metadata in every execution context.
   for (const [name, type] of [
     ["login_username", "TEXT"],
     ["password_salt", "TEXT"],
     ["password_hash", "TEXT"],
     ["password_iterations", "INTEGER"]
   ]) {
-    if (columns.has(name)) continue;
+    let exists = false;
     try {
-      await env.DB.prepare(`ALTER TABLE profiles ADD COLUMN ${name} ${type}`).run();
-      columns.add(name);
-    } catch (error) {
-      const refreshed = await env.DB.prepare("PRAGMA table_info(profiles)").all();
-      if (!(refreshed.results || []).some(column => column.name === name)) throw error;
-      columns.add(name);
+      await env.DB.prepare(`SELECT ${name} FROM profiles LIMIT 0`).all();
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    if (!exists) {
+      try {
+        await env.DB.prepare(`ALTER TABLE profiles ADD COLUMN ${name} ${type}`).run();
+      } catch (error) {
+        // A concurrent request may have added the column after our probe.
+        try {
+          await env.DB.prepare(`SELECT ${name} FROM profiles LIMIT 0`).all();
+        } catch {
+          throw error;
+        }
+      }
     }
   }
-  const index = await env.DB.prepare(
-    "SELECT name FROM sqlite_master WHERE type='index' AND name='profiles_login_username_unique_idx' LIMIT 1"
+
+  // The login and recovery flows both use this table. It may be absent when
+  // the earlier multi-statement migration stopped partway through.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (
+    attempt_key TEXT PRIMARY KEY,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    window_started_at TEXT NOT NULL,
+    locked_until TEXT
+  )`).run();
+
+  // Idempotent and non-destructive; NULL usernames remain allowed.
+  const duplicate = await env.DB.prepare(
+    "SELECT login_username FROM profiles WHERE login_username IS NOT NULL GROUP BY login_username HAVING COUNT(*) > 1 LIMIT 1"
   ).first();
-  if (!index) {
-    const duplicate = await env.DB.prepare(
-      "SELECT login_username FROM profiles WHERE login_username IS NOT NULL GROUP BY login_username HAVING COUNT(*) > 1 LIMIT 1"
-    ).first();
-    if (duplicate) throw new Error("No se pudo asegurar la unicidad de los usuarios de acceso existentes.");
-    await env.DB.prepare(
-      "CREATE UNIQUE INDEX IF NOT EXISTS profiles_login_username_unique_idx ON profiles(login_username) WHERE login_username IS NOT NULL"
-    ).run();
-  }
+  if (duplicate) throw new Error("Hay nombres de usuario duplicados; no se modificó ninguna cuenta.");
+  await env.DB.prepare(
+    "CREATE UNIQUE INDEX IF NOT EXISTS profiles_login_username_unique_idx ON profiles(login_username) WHERE login_username IS NOT NULL"
+  ).run();
 }
 async function bodyJson(request) {
   try { return await request.json(); } catch { return null; }
