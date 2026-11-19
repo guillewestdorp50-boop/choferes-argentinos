@@ -162,6 +162,17 @@ async function sendWebPush(env, subscription, payload) {
     return { ok: false, configured: true, status: 0 };
   }
 }
+async function mp4Info(bytes) {
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  const children=(start,end)=>{const boxes=[];let offset=start;while(offset+8<=end){let size=view.getUint32(offset);const type=String.fromCharCode(bytes[offset+4],bytes[offset+5],bytes[offset+6],bytes[offset+7]);let header=8;if(size===1){if(offset+16>end)break;const large=view.getBigUint64(offset+8);if(large>BigInt(Number.MAX_SAFE_INTEGER))break;size=Number(large);header=16;}else if(size===0)size=end-offset;if(size<header||offset+size>end)break;boxes.push({type,payload:offset+header,end:offset+size});offset+=size;}return boxes;};
+  const moov=children(0,bytes.byteLength).find(box=>box.type==="moov");if(!moov)return null;
+  const parts=children(moov.payload,moov.end),mvhd=parts.find(box=>box.type==="mvhd");if(!mvhd)return null;
+  const version=bytes[mvhd.payload],scaleAt=mvhd.payload+(version===1?20:12),durationAt=mvhd.payload+(version===1?24:16);if(scaleAt+4>mvhd.end)return null;
+  const scale=view.getUint32(scaleAt);if(!scale)return null;
+  let duration;if(version===1){if(durationAt+8>mvhd.end)return null;duration=Number(view.getBigUint64(durationAt))/scale;}else{if(durationAt+4>mvhd.end)return null;duration=view.getUint32(durationAt)/scale;}
+  let width=0,height=0;for(const trak of parts.filter(box=>box.type==="trak")){const tkhd=children(trak.payload,trak.end).find(box=>box.type==="tkhd");if(!tkhd||tkhd.end<8)continue;const x=view.getUint32(tkhd.end-8)/65536,y=view.getUint32(tkhd.end-4)/65536;if(x*y>width*height){width=x;height=y;}}
+  if(!Number.isFinite(duration)||!width||!height)return null;return {duration,width,height};
+}
 async function notifyModerators(env, communityId, postId, nickname) {
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return 0;
   const result = await env.DB.prepare(
@@ -350,7 +361,7 @@ export default {
       if (request.method === "GET" && path === "/api/moderation/posts") {
         if (!["owner", "moderator"].includes(user.role)) return fail("No tenés permiso para moderar publicaciones.", 403, cors);
         const result = await env.DB.prepare(
-          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.created_at,pr.nickname
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
            WHERE p.community_id=? AND p.status='pending' AND p.deleted_at IS NULL
            ORDER BY p.created_at ASC LIMIT 100`
@@ -455,7 +466,7 @@ export default {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
         const result = await env.DB.prepare(
-          `SELECT p.id,p.profile_id,p.body,p.media_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
              (SELECT COUNT(*) * CASE WHEN datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
@@ -470,17 +481,17 @@ export default {
       if (request.method === "POST" && path === "/api/posts") {
         const input = await bodyJson(request);
         const body = cleanText(input?.body, 2000);
-        const mediaId = input?.media_id ? cleanText(input.media_id, 64) : null;
-        if (!body && !mediaId) return fail("La publicación está vacía.", 400, cors);
-        if (mediaId) {
-          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId, user.community_id, user.profile_id).first();
-          if (!media) return fail("La imagen no está disponible.", 400, cors);
-        }
+        const mediaId=input?.media_id?cleanText(input.media_id,64):null;
+        const videoId=input?.video_id?cleanText(input.video_id,64):null;
+        if(mediaId&&videoId)return fail("Elegí una foto o un video por publicación.",400,cors);
+        if(!body&&!mediaId&&!videoId)return fail("La publicación está vacía.",400,cors);
+        if(mediaId){const media=await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();if(!media)return fail("La imagen no está disponible.",400,cors);}
+        if(videoId){const video=await env.DB.prepare("SELECT id FROM video_media WHERE id=? AND community_id=? AND profile_id=?").bind(videoId,user.community_id,user.profile_id).first();if(!video)return fail("El video no está disponible.",400,cors);}
         const postId = id();
         const autoApprove = ["owner", "moderator"].includes(user.role);
         const status = autoApprove ? "approved" : "pending";
-        await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status) VALUES(?,?,?,?,?,?,?)")
-          .bind(postId, user.community_id, user.profile_id, body, mediaId, now(), status).run();
+        await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,video_id,created_at,status) VALUES(?,?,?,?,?,?,?,?)")
+          .bind(postId,user.community_id,user.profile_id,body,mediaId,videoId,now(),status).run();
         let notificationsSent = 0;
         if (!autoApprove) {
           try { notificationsSent = await notifyModerators(env, user.community_id, postId, user.nickname); } catch {}
@@ -492,19 +503,19 @@ export default {
       if (request.method === "PATCH" && postMatch) {
         const input = await bodyJson(request);
         const body = cleanText(input?.body, 2000);
-        const mediaId = input?.media_id ? cleanText(input.media_id, 64) : null;
-        if (!body && !mediaId) return fail("La publicación no puede quedar vacía.",400,cors);
-        if (mediaId) {
-          const media = await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();
-          if (!media) return fail("La imagen no está disponible.",400,cors);
-        }
+        const mediaId=input?.media_id?cleanText(input.media_id,64):null;
+        const videoId=input?.video_id?cleanText(input.video_id,64):null;
+        if(mediaId&&videoId)return fail("Elegí una foto o un video por publicación.",400,cors);
+        if(!body&&!mediaId&&!videoId)return fail("La publicación no puede quedar vacía.",400,cors);
+        if(mediaId){const media=await env.DB.prepare("SELECT id FROM media WHERE id=? AND community_id=? AND profile_id=?").bind(mediaId,user.community_id,user.profile_id).first();if(!media)return fail("La imagen no está disponible.",400,cors);}
+        if(videoId){const video=await env.DB.prepare("SELECT id FROM video_media WHERE id=? AND community_id=? AND profile_id=?").bind(videoId,user.community_id,user.profile_id).first();if(!video)return fail("El video no está disponible.",400,cors);}
         const post = await env.DB.prepare("SELECT id,profile_id,status FROM posts WHERE id=? AND community_id=? AND deleted_at IS NULL").bind(postMatch[1],user.community_id).first();
         if (!post) return fail("Publicación no encontrada.",404,cors);
         if (post.profile_id !== user.profile_id) return fail("Solo podés editar tus propias publicaciones.",403,cors);
         const autoApprove = ["owner","moderator"].includes(user.role);
         const status = autoApprove ? "approved" : "pending";
-        await env.DB.prepare("UPDATE posts SET body=?,media_id=?,status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND profile_id=? AND community_id=?")
-          .bind(body,mediaId,status,autoApprove?user.profile_id:null,autoApprove?now():null,post.id,user.profile_id,user.community_id).run();
+        await env.DB.prepare("UPDATE posts SET body=?,media_id=?,video_id=?,status=?,moderated_by_profile_id=?,moderated_at=? WHERE id=? AND profile_id=? AND community_id=?")
+          .bind(body,mediaId,videoId,status,autoApprove?user.profile_id:null,autoApprove?now():null,post.id,user.profile_id,user.community_id).run();
         if (!autoApprove) { try { await notifyModerators(env,user.community_id,post.id,user.nickname); } catch {} }
         return json({ok:true,status},200,cors);
       }
@@ -643,6 +654,28 @@ export default {
         return json({ id: alertId, expires_at: expires }, 201, cors);
       }
 
+      if (request.method === "POST" && path === "/api/videos") {
+        if(!env.VIDEO_KV)return fail("La carga de videos todavía no está habilitada.",503,cors);
+        const form=await request.formData(),file=form.get("file");
+        if(!file||typeof file.arrayBuffer!=="function")return fail("Elegí un video MP4.",400,cors);
+        if(file.type!=="video/mp4")return fail("Por ahora se admite únicamente video MP4.",415,cors);
+        if(file.size<=0||file.size>15*1024*1024)return fail("El video debe pesar como máximo 15 MB.",413,cors);
+        const bytes=new Uint8Array(await file.arrayBuffer()),info=mp4Info(bytes);
+        if(!info)return fail("No se pudo leer la información del video MP4.",415,cors);
+        if(info.duration>15.25)return fail("El video no puede durar más de 15 segundos.",413,cors);
+        if(Math.max(info.width,info.height)>1280||Math.min(info.width,info.height)>720)return fail("El video debe tener una resolución máxima de 720p.",413,cors);
+        const storageLimit=Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES||850000000));
+        const usage=await env.DB.prepare("SELECT COALESCE(SUM(byte_size),0) AS total FROM video_media").first();
+        if(Number(usage?.total||0)+bytes.byteLength>storageLimit)return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
+        const videoId=id(),environmentPrefix=env.ENVIRONMENT==="development"?"preview":"production",objectKey=environmentPrefix+"/videos/"+user.community_id+"/"+videoId+".mp4";
+        try{
+          await env.VIDEO_KV.put(objectKey,bytes.buffer);
+          await env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+            .bind(videoId,user.community_id,user.profile_id,objectKey,"video/mp4",bytes.byteLength,info.duration,Math.round(info.width),Math.round(info.height),now()).run();
+        }catch(error){try{await env.VIDEO_KV.delete(objectKey);}catch{}return fail("No se pudo guardar el video. Intentá nuevamente.",500,cors);}
+        return json({video_id:videoId,bytes:bytes.byteLength,duration_seconds:info.duration},201,cors);
+      }
+
       if (request.method === "POST" && path === "/api/media") {
         const form = await request.formData(), file = form.get("file");
         if (!file || typeof file.arrayBuffer !== "function") return fail("Falta la imagen.", 400, cors);
@@ -653,6 +686,17 @@ export default {
         await env.DB.prepare("INSERT INTO media(id,community_id,profile_id,mime_type,data,created_at) VALUES(?,?,?,?,?,?)")
           .bind(mediaId, user.community_id, user.profile_id, file.type, bytes, now()).run();
         return json({ media_id: mediaId, bytes: bytes.byteLength }, 201, cors);
+      }
+
+      const videoMatch=path.match(/^\/api\/videos\/([0-9a-f-]{36})$/i);
+      if(request.method==="GET"&&videoMatch){
+        if(!env.VIDEO_KV)return fail("Video no disponible.",404,cors);
+        const row=await env.DB.prepare("SELECT object_key,mime_type,byte_size,profile_id FROM video_media WHERE id=? AND community_id=?").bind(videoMatch[1],user.community_id).first();
+        if(!row)return fail("Video no encontrado.",404,cors);
+        const post=await env.DB.prepare("SELECT status,deleted_at FROM posts WHERE video_id=? AND community_id=? ORDER BY created_at DESC LIMIT 1").bind(videoMatch[1],user.community_id).first();
+        if(!post||post.deleted_at||(post.status!=="approved"&&row.profile_id!==user.profile_id&&!["owner","moderator"].includes(user.role)))return fail("Video no disponible.",404,cors);
+        const object=await env.VIDEO_KV.get(row.object_key,{type:"stream",cacheTtl:30});if(!object)return fail("Video no encontrado en el almacenamiento.",404,cors);
+        return new Response(object,{status:200,headers:{...cors,"content-type":row.mime_type,"content-length":String(row.byte_size),"accept-ranges":"none","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
       }
 
       const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
