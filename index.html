@@ -1143,7 +1143,7 @@ async function handleWallPhotoChange(event){
   }catch(error){
     clearSelectedPhoto();
     $('photoHint').textContent=error.message || 'No se pudo preparar la foto.';
-  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('takePhoto').disabled=false; $('removePhoto').disabled=false; syncPublishButton(); }
+  }finally{ preparingPhoto=false; $('choosePhoto').disabled=false; $('takePhoto').disabled=false; $('chooseVideo').disabled=false; $('removePhoto').disabled=false; $('removeVideo').disabled=false; syncPublishButton(); }
 }
 $('postPhoto').addEventListener('change',handleWallPhotoChange);
 $('postCamera').addEventListener('change',handleWallPhotoChange);
