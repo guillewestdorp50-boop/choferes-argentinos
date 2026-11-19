@@ -338,6 +338,7 @@ export default {
       }
 
       if (request.method === "POST" && path === "/api/login") {
+        await ensureCredentialsSchema(env);
         const input = await bodyJson(request);
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
