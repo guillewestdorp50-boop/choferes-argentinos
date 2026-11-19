@@ -225,7 +225,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small">Elegí un usuario único y una contraseña de al menos 10 caracteres. Con esos datos vas a poder entrar desde otro teléfono sin depender de Google ni de una clave externa. Tus sesiones actuales siguen abiertas.</p>
   <div class="small">Usuario configurado: <strong id="configuredLoginUsername">Todavía no configurado</strong></div>
   <label for="loginUsernameInput">Usuario de acceso</label>
-  <input id="loginUsernameInput" maxlength="24" autocomplete="username" autocapitalize="none" placeholder="Ej.: westdorf">
+  <input id="loginUsernameInput" maxlength="24" autocomplete="username" autocapitalize="none" placeholder="Ej.: camionero123">
   <label for="currentPasswordInput" id="currentPasswordLabel" hidden>Contraseña actual</label>
   <input id="currentPasswordInput" type="password" maxlength="128" autocomplete="current-password" placeholder="Solo para cambiar tu contraseña" hidden>
   <label for="loginPasswordInput">Nueva contraseña</label>
@@ -445,7 +445,7 @@ $('joinMode').addEventListener('change',()=>{
   $('joinPinWrap').classList.toggle('hidden',!pinMode);
   const nickLabel=document.querySelector('label[for="joinNick"]');
   if(nickLabel)nickLabel.textContent=mode==='recovery'||pinMode?'Apodo público':passwordMode?'Usuario de acceso':'Tu apodo en la ruta';
-  $('joinNick').placeholder=passwordMode?'Ej.: westdorf':'Ej.: El Cordobés';
+  $('joinNick').placeholder=passwordMode?'Ej.: camionero123':'Ej.: El Cordobés';
   $('joinBtn').textContent=loginMode||mode==='recovery'?'Iniciar sesión':'Vincularme';
   $('joinHelp').textContent = mode==='community'
     ? 'El primer ingreso crea tu perfil.'
