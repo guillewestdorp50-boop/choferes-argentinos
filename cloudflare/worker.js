@@ -1,4 +1,4 @@
-// Production wall videos are stored in the private VIDEO_KV namespace; deploy token access is verified in CI.
+// Production wall videos are stored in the private VIDEO_KV namespace; production token access is being verified.
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
