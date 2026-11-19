@@ -1556,9 +1556,12 @@ async function createCode(kind,target){
     });
   }catch(error){ area.textContent=error.message || String(error); }
 }
+let accountDataLoadSequence=0;
 async function loadAccountData(){
+  const loadSequence=++accountDataLoadSequence;
   try{
     const data=await api('/api/account-data');
+    if(loadSequence!==accountDataLoadSequence)return;
     $('pinResetNotice').hidden=!data.pin_reset_required;
     $('pinResetNotice').textContent=data.pin_reset_required?'Se blanqueó tu contraseña y también tu PIN anterior. Creá un PIN nuevo de cuatro números para volver a proteger y mostrar tu código de recuperación. Tu código de recuperación sigue siendo el mismo.':'';
     $('pinRevealResetNotice').hidden=!data.pin_reset_required;
@@ -1577,10 +1580,12 @@ async function loadAccountData(){
     $('saveRecoveryCode').hidden=isOwner;
     const recoveryLabel=document.querySelector('label[for="recoveryCodeInput"]');
     if(recoveryLabel)recoveryLabel.hidden=isOwner;
-    $('pinSetupCard').hidden=!!data.has_pin;
-    $('pinRevealCard').hidden=!data.has_pin;
-    $('revealUsernameBtn').hidden=!data.has_pin;
-    $('revealRecoveryCodeBtn').hidden=!data.has_pin;
+    const pinMustBeReplaced=!!data.pin_reset_required;
+    const hasUsablePin=!!data.has_pin && !pinMustBeReplaced;
+    $('pinSetupCard').hidden=hasUsablePin;
+    $('pinRevealCard').hidden=!hasUsablePin;
+    $('revealUsernameBtn').hidden=!hasUsablePin;
+    $('revealRecoveryCodeBtn').hidden=!hasUsablePin;
     $('hideUsernameBtn').hidden=true;
     $('hideRecoveryCodeBtn').hidden=true;
     $('pinRevealInput').value='';
