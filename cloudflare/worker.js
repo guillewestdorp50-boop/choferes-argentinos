@@ -336,7 +336,7 @@ export default {
           const candidate = await derivePassword(password, profile.password_salt, profile.password_iterations);
           valid = constantTimeEqual(candidate, profile.password_hash);
         } else {
-          await derivePassword(password, "00000000000000000000000000000000", 310000);
+          await derivePassword(password, "00000000000000000000000000000000", 120000);
         }
         if (!valid) {
           const withinWindow = previous?.window_started_at && Date.now() - Date.parse(previous.window_started_at) < 15 * 60 * 1000;
@@ -463,7 +463,7 @@ export default {
         credentialsStage = "password_hash";
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, "0")).join("");
-        const iterations = 310000;
+        const iterations = 120000;
         const passwordHash = await derivePassword(password, salt, iterations);
         credentialsStage = "database_update";
         try {
