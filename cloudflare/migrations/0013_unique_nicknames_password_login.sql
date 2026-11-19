@@ -1,9 +1,4 @@
 -- Unique public nicknames and first-party username/password login.
-ALTER TABLE profiles ADD COLUMN nickname_key TEXT;
-ALTER TABLE profiles ADD COLUMN login_username TEXT;
-ALTER TABLE profiles ADD COLUMN password_salt TEXT;
-ALTER TABLE profiles ADD COLUMN password_hash TEXT;
-ALTER TABLE profiles ADD COLUMN password_iterations INTEGER;
 
 -- Existing community names are normalized before enforcing uniqueness.
 UPDATE profiles SET nickname_key=lower(trim(nickname)) WHERE nickname_key IS NULL;
