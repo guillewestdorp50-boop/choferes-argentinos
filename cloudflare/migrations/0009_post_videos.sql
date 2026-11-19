@@ -1,4 +1,4 @@
--- Short videos for community wall posts. Binary files live in private R2 storage, never in D1.
+-- Short videos for community wall posts. Binary files live in private Workers KV storage, never in D1.
 CREATE TABLE IF NOT EXISTS video_media (
   id TEXT PRIMARY KEY,
   community_id TEXT NOT NULL REFERENCES communities(id),
