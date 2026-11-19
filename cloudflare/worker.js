@@ -460,10 +460,11 @@ export default {
         const taken = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND id<>? LIMIT 1")
           .bind(username, user.profile_id).first();
         if (taken) return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
-        credentialsStage = "password_hash";
+        credentialsStage = "salt_generation";
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, "0")).join("");
         const iterations = 120000;
+        credentialsStage = "pbkdf2";
         const passwordHash = await derivePassword(password, salt, iterations);
         credentialsStage = "database_update";
         try {
@@ -475,8 +476,9 @@ export default {
         }
         return json({ ok: true, login_username: username, has_password: true }, 200, cors);
         } catch (error) {
-          console.error("account credentials failed", credentialsStage, error?.stack || error?.message || error);
-          return json({ error: "No se pudieron guardar las credenciales.", codigo_servidor: "CREDENTIALS_" + credentialsStage.toUpperCase() }, 500, cors);
+          const technicalCause = String(error?.name || "Error") + ": " + String(error?.message || "sin detalle").slice(0, 180);
+          console.error("account credentials failed", credentialsStage, technicalCause, error?.stack || "");
+          return json({ error: "No se pudieron guardar las credenciales.", codigo_servidor: "CREDENTIALS_" + credentialsStage.toUpperCase(), causa_tecnica: technicalCause }, 500, cors);
         }
       }
 
