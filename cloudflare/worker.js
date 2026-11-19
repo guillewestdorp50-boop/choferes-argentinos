@@ -57,7 +57,8 @@ async function ensureCredentialsSchema(env) {
     ["login_username", "TEXT"],
     ["password_salt", "TEXT"],
     ["password_hash", "TEXT"],
-    ["password_iterations", "INTEGER"]
+    ["password_iterations", "INTEGER"],
+    ["password_reset_required", "INTEGER NOT NULL DEFAULT 0"]
   ]) {
     let exists = false;
     try {
@@ -314,23 +315,41 @@ export default {
         return json({ token, recovered: true }, 200, cors);
       }
 
+      if (request.method === "POST" && path === "/api/password-reset/complete") {
+        await ensureCredentialsSchema(env);
+        const input = await bodyJson(request);
+        const username = loginUsername(input?.username);
+        const password = String(input?.password || "");
+        const confirmation = String(input?.confirmation || "");
+        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return fail("Usuario o contraseña no válidos.", 400, cors);
+        if (password.length < 10 || password.length > 128) return fail("La contraseña nueva debe tener entre 10 y 128 caracteres.", 400, cors);
+        if (password !== confirmation) return fail("Las contraseñas no coinciden.", 400, cors);
+        const target = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND password_reset_required=1 LIMIT 1").bind(username).first();
+        if (!target) return fail("Esta cuenta no tiene un blanqueo pendiente. Volvé a consultar con administración.", 403, cors);
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = Array.from(saltBytes, value => value.toString(16).padStart(2, "0")).join("");
+        const iterations = 100000;
+        const passwordHash = await derivePassword(password, salt, iterations);
+        const saved = await env.DB.prepare("UPDATE profiles SET password_salt=?,password_hash=?,password_iterations=?,password_reset_required=0,updated_at=? WHERE id=? AND password_reset_required=1")
+          .bind(salt, passwordHash, iterations, now(), target.id).run();
+        if (!saved.success || saved.meta?.changes !== 1) return fail("El blanqueo ya fue utilizado o cambió. Volvé a consultar con administración.", 409, cors);
+        const token = await issueDevice(env, target.id);
+        return json({ ok: true, token, password_reset: true }, 200, cors);
+      }
+
       if (request.method === "POST" && path === "/api/login") {
         const input = await bodyJson(request);
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
-        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username) || password.length < 1 || password.length > 128) {
-          return fail("Usuario o contraseña incorrectos.", 401, cors);
-        }
+        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return fail("Usuario o contraseña incorrectos.", 401, cors);
+        const profile = await env.DB.prepare("SELECT id,password_salt,password_hash,password_iterations,COALESCE(password_reset_required,0) AS password_reset_required FROM profiles WHERE login_username=? LIMIT 1")
+          .bind(username).first();
+        if (Number(profile?.password_reset_required || 0) === 1) return json({ password_reset_required: true }, 200, cors);
+        if (!password || password.length > 128) return fail("Usuario o contraseña incorrectos.", 401, cors);
         const ip = request.headers.get("CF-Connecting-IP") || "unknown";
         const attemptKey = await sha256(username + "|" + ip);
-        const previous = await env.DB.prepare("SELECT failed_count,window_started_at,locked_until FROM login_attempts WHERE attempt_key=?")
-          .bind(attemptKey).first();
-        if (previous?.locked_until && Date.parse(previous.locked_until) > Date.now()) {
-          return fail("Usuario o contraseña incorrectos. Esperá unos minutos e intentá nuevamente.", 429, cors);
-        }
-        const profile = await env.DB.prepare(
-          "SELECT id,password_salt,password_hash,password_iterations FROM profiles WHERE login_username=? LIMIT 1"
-        ).bind(username).first();
+        const previous = await env.DB.prepare("SELECT failed_count,window_started_at,locked_until FROM login_attempts WHERE attempt_key=?").bind(attemptKey).first();
+        if (previous?.locked_until && Date.parse(previous.locked_until) > Date.now()) return fail("Usuario o contraseña incorrectos. Esperá unos minutos e intentá nuevamente.", 429, cors);
         let valid = false;
         if (profile?.password_hash && profile?.password_salt && profile?.password_iterations) {
           const candidate = await derivePassword(password, profile.password_salt, profile.password_iterations);
@@ -343,11 +362,9 @@ export default {
           const failedCount = withinWindow ? Number(previous.failed_count || 0) + 1 : 1;
           const windowStarted = withinWindow ? previous.window_started_at : now();
           const lockedUntil = failedCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
-          await env.DB.prepare(
-            `INSERT INTO login_attempts(attempt_key,failed_count,window_started_at,locked_until)
-             VALUES(?,?,?,?)
-             ON CONFLICT(attempt_key) DO UPDATE SET failed_count=excluded.failed_count,window_started_at=excluded.window_started_at,locked_until=excluded.locked_until`
-          ).bind(attemptKey, failedCount, windowStarted, lockedUntil).run();
+          await env.DB.prepare(`INSERT INTO login_attempts(attempt_key,failed_count,window_started_at,locked_until) VALUES(?,?,?,?)
+            ON CONFLICT(attempt_key) DO UPDATE SET failed_count=excluded.failed_count,window_started_at=excluded.window_started_at,locked_until=excluded.locked_until`)
+            .bind(attemptKey, failedCount, windowStarted, lockedUntil).run();
           return fail("Usuario o contraseña incorrectos.", 401, cors);
         }
         await env.DB.prepare("DELETE FROM login_attempts WHERE attempt_key=?").bind(attemptKey).run();
@@ -565,6 +582,23 @@ export default {
           "SELECT id,nickname FROM profiles WHERE community_id=? ORDER BY nickname LIMIT 500"
         ).bind(user.community_id).all();
         return json({ members: result.results || [] },200,cors);
+      }
+
+      if (request.method === "POST" && path === "/api/community/members/password-reset") {
+        if (!["owner","moderator"].includes(user.role)) return fail("Solo administración puede blanquear contraseñas.",403,cors);
+        await ensureCredentialsSchema(env);
+        const input = await bodyJson(request);
+        const targetId = cleanText(input?.profile_id,64);
+        if (!targetId || targetId === user.profile_id) return fail("Elegí un compañero válido; no podés blanquear tu propia cuenta desde aquí.",400,cors);
+        const target = await env.DB.prepare("SELECT id,login_username FROM profiles WHERE id=? AND community_id=? LIMIT 1").bind(targetId,user.community_id).first();
+        if (!target) return fail("Ese compañero no pertenece a esta comunidad.",404,cors);
+        if (!target.login_username) return fail("Este compañero todavía no configuró un usuario y contraseña.",400,cors);
+        const timestamp = now();
+        const result = await env.DB.prepare("UPDATE profiles SET password_reset_required=1,password_salt=NULL,password_hash=NULL,password_iterations=NULL,updated_at=? WHERE id=? AND community_id=?")
+          .bind(timestamp,targetId,user.community_id).run();
+        if (!result.success || result.meta?.changes !== 1) return fail("No se pudo blanquear la contraseña. Intentá nuevamente.",500,cors);
+        await env.DB.prepare("UPDATE devices SET revoked_at=? WHERE profile_id=? AND revoked_at IS NULL").bind(timestamp,targetId).run();
+        return json({ok:true,blanched:true},200,cors);
       }
 
       if (request.method === "POST" && path === "/api/badges/award") {
