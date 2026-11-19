@@ -442,21 +442,14 @@ export default {
         const input = await bodyJson(request);
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
-        const currentPassword = String(input?.current_password || "");
         if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) {
           return fail("El usuario debe tener entre 3 y 24 caracteres: letras, números, punto, guion o guion bajo.", 400, cors);
         }
         if (password.length < 10 || password.length > 128) {
           return fail("La contraseña debe tener entre 10 y 128 caracteres.", 400, cors);
         }
-        const current = await env.DB.prepare(
-          "SELECT login_username,password_salt,password_hash,password_iterations FROM profiles WHERE id=? AND community_id=?"
-        ).bind(user.profile_id, user.community_id).first();
-        if (current?.password_hash) {
-          if (!currentPassword) return fail("Ingresá tu contraseña actual para cambiar los datos de acceso.", 400, cors);
-          const currentHash = await derivePassword(currentPassword, current.password_salt, current.password_iterations);
-          if (!constantTimeEqual(currentHash, current.password_hash)) return fail("La contraseña actual no es correcta.", 401, cors);
-        }
+        // La sesión autenticada (incluida una sesión recuperada mediante PIN) autoriza
+        // el cambio de credenciales; no se exige una contraseña anterior olvidada.
         const taken = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND id<>? LIMIT 1")
           .bind(username, user.profile_id).first();
         if (taken) return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
