@@ -88,7 +88,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <label for="joinMode">¿Qué código tenés?</label>
 <select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option><option value="password">Usuario y contraseña</option><option value="pin">Recuperar con PIN</option><option value="recovery">Código de recuperación anterior</option></select>
 <label for="joinCode">Código de invitación</label><input id="joinCode" autocomplete="off" autocapitalize="none" placeholder="Pegá acá el código">
-<div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" autocomplete="username" autocapitalize="none" placeholder="Ej.: El Cordobés"></div>
+<div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" autocomplete="username" autocapitalize="none" placeholder="Ej.: El Cordobés"><p id="joinUsernameStatus" class="small" aria-live="polite" hidden></p></div>
 <div id="joinPasswordWrap" class="hidden"><label id="joinPasswordLabel" for="joinPassword">Contraseña</label><input id="joinPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Tu contraseña"></div>
 <div id="joinConfirmPasswordWrap" class="hidden"><label for="joinConfirmPassword">Confirmar contraseña nueva</label><input id="joinConfirmPassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña nueva"></div>
 <div id="joinPinWrap" class="hidden"><label for="joinPin">PIN de recuperación</label><input id="joinPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••"></div>
@@ -479,7 +479,9 @@ $('joinMode').addEventListener('change',()=>{
   $('joinCode').hidden=loginMode;
   const codeLabel=document.querySelector('label[for="joinCode"]');
   if(codeLabel)codeLabel.hidden=loginMode;
-  passwordResetMode=false;
+  if(passwordResetLookupTimer)clearTimeout(passwordResetLookupTimer);
+  passwordResetMode=false;passwordResetLookupValue="";
+  showUsernameStatus("", "info");
   $('joinPasswordWrap').classList.toggle('hidden',!passwordMode);
   $('joinConfirmPasswordWrap').classList.add('hidden');
   $('joinPasswordLabel').textContent='Contraseña';
@@ -542,6 +544,23 @@ async function boot(){
 }
 let passwordResetLookupTimer=null;
 let passwordResetLookupValue="";
+function showUsernameStatus(message,state){
+  const status=$("joinUsernameStatus");
+  status.hidden=!message;
+  status.textContent=message;
+  status.style.color=state==="ok"?"#16a34a":state==="bad"?"#dc2626":state==="pending"?"#b7791f":"";
+}
+function resetPasswordResetMode(){
+  passwordResetMode=false;
+  passwordResetLookupValue="";
+  $("joinConfirmPasswordWrap").classList.add("hidden");
+  $("joinPassword").value="";$("joinConfirmPassword").value="";
+  $("joinPasswordLabel").textContent="Contraseña";
+  $("joinPassword").autocomplete="current-password";
+  $("joinPassword").placeholder="Tu contraseña";
+  $("joinBtn").textContent="Iniciar sesión";
+  $("joinHelp").textContent="Ingresá el usuario y la contraseña que configuraste en DATOS.";
+}
 function activatePasswordResetMode(){
   passwordResetMode=true;
   $("joinPasswordWrap").classList.remove("hidden");
@@ -552,30 +571,38 @@ function activatePasswordResetMode(){
   $("joinConfirmPasswordWrap").classList.remove("hidden");
   $("joinConfirmPassword").value="";
   $("joinBtn").textContent="Guardar contraseña nueva";
-  $("joinHelp").textContent="Esta cuenta tiene un blanqueo pendiente. Creá una contraseña nueva y repetila para confirmar.";
+  $("joinHelp").textContent="Tu cuenta tiene un blanqueo de contraseña pendiente. Creá una contraseña nueva y repetila para recuperar el acceso.";
 }
 $("joinNick").addEventListener("input",()=>{
   if($("joinMode").value!=="password")return;
   const username=$("joinNick").value.trim().toLowerCase();
   if(passwordResetLookupTimer)clearTimeout(passwordResetLookupTimer);
-  if(passwordResetMode && username!==passwordResetLookupValue){
-    passwordResetMode=false;
-    $("joinConfirmPasswordWrap").classList.add("hidden");
-    $("joinPassword").value="";$("joinConfirmPassword").value="";
-    $("joinPasswordLabel").textContent="Contraseña";
-    $("joinPassword").autocomplete="current-password";
-    $("joinBtn").textContent="Iniciar sesión";
+  if(passwordResetMode && username!==passwordResetLookupValue)resetPasswordResetMode();
+  if(!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)){
+    showUsernameStatus(username.length?"Escribí entre 3 y 24 caracteres: letras, números, punto, guion o guion bajo.":"", "info");
+    return;
   }
-  if(!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username))return;
+  showUsernameStatus("Verificando usuario…","info");
   passwordResetLookupTimer=setTimeout(async()=>{
     const requested=username;
     try{
       const result=await api("/api/password-reset/status",{method:"POST",body:{username:requested}});
-      if($("joinMode").value==="password" && $("joinNick").value.trim().toLowerCase()===requested && result.password_reset_required){
+      if($("joinMode").value!=="password" || $("joinNick").value.trim().toLowerCase()!==requested)return;
+      if(result.password_reset_required){
         passwordResetLookupValue=requested;
+        showUsernameStatus("⚠ Tu cuenta tiene un blanqueo de contraseña pendiente. Podés crear una contraseña nueva abajo.","pending");
         activatePasswordResetMode();
+      }else if(result.exists){
+        passwordResetLookupValue=requested;
+        showUsernameStatus("✓ Usuario reconocido. Ingresá tu contraseña.","ok");
+      }else{
+        passwordResetLookupValue="";
+        showUsernameStatus("✕ No encontramos ese usuario. Revisá cómo está escrito.","bad");
       }
-    }catch(error){console.warn("No se pudo consultar el estado de recuperación.",error);}
+    }catch(error){
+      showUsernameStatus("No se pudo verificar el usuario. Revisá tu conexión e intentá nuevamente.","bad");
+      console.warn("No se pudo consultar el estado del usuario.",error);
+    }
   },350);
 });
 $('joinBtn').addEventListener('click',async()=>{
