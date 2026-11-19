@@ -58,7 +58,8 @@ async function ensureCredentialsSchema(env) {
     ["password_salt", "TEXT"],
     ["password_hash", "TEXT"],
     ["password_iterations", "INTEGER"],
-    ["password_reset_required", "INTEGER NOT NULL DEFAULT 0"]
+    ["password_reset_required", "INTEGER NOT NULL DEFAULT 0"],
+    ["recovery_pin_reset_required", "INTEGER NOT NULL DEFAULT 0"]
   ]) {
     let exists = false;
     try {
@@ -329,27 +330,20 @@ export default {
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
         const confirmation = String(input?.confirmation || "");
-        const pin = String(input?.pin || "");
-        const pinConfirmation = String(input?.pin_confirmation || "");
         if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return fail("Usuario o contraseña no válidos.", 400, cors);
         if (password.length < 10 || password.length > 128) return fail("La contraseña nueva debe tener entre 10 y 128 caracteres.", 400, cors);
         if (password !== confirmation) return fail("Las contraseñas no coinciden.", 400, cors);
-        if (!/^\d{4}$/.test(pin)) return fail("El PIN nuevo debe tener exactamente cuatro números.", 400, cors);
-        if (pin !== pinConfirmation) return fail("Los PIN no coinciden.", 400, cors);
         const target = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND password_reset_required=1 LIMIT 1").bind(username).first();
         if (!target) return fail("Esta cuenta no tiene un blanqueo pendiente. Volvé a consultar con administración.", 403, cors);
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes, value => value.toString(16).padStart(2, "0")).join("");
         const iterations = 100000;
         const passwordHash = await derivePassword(password, salt, iterations);
-        const pinSaltBytes = crypto.getRandomValues(new Uint8Array(16));
-        const pinSalt = Array.from(pinSaltBytes, value => value.toString(16).padStart(2, "0")).join("");
-        const pinHash = await derivePassword(pin, pinSalt, iterations);
-        const saved = await env.DB.prepare("UPDATE profiles SET password_salt=?,password_hash=?,password_iterations=?,recovery_pin_salt=?,recovery_pin_hash=?,password_reset_required=0,updated_at=? WHERE id=? AND password_reset_required=1")
-          .bind(salt, passwordHash, iterations, pinSalt, pinHash, now(), target.id).run();
+        const saved = await env.DB.prepare("UPDATE profiles SET password_salt=?,password_hash=?,password_iterations=?,password_reset_required=0,recovery_pin_reset_required=1,updated_at=? WHERE id=? AND password_reset_required=1")
+          .bind(salt, passwordHash, iterations, now(), target.id).run();
         if (!saved.success || saved.meta?.changes !== 1) return fail("El blanqueo ya fue utilizado o cambió. Volvé a consultar con administración.", 409, cors);
         const token = await issueDevice(env, target.id);
-        return json({ ok: true, token, password_reset: true }, 200, cors);
+        return json({ ok: true, token, password_reset: true, pin_reset_required: true }, 200, cors);
       }
 
       if (request.method === "POST" && path === "/api/login") {
@@ -464,8 +458,8 @@ export default {
 
       if (request.method === "GET" && path === "/api/account-data") {
         await ensureCredentialsSchema(env);
-        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash,login_username,password_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
-        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
+        const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash,login_username,password_hash,recovery_pin_reset_required FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, pin_reset_required: Number(row?.recovery_pin_reset_required || 0) === 1, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
       }
       if (request.method === "POST" && path === "/api/account/credentials") {
         let credentialsStage = "schema";
@@ -543,7 +537,8 @@ export default {
           const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
           const bits = await crypto.subtle.deriveBits({name:"PBKDF2",salt:saltBytes,iterations:100000,hash:"SHA-256"},material,256);
           const pinHash = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,"0")).join("");
-          const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=? WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
+          await ensureCredentialsSchema(env);
+          const result = await env.DB.prepare("UPDATE profiles SET recovery_pin_salt=?,recovery_pin_hash=?,recovery_pin_reset_required=0 WHERE id=? AND recovery_pin_hash IS NULL").bind(salt,pinHash,user.profile_id).run();
           if (!result.success) {
             console.error("recovery pin database update failed", result);
             return fail("No se pudo guardar el PIN en la base de datos. Tus datos siguen intactos.", 503, cors);
@@ -610,7 +605,7 @@ export default {
         if (!target) return fail("Ese compañero no pertenece a esta comunidad.",404,cors);
         if (!target.login_username) return fail("Este compañero todavía no configuró un usuario y contraseña.",400,cors);
         const timestamp = now();
-        const result = await env.DB.prepare("UPDATE profiles SET password_reset_required=1,password_salt=NULL,password_hash=NULL,password_iterations=NULL,recovery_pin_salt=NULL,recovery_pin_hash=NULL,updated_at=? WHERE id=? AND community_id=?")
+        const result = await env.DB.prepare("UPDATE profiles SET password_reset_required=1,recovery_pin_reset_required=1,password_salt=NULL,password_hash=NULL,password_iterations=NULL,recovery_pin_salt=NULL,recovery_pin_hash=NULL,updated_at=? WHERE id=? AND community_id=?")
           .bind(timestamp,targetId,user.community_id).run();
         if (!result.success || result.meta?.changes !== 1) return fail("No se pudo blanquear la contraseña. Intentá nuevamente.",500,cors);
         await env.DB.prepare("UPDATE devices SET revoked_at=? WHERE profile_id=? AND revoked_at IS NULL").bind(timestamp,targetId).run();
