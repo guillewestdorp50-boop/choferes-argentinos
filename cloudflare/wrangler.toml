@@ -11,7 +11,7 @@ VIDEO_STORAGE_LIMIT_BYTES = "850000000"
 
 [[kv_namespaces]]
 binding = "VIDEO_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "459a6600ecb11d2ff481a87944d93dfb"
 
 [observability]
 enabled = true
@@ -35,7 +35,7 @@ VIDEO_STORAGE_LIMIT_BYTES = "25000000"
 
 [[env.preview.kv_namespaces]]
 binding = "VIDEO_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "459a6600ecb11d2ff481a87944d93dfb"
 
 [[env.preview.d1_databases]]
 binding = "DB"
