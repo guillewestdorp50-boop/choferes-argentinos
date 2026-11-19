@@ -89,7 +89,8 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <select id="joinMode"><option value="community">Código inicial de la comunidad</option><option value="friend">Invitación de un compañero</option><option value="device">Vincular mi otro celular</option><option value="password">Usuario y contraseña</option><option value="pin">Recuperar con PIN</option><option value="recovery">Código de recuperación anterior</option></select>
 <label for="joinCode">Código de invitación</label><input id="joinCode" autocomplete="off" autocapitalize="none" placeholder="Pegá acá el código">
 <div id="nickWrap"><label for="joinNick">Tu apodo en la ruta</label><input id="joinNick" maxlength="32" autocomplete="username" autocapitalize="none" placeholder="Ej.: El Cordobés"></div>
-<div id="joinPasswordWrap" class="hidden"><label for="joinPassword">Contraseña</label><input id="joinPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Tu contraseña"></div>
+<div id="joinPasswordWrap" class="hidden"><label id="joinPasswordLabel" for="joinPassword">Contraseña</label><input id="joinPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Tu contraseña"></div>
+<div id="joinConfirmPasswordWrap" class="hidden"><label for="joinConfirmPassword">Confirmar contraseña nueva</label><input id="joinConfirmPassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña nueva"></div>
 <div id="joinPinWrap" class="hidden"><label for="joinPin">PIN de recuperación</label><input id="joinPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••"></div>
 <button class="action primary" id="joinBtn">Vincularme</button>
 <p class="small" id="joinHelp">El primer ingreso crea tu perfil privado.</p><p class="error" id="joinError"></p>
@@ -304,6 +305,14 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   </div>
   <p class="small" id="pushStatus">Comprobando notificaciones…</p>
 </div>
+<div class="card" id="passwordResetAdminCard">
+  <div class="name">Recuperar acceso de un compañero</div>
+  <p class="small">Seleccioná al compañero y blanqueá su contraseña. No se muestra ni se entrega ninguna clave. Antes de hacerlo, verificá personalmente que estás ayudando al titular de la cuenta.</p>
+  <label for="passwordResetMember">Miembro</label>
+  <select id="passwordResetMember"><option value="">Cargando miembros…</option></select>
+  <button class="action primary" id="passwordResetButton" type="button">Blanquear contraseña</button>
+  <p class="small" id="passwordResetStatus" aria-live="polite"></p>
+</div>
 <div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
 <h2 class="section-title">Descripciones de estados pendientes</h2>
 <div id="pendingRouteDescriptions"><div class="empty">Cargando descripciones…</div></div>
@@ -321,6 +330,7 @@ const TOKEN_KEY = 'ca_device_token_v1';
 let token = '';
 try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
 let profile = null, selectedStatus = 'libre', currentTab = 'muro', elViejoChatOpen=false;
+let passwordResetMode=false;
 let pendingRoutePostId=null, routeDescriptionPhotoFile=null;
 let selectedProfilePhoto=null, selectedProfilePhotoUrl='', removeProfilePhotoRequested=false;
 let selectedPhoto = null, selectedPhotoUrl = '', uploadedPhotoId = '', publishingPost = false, preparingPhoto = false;
@@ -449,7 +459,7 @@ function setTab(tab){
   ['muro','ruta','amigos','colegas','perfil','datos','moderacion'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='colegas') loadColleagues();
-  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
+  if(tab==='moderacion'){ loadPasswordResetAdmin(); loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
   if(tab==='datos') loadAccountData();
@@ -464,7 +474,12 @@ $('joinMode').addEventListener('change',()=>{
   $('joinCode').hidden=loginMode;
   const codeLabel=document.querySelector('label[for="joinCode"]');
   if(codeLabel)codeLabel.hidden=loginMode;
+  passwordResetMode=false;
   $('joinPasswordWrap').classList.toggle('hidden',!passwordMode);
+  $('joinConfirmPasswordWrap').classList.add('hidden');
+  $('joinPasswordLabel').textContent='Contraseña';
+  $('joinPassword').autocomplete='current-password';
+  $('joinConfirmPassword').value='';
   $('joinPinWrap').classList.toggle('hidden',!pinMode);
   const nickLabel=document.querySelector('label[for="joinNick"]');
   if(nickLabel)nickLabel.textContent=mode==='recovery'||pinMode?'Apodo público':passwordMode?'Usuario de acceso':'Tu apodo en la ruta';
@@ -506,7 +521,7 @@ async function boot(){
     guideInit();
     await Promise.all([loadFeed(),loadRoute(),loadPadFeed()]);
     if(['owner','moderator'].includes(profile.role)){
-      await Promise.all([loadModerationQueue(),loadPadModeration()]);
+      await Promise.all([loadModerationQueue(),loadPadModeration(),loadPasswordResetAdmin()]);
       updatePushStatus().catch(()=>{});
     }
   }catch(error){
@@ -521,40 +536,58 @@ async function boot(){
   }
 }
 $('joinBtn').addEventListener('click',async()=>{
-  const code = $('joinCode').value.trim();
-  const nickname = $('joinNick').value.trim();
-  const password = $('joinPassword').value;
-  const pin = $('joinPin').value;
-  const mode = $('joinMode').value;
+  const code=$('joinCode').value.trim(), nickname=$('joinNick').value.trim();
+  const password=$('joinPassword').value, confirmation=$('joinConfirmPassword').value, pin=$('joinPin').value;
+  const mode=$('joinMode').value;
   showError('joinError','');
   if(mode==='password'){
-    if(nickname.length<3 || !password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
+    if(nickname.length<3){showError('joinError','Ingresá tu usuario de acceso.');return;}
+    if(passwordResetMode){
+      if(password.length<10||password.length>128){showError('joinError','La contraseña nueva debe tener entre 10 y 128 caracteres.');return;}
+      if(password!==confirmation){showError('joinError','Las contraseñas no coinciden.');return;}
+    }else if(!password){showError('joinError','Ingresá tu usuario y contraseña.');return;}
   }else if(mode==='pin'){
-    if(nickname.length<2 || !/^\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
+    if(nickname.length<2||!/^\\d{4}$/.test(pin)){showError('joinError','Ingresá tu apodo público y el PIN de cuatro números.');return;}
   }else{
-    if(mode!=='device' && !code){showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.');return;}
-    if(mode!=='device' && nickname.length<2){showError('joinError',mode==='recovery'?'Escribí tu apodo público.':'Escribí un apodo de al menos 2 caracteres.');return;}
+    if(mode!=='device'&&!code){showError('joinError',mode==='recovery'?'Ingresá tu código original.':'Pegá el código de invitación.');return;}
+    if(mode!=='device'&&nickname.length<2){showError('joinError',mode==='recovery'?'Escribí tu apodo público.':'Escribí un apodo de al menos 2 caracteres.');return;}
   }
-  $('joinBtn').disabled = true;
-  $('joinBtn').textContent = mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
+  $('joinBtn').disabled=true;
+  $('joinBtn').textContent=passwordResetMode?'Guardando…':mode==='password'||mode==='pin'||mode==='recovery'?'Ingresando…':'Vinculando…';
   try{
-    const result = mode==='password'
-      ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
-      : mode==='pin'
-        ? await api('/api/recover-pin',{method:'POST',body:{nickname,pin}})
-        : mode==='device'
-        ? await api('/api/link-device',{method:'POST',body:{code}})
-        : mode==='recovery'
-          ? await api('/api/recover',{method:'POST',body:{code,nickname}})
-          : await api('/api/join',{method:'POST',body:{code,nickname}});
-    if(!result.token) throw new Error('El servidor no devolvió el acceso del dispositivo.');
+    const result=passwordResetMode
+      ? await api('/api/password-reset/complete',{method:'POST',body:{username:nickname,password,confirmation}})
+      : mode==='password'
+        ? await api('/api/login',{method:'POST',body:{username:nickname,password}})
+        : mode==='pin'
+          ? await api('/api/recover-pin',{method:'POST',body:{nickname,pin}})
+          : mode==='device'
+            ? await api('/api/link-device',{method:'POST',body:{code}})
+            : mode==='recovery'
+              ? await api('/api/recover',{method:'POST',body:{code,nickname}})
+              : await api('/api/join',{method:'POST',body:{code,nickname}});
+    if(result.password_reset_required){
+      passwordResetMode=true;
+      $('joinPasswordLabel').textContent='Contraseña nueva';
+      $('joinPassword').value='';
+      $('joinPassword').autocomplete='new-password';
+      $('joinConfirmPasswordWrap').classList.remove('hidden');
+      $('joinConfirmPassword').value='';
+      $('joinBtn').textContent='Guardar contraseña nueva';
+      $('joinHelp').textContent='La administración habilitó la recuperación. Creá tu contraseña y repetila para confirmar.';
+      $('joinPassword').focus();
+      return;
+    }
+    if(!result.token)throw new Error('El servidor no devolvió el acceso del dispositivo.');
     saveToken(result.token);
-    $('joinCode').value = '';
-    $('joinPassword').value = '';
-    $('joinPin').value = '';
+    $('joinCode').value='';$('joinPassword').value='';$('joinConfirmPassword').value='';$('joinPin').value='';
+    passwordResetMode=false;
     await boot();
-  }catch(error){ showError('joinError',error.message || String(error)); }
-  finally{ $('joinBtn').disabled=false; $('joinBtn').textContent=mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme'; }
+  }catch(error){showError('joinError',error.message||String(error));}
+  finally{
+    $('joinBtn').disabled=false;
+    $('joinBtn').textContent=passwordResetMode?'Guardar contraseña nueva':mode==='password'||mode==='pin'||mode==='recovery'?'Iniciar sesión':'Vincularme';
+  }
 });
 $('ownerBootstrap').addEventListener('click',async()=>{
   const setupSecret=$('ownerSecret').value;
@@ -1241,6 +1274,31 @@ async function loadModerationBadge(){
  if(!profile||!['owner','moderator'].includes(profile.role))return;
  try{const [posts,pad,descriptions]=await Promise.all([api('/api/moderation/posts'),api('/api/moderation/activity'),api('/api/moderation/route-descriptions').catch(()=>({descriptions:[]}))]);$('pendingBadge').textContent=String((posts.posts||[]).length+(pad.activities||[]).length+(descriptions.descriptions||[]).length);}catch(error){console.warn('No se pudo actualizar el contador de moderación',error);}
 }
+async function loadPasswordResetAdmin(){
+  if(!profile||!['owner','moderator'].includes(profile.role))return;
+  const select=$('passwordResetMember'),button=$('passwordResetButton');
+  try{
+    const result=await api('/api/community/members');
+    select.replaceChildren();
+    (result.members||[]).forEach(member=>{
+      const option=document.createElement('option');option.value=member.id;option.textContent=member.nickname||'Compañero';select.append(option);
+    });
+    if(!select.options.length){const option=document.createElement('option');option.value='';option.textContent='No hay miembros';select.append(option);}
+  }catch(error){$('passwordResetStatus').textContent=error.message||String(error);}
+  button.onclick=async()=>{
+    const targetId=select.value;
+    if(!targetId){$('passwordResetStatus').textContent='Elegí un compañero.';return;}
+    const nickname=select.options[select.selectedIndex]?.textContent||'este compañero';
+    if(!await confirmInApp('¿Blanquear la contraseña de '+nickname+'? Hacelo únicamente después de verificar personalmente que la persona es titular de la cuenta.'))return;
+    button.disabled=true;$('passwordResetStatus').textContent='Blanqueando contraseña…';
+    try{
+      await api('/api/community/members/password-reset',{method:'POST',body:{profile_id:targetId}});
+      $('passwordResetStatus').textContent='Contraseña blanqueada. El titular ya puede ingresar con su usuario y crear una contraseña nueva, repitiéndola para confirmar.';
+    }catch(error){$('passwordResetStatus').textContent=error.message||String(error);}
+    finally{button.disabled=false;}
+  };
+}
+
 async function loadModerationQueue(){
   if(!profile || !['owner','moderator'].includes(profile.role)) return;
   const box=$('pendingPosts');
