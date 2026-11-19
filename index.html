@@ -286,6 +286,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small">Ingresá tu PIN personal para ver el usuario y el código guardado.</p>
   <label for="pinRevealInput">Tu PIN de cuatro números</label>
   <input id="pinRevealInput" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••">
+  <p class="small" id="pinRevealResetNotice" aria-live="polite" hidden></p>
   <button class="action primary" id="verifyRecoveryPin" type="button">Verificar PIN</button>
   <p class="small" id="pinRevealStatus" aria-live="polite"></p>
 </div>
@@ -1560,6 +1561,8 @@ async function loadAccountData(){
     const data=await api('/api/account-data');
     $('pinResetNotice').hidden=!data.pin_reset_required;
     $('pinResetNotice').textContent=data.pin_reset_required?'Se blanqueó tu contraseña y también tu PIN anterior. Creá un PIN nuevo de cuatro números para volver a proteger y mostrar tu código de recuperación. Tu código de recuperación sigue siendo el mismo.':'';
+    $('pinRevealResetNotice').hidden=!data.pin_reset_required;
+    $('pinRevealResetNotice').textContent=data.pin_reset_required?'Tu contraseña fue blanqueada y el PIN anterior ya no sirve. Para volver a mostrar tu código de recuperación, primero creá un PIN nuevo de cuatro números en «Tu PIN personal». El código de recuperación sigue siendo el mismo.':'';
     $('accountNicknameDisplay').textContent='••••••••';
     $('recoveryCodeDisplay').textContent='••••••••••';
     $('configuredLoginUsername').textContent=data.login_username||'Todavía no configurado';
