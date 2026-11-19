@@ -7,13 +7,11 @@ preview_urls = true
 [vars]
 APP_ORIGIN = "https://choferes-argentinos.onrender.com"
 ENVIRONMENT = "production"
+VIDEO_STORAGE_LIMIT_BYTES = "8000000000"
 
 [[r2_buckets]]
 binding = "VIDEO_BUCKET"
 bucket_name = "choferes-argentinos-videos"
-
-[vars]
-VIDEO_STORAGE_LIMIT_BYTES = "8000000000"
 
 [observability]
 enabled = true
