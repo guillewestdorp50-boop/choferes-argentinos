@@ -865,22 +865,25 @@ $('awardBadge').addEventListener('click',async()=>{
 
 async function renderPostComments(post){
  const panel=document.createElement('div');panel.className='card';panel.style.marginTop='10px';
- const toggle=document.createElement('button');toggle.type='button';toggle.className='action';toggle.textContent='💬 Comentar';
- const content=document.createElement('div');content.hidden=true;content.style.marginTop='10px';
- const list=document.createElement('div');list.className='small';
- const composer=document.createElement('textarea');composer.maxLength=1000;composer.placeholder='Escribí libremente tu comentario…';composer.rows=2;
- const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Publicar comentario';
+ const heading=document.createElement('div');heading.className='row';heading.style.alignItems='center';heading.style.justifyContent='space-between';
+ const title=document.createElement('strong');title.textContent='💬 Conversación';
+ const count=document.createElement('span');count.className='meta';count.textContent='Cargando comentarios…';
+ heading.append(title,count);
+ const list=document.createElement('div');list.className='small';list.style.marginTop='8px';
+ const composer=document.createElement('textarea');composer.maxLength=1000;composer.placeholder='Escribí un comentario para continuar el hilo…';composer.rows=2;composer.style.width='100%';composer.style.marginTop='10px';
+ const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Publicar comentario';send.style.marginTop='8px';
  const endpoint=post.source_activity_id?'/api/activity/comments':'/api/comments';
  const query=post.source_activity_id?'?activity_id='+encodeURIComponent(post.source_activity_id):'?post_id='+encodeURIComponent(post.id);
  async function refresh(){
-  const data=await api(endpoint+query);list.replaceChildren();const comments=data.comments||[];
-  if(!comments.length){list.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';return;}
+  const data=await api(endpoint+query);const comments=data.comments||[];list.replaceChildren();
+  count.textContent=comments.length+' '+(comments.length===1?'comentario':'comentarios');
+  if(!comments.length){const empty=document.createElement('div');empty.className='meta';empty.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';list.append(empty);return;}
   comments.forEach(c=>{
    const line=document.createElement('div');line.style.padding='9px 0';line.style.borderBottom='1px solid var(--line)';
    const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';
    const msg=document.createElement('span');msg.textContent=c.body;
    const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);
-   if(profile?.role==='owner'){
+   if(profile?.role==='owner'&&!post.source_activity_id){
     const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Eliminar comentario';
     remove.addEventListener('click',async()=>{const reason=prompt('Motivo que recibirá en privado quien escribió el comentario:','Tu mensaje contenía expresiones agresivas o inapropiadas.');if(reason===null)return;remove.disabled=true;try{await api(endpoint+'/'+encodeURIComponent(c.id),{method:'DELETE',body:{reason}});await refresh();}catch(error){alert(error.message||String(error));remove.disabled=false;}});
     line.append(remove);
@@ -888,9 +891,10 @@ async function renderPostComments(post){
    list.append(line);
   });
  }
- toggle.addEventListener('click',async()=>{content.hidden=!content.hidden;if(!content.hidden){try{await refresh();}catch(error){list.textContent=error.message||String(error);}}});
- send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){alert(error.message||String(error));}finally{send.disabled=false;}});
- content.append(list,composer,send);panel.append(toggle,content);return panel;
+ send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){list.textContent=error.message||'No se pudieron cargar los comentarios.';}finally{send.disabled=false;}});
+ panel.append(heading,list,composer,send);
+ try{await refresh();}catch(error){count.textContent='No disponible';list.textContent=error.message||'No se pudieron cargar los comentarios.';}
+ return panel;
 }
 async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. porque contenía: '+notice.reason+'.');}catch{}}
 async function loadFeed(){
