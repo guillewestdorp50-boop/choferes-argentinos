@@ -308,8 +308,6 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
     <button class="action" id="testAlarm">Probar sonido</button>
   </div>
   <p class="small" id="pushStatus">Comprobando notificaciones…</p>
-  <pre class="small" id="pushDiagnosticReport" hidden style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-  <button class="action" id="copyPushDiagnostic" type="button" hidden>Copiar informe de errores</button>
 </div>
 
 <div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
@@ -1500,52 +1498,18 @@ async function updatePushStatus(){
     $('pushStatus').textContent='No se pudo comprobar el estado de las notificaciones.';
   }
 }
-let lastPushDiagnosticReport='';
-$('copyPushDiagnostic').addEventListener('click',async()=>{
-  if(!lastPushDiagnosticReport)return;
-  try{
-    await navigator.clipboard.writeText(lastPushDiagnosticReport);
-    $('copyPushDiagnostic').textContent='Informe copiado';
-  }catch{
-    $('copyPushDiagnostic').textContent='No se pudo copiar; mantené presionado el informe para copiarlo';
-    $('pushDiagnosticReport').hidden=false;
-  }
-});
 $('enablePush').addEventListener('click',async()=>{
   $('enablePush').disabled=true;
-  $('pushDiagnosticReport').hidden=true;
-  $('copyPushDiagnostic').hidden=true;
-  $('copyPushDiagnostic').textContent='Copiar informe de errores';
-  const report={
-    fecha:new Date().toISOString(),
-    navegador:navigator.userAgent,
-    plataforma:navigator.platform||'no informada',
-    pwa_instalada:window.matchMedia('(display-mode: standalone)').matches || !!navigator.standalone,
-    permiso_notificaciones:('Notification' in window)?Notification.permission:'API no disponible',
-    service_worker_api:('serviceWorker' in navigator),
-    push_manager_api:('PushManager' in window),
-    pasos:[]
-  };
-  let stage='inicio';
-  const mark=(name,details={})=>{stage=name;report.pasos.push({paso:name,...details});};
   try{
     const permissionPromise=Notification.permission==='default'
       ? Notification.requestPermission()
       : Promise.resolve(Notification.permission);
-    mark('Desbloqueo de audio');
     await unlockAlarmAudio();
-    mark('Consulta de clave pública al servidor');
     const keyResult=await api('/api/push/public-key');
-    report.clave_publica={enabled:!!keyResult.enabled,recibida:!!keyResult.public_key,longitud:typeof keyResult.public_key==='string'?keyResult.public_key.length:0};
-    if(!keyResult.enabled || !keyResult.public_key) throw new Error('El servidor respondió que no tiene una clave pública VAPID disponible.');
-    mark('Permiso de notificaciones');
+    if(!keyResult.enabled || !keyResult.public_key) throw new Error('El servidor no tiene configurada la clave pública de notificaciones.');
     const permission=await permissionPromise;
-    report.permiso_notificaciones=permission;
     if(permission!=='granted') throw new Error('El navegador no concedió permiso para mostrar notificaciones: '+permission);
-    mark('Registro del service worker');
     const registration=await navigator.serviceWorker.ready;
-    report.service_worker={scope:registration.scope,activo:!!registration.active,estado:registration.active?.state||'sin worker activo'};
-    mark('Suscripción push del teléfono');
     const existing=await registration.pushManager.getSubscription();
     const subscription=existing || await registration.pushManager.subscribe({
       userVisibleOnly:true,
@@ -1555,33 +1519,14 @@ $('enablePush').addEventListener('click',async()=>{
         return Uint8Array.from(binary,char=>char.charCodeAt(0));
       })()
     });
-    report.suscripcion={creada:!!subscription,endpoint_presente:!!subscription.endpoint};
-    mark('Registro de la suscripción en el servidor');
     const saved=await api('/api/push/subscribe',{method:'POST',body:subscription.toJSON()});
-    report.servidor={registro_guardado:!!saved.ok};
-    mark('Finalizado correctamente');
+    if(!saved.ok) throw new Error('El servidor no confirmó el registro de este teléfono.');
     $('pushStatus').textContent='¡Listo! Este teléfono quedó registrado para recibir alertas de moderación.';
     $('enablePush').textContent='Alertas activadas';
   }catch(error){
-    report.error={
-      etapa:stage,
-      mensaje:error?.message||String(error),
-      tipo:error?.name||'Error',
-      http_status:error?.status||null,
-      ruta_api:error?.apiPath||null,
-      metodo_api:error?.apiMethod||null,
-      codigo_servidor:error?.serverCode||null,
-      detalles_servidor:error?.serverDetails||null,
-      identificador_solicitud:error?.requestId||null,
-      respuesta_servidor:error?.responseBody||null
-    };
-    $('pushStatus').textContent='Falló en: '+stage+'. Generé un informe para identificar la causa.';
+    $('pushStatus').textContent='No se pudieron activar las notificaciones: '+(error?.message||String(error));
     $('enablePush').textContent='Reintentar activación';
   }finally{
-    lastPushDiagnosticReport=JSON.stringify(report,null,2);
-    $('pushDiagnosticReport').textContent=lastPushDiagnosticReport;
-    $('pushDiagnosticReport').hidden=false;
-    $('copyPushDiagnostic').hidden=false;
     $('enablePush').disabled=false;
   }
 });
