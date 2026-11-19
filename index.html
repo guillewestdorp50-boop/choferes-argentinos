@@ -79,7 +79,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 
 <nav id="nav" class="hidden" aria-label="Secciones">
-<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button data-tab="datos">Datos</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button>
+<button class="active" data-tab="muro">El muro</button><button data-tab="ruta">En la ruta</button><button data-tab="amigos">Amigos</button><button data-tab="colegas">Colegas</button><button data-tab="perfil">Mi perfil</button><button data-tab="datos">Datos</button><button class="hidden" id="moderationNav" data-tab="moderacion">Moderación <span id="pendingBadge">0</span></button><button class="hidden" id="membersNav" data-tab="miembros">MIEMBROS</button>
 </nav>
 <main>
 <section id="onboarding" class="card">
@@ -305,6 +305,15 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   </div>
   <p class="small" id="pushStatus">Comprobando notificaciones…</p>
 </div>
+
+<div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
+<h2 class="section-title">Descripciones de estados pendientes</h2>
+<div id="pendingRouteDescriptions"><div class="empty">Cargando descripciones…</div></div>
+<h2 class="section-title">PAD · Partes pendientes de verificar</h2>
+<div id="pendingPad"><div class="empty">Cargando partes del PAD…</div></div>
+</section>
+<section id="miembros" hidden>
+<h1 class="section-title">MIEMBROS</h1>
 <div class="card" id="passwordResetAdminCard">
   <div class="name">Recuperar acceso de un compañero</div>
   <p class="small">Seleccioná al compañero y blanqueá su contraseña. No se muestra ni se entrega ninguna clave. Antes de hacerlo, verificá personalmente que estás ayudando al titular de la cuenta.</p>
@@ -313,11 +322,6 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <button class="action primary" id="passwordResetButton" type="button">Blanquear contraseña</button>
   <p class="small" id="passwordResetStatus" aria-live="polite"></p>
 </div>
-<div id="pendingPosts"><div class="empty">Cargando publicaciones pendientes…</div></div>
-<h2 class="section-title">Descripciones de estados pendientes</h2>
-<div id="pendingRouteDescriptions"><div class="empty">Cargando descripciones…</div></div>
-<h2 class="section-title">PAD · Partes pendientes de verificar</h2>
-<div id="pendingPad"><div class="empty">Cargando partes del PAD…</div></div>
 </section>
 </div>
 </main>
@@ -456,10 +460,11 @@ function setTab(tab){
   currentTab = tab;
   if(guideEnabled) guideDescribeSection(tab);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  ['muro','ruta','amigos','colegas','perfil','datos','moderacion'].forEach(id=>$(id).hidden=id!==tab);
+  ['muro','ruta','amigos','colegas','perfil','datos','moderacion','miembros'].forEach(id=>$(id).hidden=id!==tab);
   if(tab==='amigos') loadFriends();
   if(tab==='colegas') loadColleagues();
-  if(tab==='moderacion'){ loadPasswordResetAdmin(); loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
+  if(tab==='moderacion'){ loadModerationQueue(); loadPadModeration(); loadRouteDescriptionModeration(); }
+  if(tab==='miembros') loadPasswordResetAdmin();
   if(tab==='ruta'){ loadRoute(); loadPadFeed(); }
   if(tab==='muro') loadFeed();
   if(tab==='datos') loadAccountData();
@@ -653,6 +658,7 @@ function updateProfileUI(){
   $('addCommunityInvite').classList.toggle('hidden',!canIssueInvites);
   $('deviceLinkCard').classList.toggle('hidden',!canIssueInvites);
   $('moderationNav').classList.toggle('hidden',!canModerate);
+  $('membersNav').classList.toggle('hidden',!canModerate);
   loadOwnBadges();
   if(canModerate) loadBadgeAdmin();
 }
@@ -1879,6 +1885,7 @@ await boot();
 await loadCommentNotices();
 const requestedTab=new URLSearchParams(location.search).get('tab');
 if(requestedTab==='moderacion' && profile && ['owner','moderator'].includes(profile.role)) setTab('moderacion');
+if(requestedTab==='miembros' && profile && ['owner','moderator'].includes(profile.role)) setTab('miembros');
 </script>
 </body></html>
 <!-- Preview refresh: publish the complete fourteen-state route panel. -->
