@@ -9,9 +9,6 @@ APP_ORIGIN = "https://choferes-argentinos.onrender.com"
 ENVIRONMENT = "production"
 VIDEO_STORAGE_LIMIT_BYTES = "850000000"
 
-[[kv_namespaces]]
-binding = "VIDEO_KV"
-id = "459a6600ecb11d2ff481a87944d93dfb"
 
 [observability]
 enabled = true
