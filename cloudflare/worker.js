@@ -435,7 +435,10 @@ export default {
         return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
       }
       if (request.method === "POST" && path === "/api/account/credentials") {
+        let credentialsStage = "schema";
+        try {
         await ensureCredentialsSchema(env);
+        credentialsStage = "read_request";
         const input = await bodyJson(request);
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
@@ -457,10 +460,12 @@ export default {
         const taken = await env.DB.prepare("SELECT id FROM profiles WHERE login_username=? AND id<>? LIMIT 1")
           .bind(username, user.profile_id).first();
         if (taken) return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
+        credentialsStage = "password_hash";
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes, b => b.toString(16).padStart(2, "0")).join("");
         const iterations = 310000;
         const passwordHash = await derivePassword(password, salt, iterations);
+        credentialsStage = "database_update";
         try {
           await env.DB.prepare(
             "UPDATE profiles SET login_username=?,password_salt=?,password_hash=?,password_iterations=?,updated_at=? WHERE id=? AND community_id=?"
@@ -469,6 +474,10 @@ export default {
           return fail("Ese usuario ya está ocupado. Elegí otro.", 409, cors);
         }
         return json({ ok: true, login_username: username, has_password: true }, 200, cors);
+        } catch (error) {
+          console.error("account credentials failed", credentialsStage, error?.stack || error?.message || error);
+          return json({ error: "No se pudieron guardar las credenciales.", codigo_servidor: "CREDENTIALS_" + credentialsStage.toUpperCase() }, 500, cors);
+        }
       }
 
       if (request.method === "POST" && path === "/api/recovery/setup") {
