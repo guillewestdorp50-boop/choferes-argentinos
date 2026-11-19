@@ -1171,27 +1171,28 @@ export default {
         if (Number(usage?.total || 0) + bytes.byteLength > storageLimit) return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
         const videoId = id(), objectKey = "d1-chunks/" + videoId, chunkSize = 512 * 1024;
         let uploadStage = "metadata";
+        let failedChunk = null;
         try {
           await env.DB.prepare("INSERT INTO video_media(id,community_id,profile_id,object_key,mime_type,byte_size,duration_seconds,width,height,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
             .bind(videoId,user.community_id,user.profile_id,objectKey,"video/mp4",bytes.byteLength,info.duration,Math.round(info.width),Math.round(info.height),now()).run();
-          // Keep each D1 batch near 1 MiB instead of sending the whole MP4
-          // as one multi-statement request. This avoids oversized batch payloads.
-          let pending = [];
+          // A single 512 KiB BLOB per D1 request stays below the request-size
+          // pressure caused by base64-encoding multiple BLOBs in one batch.
           for (let offset = 0, chunkIndex = 0; offset < bytes.byteLength; offset += chunkSize, chunkIndex++) {
-            uploadStage = "chunk-" + chunkIndex;
-            pending.push(env.DB.prepare("INSERT INTO video_chunks(video_id,chunk_index,data) VALUES(?,?,?)")
-              .bind(videoId,chunkIndex,bytes.slice(offset,Math.min(offset + chunkSize,bytes.byteLength))));
-            if (pending.length === 2 || offset + chunkSize >= bytes.byteLength) {
-              await env.DB.batch(pending);
-              pending = [];
-            }
+            uploadStage = "chunk";
+            failedChunk = chunkIndex;
+            const chunk = bytes.slice(offset,Math.min(offset + chunkSize,bytes.byteLength));
+            await env.DB.prepare("INSERT INTO video_chunks(video_id,chunk_index,data) VALUES(?,?,?)")
+              .bind(videoId,chunkIndex,chunk).run();
           }
           return json({video_id:videoId,bytes:bytes.byteLength,duration_seconds:info.duration},201,cors);
         } catch (error) {
           const requestId = id();
+          const diagnosticCode = uploadStage === "metadata" ? "VIDEO_METADATA_WRITE_FAILED" : "VIDEO_CHUNK_WRITE_FAILED";
           console.error("video_upload_failed", JSON.stringify({
             request_id: requestId,
+            diagnostic_code: diagnosticCode,
             stage: uploadStage,
+            chunk_index: failedChunk,
             video_id: videoId,
             bytes: bytes.byteLength,
             error: String(error?.message || error)
@@ -1207,7 +1208,7 @@ export default {
               error: String(cleanupError?.message || cleanupError)
             }));
           }
-          return json({error:"No se pudo guardar el video. No quedó publicado.",request_id:requestId},500,cors);
+          return json({error:"No se pudo guardar el video. No quedó publicado.",request_id:requestId,diagnostic_code:diagnosticCode,stage:uploadStage,chunk_index:failedChunk},500,cors);
         }
       }
 
