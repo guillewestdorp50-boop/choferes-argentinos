@@ -1718,9 +1718,11 @@ async function loadFriends(){
       bio.className='meta';
       bio.textContent=friend.bio || 'Compañero de ruta';
       const presence=document.createElement('div');
-      presence.className='presence'+(friend.is_online?' online':'');
+      const isElViejo=!!(friend.id&&friend.id.startsWith('el-viejo-'));
+      const friendOnline=isElViejo||!!friend.is_online;
+      presence.className='presence'+(friendOnline?' online':'');
       const dot=document.createElement('span');dot.className='presence-dot';
-      const state=document.createElement('span');state.textContent=friend.is_online?'ONLINE':'OFFLINE';
+      const state=document.createElement('span');state.textContent=friendOnline?'ONLINE':'OFFLINE';
       presence.append(dot,state);
       info.append(name,bio,presence);
       card.append(avatar,info);
