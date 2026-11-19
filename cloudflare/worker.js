@@ -50,6 +50,38 @@ async function nicknameTaken(env, nickname, excludeProfileId = null) {
   ).bind(key, excludeProfileId, excludeProfileId).first();
   return !!row;
 }
+async function ensureCredentialsSchema(env) {
+  const info = await env.DB.prepare("PRAGMA table_info(profiles)").all();
+  const columns = new Set((info.results || []).map(column => column.name));
+  for (const [name, type] of [
+    ["login_username", "TEXT"],
+    ["password_salt", "TEXT"],
+    ["password_hash", "TEXT"],
+    ["password_iterations", "INTEGER"]
+  ]) {
+    if (columns.has(name)) continue;
+    try {
+      await env.DB.prepare(`ALTER TABLE profiles ADD COLUMN ${name} ${type}`).run();
+      columns.add(name);
+    } catch (error) {
+      const refreshed = await env.DB.prepare("PRAGMA table_info(profiles)").all();
+      if (!(refreshed.results || []).some(column => column.name === name)) throw error;
+      columns.add(name);
+    }
+  }
+  const index = await env.DB.prepare(
+    "SELECT name FROM sqlite_master WHERE type='index' AND name='profiles_login_username_unique_idx' LIMIT 1"
+  ).first();
+  if (!index) {
+    const duplicate = await env.DB.prepare(
+      "SELECT login_username FROM profiles WHERE login_username IS NOT NULL GROUP BY login_username HAVING COUNT(*) > 1 LIMIT 1"
+    ).first();
+    if (duplicate) throw new Error("No se pudo asegurar la unicidad de los usuarios de acceso existentes.");
+    await env.DB.prepare(
+      "CREATE UNIQUE INDEX IF NOT EXISTS profiles_login_username_unique_idx ON profiles(login_username) WHERE login_username IS NOT NULL"
+    ).run();
+  }
+}
 async function bodyJson(request) {
   try { return await request.json(); } catch { return null; }
 }
@@ -382,10 +414,12 @@ export default {
       if (!user) return fail("Sesión no válida. Volvé a vincular tu dispositivo.", 401, cors);
 
       if (request.method === "GET" && path === "/api/account-data") {
+        await ensureCredentialsSchema(env);
         const row = await env.DB.prepare("SELECT nickname,recovery_code,recovery_pin_hash,login_username,password_hash FROM profiles WHERE id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
         return json({ nickname: row?.nickname || user.nickname, has_recovery_code: !!row?.recovery_code, has_pin: !!row?.recovery_pin_hash, login_username: row?.login_username || null, has_password: !!row?.password_hash }, 200, cors);
       }
       if (request.method === "POST" && path === "/api/account/credentials") {
+        await ensureCredentialsSchema(env);
         const input = await bodyJson(request);
         const username = loginUsername(input?.username);
         const password = String(input?.password || "");
