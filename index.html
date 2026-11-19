@@ -540,6 +540,44 @@ async function boot(){
     }
   }
 }
+let passwordResetLookupTimer=null;
+let passwordResetLookupValue="";
+function activatePasswordResetMode(){
+  passwordResetMode=true;
+  $("joinPasswordWrap").classList.remove("hidden");
+  $("joinPasswordLabel").textContent="Contraseña nueva";
+  $("joinPassword").value="";
+  $("joinPassword").autocomplete="new-password";
+  $("joinPassword").placeholder="Mínimo 10 caracteres";
+  $("joinConfirmPasswordWrap").classList.remove("hidden");
+  $("joinConfirmPassword").value="";
+  $("joinBtn").textContent="Guardar contraseña nueva";
+  $("joinHelp").textContent="Esta cuenta tiene un blanqueo pendiente. Creá una contraseña nueva y repetila para confirmar.";
+}
+$("joinNick").addEventListener("input",()=>{
+  if($("joinMode").value!=="password")return;
+  const username=$("joinNick").value.trim().toLowerCase();
+  if(passwordResetLookupTimer)clearTimeout(passwordResetLookupTimer);
+  if(passwordResetMode && username!==passwordResetLookupValue){
+    passwordResetMode=false;
+    $("joinConfirmPasswordWrap").classList.add("hidden");
+    $("joinPassword").value="";$("joinConfirmPassword").value="";
+    $("joinPasswordLabel").textContent="Contraseña";
+    $("joinPassword").autocomplete="current-password";
+    $("joinBtn").textContent="Iniciar sesión";
+  }
+  if(!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username))return;
+  passwordResetLookupTimer=setTimeout(async()=>{
+    const requested=username;
+    try{
+      const result=await api("/api/password-reset/status",{method:"POST",body:{username:requested}});
+      if($("joinMode").value==="password" && $("joinNick").value.trim().toLowerCase()===requested && result.password_reset_required){
+        passwordResetLookupValue=requested;
+        activatePasswordResetMode();
+      }
+    }catch(error){console.warn("No se pudo consultar el estado de recuperación.",error);}
+  },350);
+});
 $('joinBtn').addEventListener('click',async()=>{
   const code=$('joinCode').value.trim(), nickname=$('joinNick').value.trim();
   const password=$('joinPassword').value, confirmation=$('joinConfirmPassword').value, pin=$('joinPin').value;
