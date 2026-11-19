@@ -1123,13 +1123,13 @@ $('postVideo').addEventListener('change',async()=>{
   const file=$('postVideo').files?.[0];if(!file)return;
   clearSelectedPhoto();
   $('showVideoErrorReport').hidden=true;$('videoErrorReportCard').hidden=true;lastVideoErrorReport='';
-  if(file.type!=='video/mp4'||file.size>15*1024*1024){$('photoHint').textContent='Elegí un video MP4 de hasta 15 MB.';$('postVideo').value='';return;}
+  if(file.type!=='video/mp4'||file.size>60*1024*1024){$('photoHint').textContent='Elegí un video MP4 de hasta 60 MB.';$('postVideo').value='';return;}
   preparingVideo=true;$('chooseVideo').disabled=true;syncPublishButton();
   const previewUrl=URL.createObjectURL(file),probe=document.createElement('video');probe.preload='metadata';probe.src=previewUrl;
   try{
     await new Promise((resolve,reject)=>{probe.onloadedmetadata=resolve;probe.onerror=()=>reject(new Error('No se pudo leer el video seleccionado.'));});
-    if(!Number.isFinite(probe.duration)||probe.duration>15.25)throw new Error('El video no puede durar más de 15 segundos.');
-    if(Math.max(probe.videoWidth,probe.videoHeight)>1280||Math.min(probe.videoWidth,probe.videoHeight)>720)throw new Error('El video debe estar en 720p o menos.');
+    if(!Number.isFinite(probe.duration)||probe.duration>60)throw new Error('El video no puede durar más de 60 segundos.');
+    if(Math.max(probe.videoWidth,probe.videoHeight)>1920||Math.min(probe.videoWidth,probe.videoHeight)>1080)throw new Error('El video debe tener una resolución máxima de 1080p.');
     selectedVideo=file;selectedVideoUrl=previewUrl;$('videoPreviewElement').src=selectedVideoUrl;$('videoPreview').classList.remove('hidden');
     $('videoName').textContent=Math.ceil(probe.duration)+' s · '+Math.round(file.size/1024/1024*10)/10+' MB';$('photoHint').textContent='Video listo para publicar';
   }catch(error){URL.revokeObjectURL(previewUrl);$('photoHint').textContent=error.message||'No se pudo preparar el video.';$('postVideo').value='';}

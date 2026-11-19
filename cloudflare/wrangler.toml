@@ -7,7 +7,7 @@ preview_urls = true
 [vars]
 APP_ORIGIN = "https://choferes-argentinos.onrender.com"
 ENVIRONMENT = "production"
-VIDEO_STORAGE_LIMIT_BYTES = "850000000"
+VIDEO_STORAGE_LIMIT_BYTES = "1500000000"
 
 
 [observability]
