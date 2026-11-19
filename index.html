@@ -1580,8 +1580,8 @@ async function loadAccountData(){
     $('saveRecoveryCode').hidden=isOwner;
     const recoveryLabel=document.querySelector('label[for="recoveryCodeInput"]');
     if(recoveryLabel)recoveryLabel.hidden=isOwner;
-    const pinMustBeReplaced=!!data.pin_reset_required;
     const hasRecoveryCode=!!data.has_recovery_code;
+    const pinMustBeReplaced=!!data.pin_reset_required || (hasRecoveryCode && !!data.has_password && !data.has_pin);
     const hasUsablePin=!!data.has_pin && !pinMustBeReplaced;
     $('pinSetupCard').hidden=hasUsablePin || !hasRecoveryCode;
     $('pinRevealCard').hidden=!hasUsablePin || !hasRecoveryCode;
