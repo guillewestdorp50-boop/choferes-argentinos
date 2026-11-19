@@ -235,10 +235,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <p class="small">Elegí un usuario único y una contraseña de al menos 10 caracteres. Con esos datos vas a poder entrar desde otro teléfono sin depender de Google ni de una clave externa. Tus sesiones actuales siguen abiertas.</p>
   <div class="small">Usuario configurado: <strong id="configuredLoginUsername">Todavía no configurado</strong></div>
   <label for="loginUsernameInput">Usuario de acceso</label>
-  <input id="loginUsernameInput" maxlength="24" autocomplete="username" autocapitalize="none" placeholder="Ej.: camionero123">
-  <label for="currentPasswordInput" id="currentPasswordLabel" hidden>Contraseña actual</label>
-  <input id="currentPasswordInput" type="password" maxlength="128" autocomplete="current-password" placeholder="Solo para cambiar tu contraseña" hidden>
-  <label for="loginPasswordInput">Nueva contraseña</label>
+  <input id="loginUsernameInput" maxlength="24" autocomplete="username" autocapitalize="none" placeholder="Ej.: camionero123"><label for="loginPasswordInput">Nueva contraseña</label>
   <input id="loginPasswordInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Mínimo 10 caracteres">
   <label for="loginPasswordConfirmInput">Repetir contraseña</label>
   <input id="loginPasswordConfirmInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Repetí la contraseña">
@@ -1418,13 +1415,9 @@ async function loadAccountData(){
     $('accountNicknameDisplay').textContent='••••••••';
     $('recoveryCodeDisplay').textContent='••••••••••';
     $('configuredLoginUsername').textContent=data.login_username||'Todavía no configurado';
-    $('loginUsernameInput').value=data.login_username||'';
-    $('currentPasswordInput').hidden=!data.has_password;
-    $('currentPasswordLabel').hidden=!data.has_password;
-    $('loginPasswordInput').value='';
+    $('loginUsernameInput').value=data.login_username||'';$('loginPasswordInput').value='';
     $('loginPasswordConfirmInput').value='';
-    $('currentPasswordInput').value='';
-    $('loginCredentialsStatus').textContent=data.has_password?'Acceso configurado. Podés cambiarlo ingresando tu contraseña actual.':'Todavía no configuraste usuario y contraseña.';
+    $('loginCredentialsStatus').textContent=data.has_password?'Acceso configurado. Podés establecer una contraseña nueva desde tu sesión recuperada.':'Todavía no configuraste usuario y contraseña.';
     $('accountRole').textContent=profile?.role==='owner'?'Administrador principal':profile?.role==='moderator'?'Moderador':'Integrante';
     $('recoveryCodeSetup').hidden=!!data.has_recovery_code;
     const isOwner=profile?.role==='owner';
@@ -1458,9 +1451,7 @@ $('copyLoginErrorReport').addEventListener('click',async()=>{
 $('saveLoginCredentials').addEventListener('click',async()=>{
   const username=$('loginUsernameInput').value.trim();
   const password=$('loginPasswordInput').value;
-  const confirmation=$('loginPasswordConfirmInput').value;
-  const currentPassword=$('currentPasswordInput').value;
-  const status=$('loginCredentialsStatus');
+  const confirmation=$('loginPasswordConfirmInput').value;const status=$('loginCredentialsStatus');
   status.textContent='';
   $('showLoginErrorReport').hidden=true;
   $('loginErrorReportCard').hidden=true;
@@ -1470,12 +1461,8 @@ $('saveLoginCredentials').addEventListener('click',async()=>{
   if(password!==confirmation){status.textContent='Las dos contraseñas no coinciden.';return;}
   const button=$('saveLoginCredentials');button.disabled=true;status.textContent='Guardando acceso seguro…';
   try{
-    const result=await api('/api/account/credentials',{method:'POST',body:{username,password,current_password:currentPassword}});
-    $('configuredLoginUsername').textContent=result.login_username;
-    $('currentPasswordInput').hidden=false;
-    $('currentPasswordLabel').hidden=false;
-    $('currentPasswordInput').value='';
-    $('loginPasswordInput').value='';
+    const result=await api('/api/account/credentials',{method:'POST',body:{username,password}});
+    $('configuredLoginUsername').textContent=result.login_username;$('loginPasswordInput').value='';
     $('loginPasswordConfirmInput').value='';
     status.textContent='Acceso guardado. Ya podés iniciar sesión desde otro teléfono; las sesiones actuales siguen activas.';
   }catch(error){
