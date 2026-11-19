@@ -1,6 +1,12 @@
 name: Deploy Choferes Argentinos production Worker (worker only)
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - cloudflare/worker.js
+      - .github/workflows/deploy-production-worker.yml
   workflow_dispatch:
     inputs:
       confirm_worker_deploy:
@@ -17,7 +23,7 @@ concurrency:
 
 jobs:
   deploy-production:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_worker_deploy == 'DEPLOY-WORKER' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirm_worker_deploy == 'DEPLOY-WORKER') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
