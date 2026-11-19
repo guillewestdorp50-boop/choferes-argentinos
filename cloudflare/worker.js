@@ -315,6 +315,14 @@ export default {
         return json({ token, recovered: true }, 200, cors);
       }
 
+      if (request.method === "POST" && path === "/api/password-reset/status") {
+        await ensureCredentialsSchema(env);
+        const input = await bodyJson(request);
+        const username = loginUsername(input?.username);
+        if (!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)) return json({ password_reset_required: false }, 200, cors);
+        const pending = await env.DB.prepare("SELECT 1 AS pending FROM profiles WHERE login_username=? AND password_reset_required=1 LIMIT 1").bind(username).first();
+        return json({ password_reset_required: !!pending }, 200, cors);
+      }
       if (request.method === "POST" && path === "/api/password-reset/complete") {
         await ensureCredentialsSchema(env);
         const input = await bodyJson(request);
