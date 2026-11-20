@@ -1021,7 +1021,7 @@ async function loadFeed(){
       reactionOptions.forEach(option=>{
         const button=document.createElement('button');
         button.type='button';button.className='action reaction-choice';
-        const count=Number(post['reaction_'+option.key]||0);
+        const count=option.key==='like'?Math.max(0,Number(post.likes||0)):Number(post['reaction_'+option.key]||0);
         button.textContent=option.emoji;
         button.title=option.label;
         button.setAttribute('aria-label',option.label+' · '+count);
