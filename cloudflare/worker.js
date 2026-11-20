@@ -848,7 +848,7 @@ export default {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
         const result = await env.DB.prepare(
-          `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.source_activity_id,p.created_at,pr.nickname,pr.avatar_key,pr.avatar_media_id,
+          `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.source_activity_id,p.created_at,p.is_alert,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
              (SELECT COUNT(*) * CASE WHEN datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END
               FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
@@ -940,7 +940,7 @@ export default {
       if (request.method === "POST" && path === "/api/activity") {
         const form = await request.formData();
         const kind = cleanText(form.get("kind"), 24);
-        const allowedKinds = ["libre","cargando","cargado","descargando","demorado","accidente","deposito","planta","base","casa","descansando","cafe","ypf","repostando","otro"];
+        const allowedKinds = ["libre","cargando","cargado","descargando","demorado","accidente","alerta","deposito","planta","base","casa","descansando","cafe","ypf","repostando","otro"];
         if (!allowedKinds.includes(kind)) return fail("Elegí una situación válida.", 400, cors);
         const body = cleanText(form.get("body"), 1200);
         const location = cleanText(form.get("location"), 160) || null;
@@ -993,10 +993,10 @@ export default {
         if(status==="approved"){
           const activity=await env.DB.prepare("SELECT id,profile_id,kind,location_label,body,media_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityModerationMatch[1],user.community_id).first();
           if(activity){
-            const label=({accidente:"🚨 ACCIDENTE",demorado:"⏳ DEMORA",otro:"⚠️ AVISO",libre:"🟢 LIBRE",cargando:"🟡 CARGANDO",cargado:"🔵 CARGADO",descargando:"🟠 DESCARGANDO"})[activity.kind]||activity.kind.toUpperCase();
+            const label=({accidente:"🚨 ACCIDENTE",alerta:"🔴 ALERTA",demorado:"⏳ DEMORA",otro:"⚠️ AVISO",libre:"🟢 LIBRE",cargando:"🟡 CARGANDO",cargado:"🔵 CARGADO",descargando:"🟠 DESCARGANDO"})[activity.kind]||activity.kind.toUpperCase();
             const wallBody=[label,activity.location_label||"",activity.body||""].filter(Boolean).join("\n\n");
-            await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status,moderated_by_profile_id,moderated_at,source_activity_id) VALUES(?,?,?,?,?,?,'approved',?,?,?)")
-              .bind(id(),user.community_id,activity.profile_id,wallBody,activity.media_id,now(),user.profile_id,now(),activity.id).run();
+            await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,media_id,created_at,status,moderated_by_profile_id,moderated_at,source_activity_id,is_alert) VALUES(?,?,?,?,?,?,'approved',?,?,?,?)")
+              .bind(id(),user.community_id,activity.profile_id,wallBody,activity.media_id,now(),user.profile_id,now(),activity.id,activity.kind==="alerta"?1:0).run();
           }
         }
         return json({ok:true,status},200,cors);
