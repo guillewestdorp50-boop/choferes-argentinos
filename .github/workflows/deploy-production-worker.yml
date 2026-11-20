@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - cloudflare/worker.js
+      - cloudflare/video_integrity_check.sql
   workflow_dispatch:
     inputs:
       confirm_worker_deploy:
