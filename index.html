@@ -1830,7 +1830,8 @@ async function loadColleagues(){
     const viejoAvatar=document.createElement('div');viejoAvatar.className='avatar';const viejoImg=document.createElement('img');viejoImg.src='./el-viejo.svg';viejoImg.alt='El Viejo';viejoAvatar.append(viejoImg);
     const viejoInfo=document.createElement('div');const viejoName=document.createElement('div');viejoName.className='name';viejoName.textContent='El Viejo';
     const viejoMeta=document.createElement('div');viejoMeta.className='meta';viejoMeta.textContent='Siempre en la ruta · Chofer argentino';
-    const viejoPresence=document.createElement('span');viejoPresence.className='presence online';const viejoDot=document.createElement('span');viejoDot.className='presence-dot';const viejoOnline=document.createElement('span');viejoOnline.textContent='EN LÍNEA';viejoPresence.append(viejoDot,viejoOnline);
+    const elViejoOnline=await getElViejoPresence();
+    const viejoPresence=document.createElement('span');viejoPresence.className='presence'+(elViejoOnline?' online':'');const viejoDot=document.createElement('span');viejoDot.className='presence-dot';const viejoOnline=document.createElement('span');viejoOnline.textContent=elViejoOnline?'ONLINE':'OFFLINE';viejoPresence.append(viejoDot,viejoOnline);
     viejoInfo.append(viejoName,viejoMeta,viejoPresence);viejoIdentity.append(viejoAvatar,viejoInfo);
     const viejoBadge=document.createElement('span');viejoBadge.className='badge-chip viejo-badge';viejoBadge.textContent='🏅 De la vieja escuela · Diamante';
     viejo.append(viejoIdentity,viejoBadge);
@@ -1865,6 +1866,25 @@ async function loadColleagues(){
       box.append(row);
     });
   }catch(error){box.innerHTML='<div class="empty">No se pudieron cargar los colegas: '+esc(error.message||String(error))+'</div>';}
+}
+let elViejoPresenceCache = false;
+let elViejoPresenceCheckedAt = 0;
+let elViejoPresencePending = null;
+async function getElViejoPresence(){
+  if(Date.now()-elViejoPresenceCheckedAt<30000)return elViejoPresenceCache;
+  if(elViejoPresencePending)return elViejoPresencePending;
+  elViejoPresencePending=(async()=>{
+    try{
+      const result=await elViejoRequest('status');
+      elViejoPresenceCache=result.is_online===true;
+    }catch{
+      elViejoPresenceCache=false;
+    }
+    elViejoPresenceCheckedAt=Date.now();
+    return elViejoPresenceCache;
+  })();
+  try{return await elViejoPresencePending;}
+  finally{elViejoPresencePending=null;}
 }
 async function elViejoRequest(action,message='',mediaId=''){
   const response=await fetch(EL_VIEJO_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':EL_VIEJO_PUBLIC_KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,message,media_id:mediaId||null}),cache:'no-store'});
@@ -1906,7 +1926,7 @@ async function openElViejoChat(){
   const identity=document.createElement('div');identity.className='row';
   const avatar=document.createElement('div');avatar.className='avatar';avatar.style.width='58px';avatar.style.height='58px';avatar.style.border='2px solid #d6ad4d';
   const img=document.createElement('img');img.src='./el-viejo.svg';img.alt='El Viejo';avatar.append(img);
-  const info=document.createElement('div');const name=document.createElement('div');name.className='name';name.textContent='El Viejo';const sub=document.createElement('div');sub.className='meta';sub.textContent='Siempre en la ruta · EN LÍNEA';const badge=document.createElement('span');badge.className='badge-chip viejo-badge';badge.textContent='🏅 De la vieja escuela · Diamante';info.append(name,sub,badge);identity.append(avatar,info);
+  const info=document.createElement('div');const name=document.createElement('div');name.className='name';name.textContent='El Viejo';const sub=document.createElement('div');sub.className='meta';sub.textContent='Compañero de ruta';const badge=document.createElement('span');badge.className='badge-chip viejo-badge';badge.textContent='🏅 De la vieja escuela · Diamante';info.append(name,sub,badge);identity.append(avatar,info);
   const close=document.createElement('button');close.className='action';close.type='button';close.textContent='Volver';close.addEventListener('click',()=>{elViejoChatOpen=false;slot.replaceChildren();$('colleagueProfileIntro').classList.remove('hidden');loadColleagues();});
   head.append(identity,close);
   const intro=document.createElement('p');intro.className='small';intro.textContent='¿Qué hacés, colega? Preguntame tranquilo. Podés escribir, mandarme una foto o las dos cosas.';
@@ -1968,6 +1988,8 @@ async function loadFriends(){
     const friends=result.friends || [];
     if(!friends.length){ box.innerHTML='<div class="empty">Todavía no agregaste compañeros. Usá «Agregar nuevo amigo» para invitar al primero.</div>'; return; }
     box.replaceChildren();
+    const hasElViejo=friends.some(friend=>friend.id&&friend.id.startsWith('el-viejo-'));
+    const elViejoOnline=hasElViejo?await getElViejoPresence():false;
     friends.forEach(friend=>{
       const card=document.createElement('div');
       card.className='card row';
@@ -1983,7 +2005,7 @@ async function loadFriends(){
       bio.textContent=friend.bio || 'Compañero de ruta';
       const presence=document.createElement('div');
       const isElViejo=!!(friend.id&&friend.id.startsWith('el-viejo-'));
-      const friendOnline=isElViejo||!!friend.is_online;
+      const friendOnline=isElViejo?elViejoOnline:!!friend.is_online;
       presence.className='presence'+(friendOnline?' online':'');
       const dot=document.createElement('span');dot.className='presence-dot';
       const state=document.createElement('span');state.textContent=friendOnline?'ONLINE':'OFFLINE';
