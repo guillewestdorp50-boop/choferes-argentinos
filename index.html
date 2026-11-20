@@ -1269,7 +1269,7 @@ $('skipRouteDescription').addEventListener('click',()=>{
   resetRouteDescription();
 });
 $('statusChoices').querySelectorAll('button').forEach(button=>button.addEventListener('click',async()=>{
-  if(pendingRoutePostId){$('statusMsg').textContent='Primero enviá el detalle a revisión u omitilo para continuar.';return;}
+  if(pendingRoutePostId)resetRouteDescription();
   selectedStatus=button.dataset.status;
   $('statusChoices').querySelectorAll('button').forEach(item=>item.classList.toggle('selected',item===button));
   $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
