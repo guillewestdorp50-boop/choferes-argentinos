@@ -1208,7 +1208,7 @@ export default {
               error: String(cleanupError?.message || cleanupError)
             }));
           }
-          return json({error:"No se pudo guardar el video. No quedó publicado.",request_id:requestId,diagnostic_code:diagnosticCode,stage:uploadStage,chunk_index:failedChunk},500,cors);
+          return json({error:"No se pudo guardar el video. No quedó publicado.",request_id:requestId,diagnostic_code:diagnosticCode,stage:uploadStage,chunk_index:failedChunk,database_error:String(error?.message || error).slice(0,240)},500,cors);
         }
       }
 
