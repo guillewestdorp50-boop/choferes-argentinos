@@ -1166,7 +1166,7 @@ export default {
         const bytes = new Uint8Array(await file.arrayBuffer()), info = await mp4Info(bytes);
         if (!info) return fail("No se pudo leer la información del video MP4.",415,cors);
         if (info.duration > 60) return fail("El video no puede durar más de 60 segundos.",413,cors);
-        if (Math.max(info.width,info.height) > 1920 || Math.min(info.width,info.height) > 1080) return fail("El video debe tener una resolución máxima de 1080p.",413,cors);
+        if (Math.max(info.width,info.height) > 1920 || Math.min(info.width,info.height) > 1080) return fail("Se aceptan resoluciones menores; el máximo permitido es 1080p (Full HD).",413,cors);
         const storageLimit = Math.max(0,Number(env.VIDEO_STORAGE_LIMIT_BYTES || 1500000000));
         const usage = await env.DB.prepare("SELECT COALESCE(SUM(byte_size),0) AS total FROM video_media").first();
         if (Number(usage?.total || 0) + bytes.byteLength > storageLimit) return fail("Se alcanzó el espacio reservado para videos. No se realizó la carga.",507,cors);
