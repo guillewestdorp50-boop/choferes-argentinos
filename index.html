@@ -1035,8 +1035,10 @@ async function loadFeed(){
         });
         reactionBar.append(button);
       });
-      const score=document.createElement('span');score.className='reaction-score';score.textContent=(post.likes||0)+' puntos';
-      reactionBar.append(score);
+      const totalReactions=reactionOptions.reduce((total,option)=>total+Number(post['reaction_'+option.key]||0),0);
+      const reactionTotal=document.createElement('span');reactionTotal.className='reaction-score';
+      reactionTotal.textContent=totalReactions+' '+(totalReactions===1?'like':'likes');
+      reactionBar.append(reactionTotal);
       actions.append(reactionBar);
 
       if(profile && post.profile_id===profile.id){
