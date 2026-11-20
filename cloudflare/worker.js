@@ -1091,18 +1091,14 @@ export default {
         const existing = await env.DB.prepare("SELECT wall_post_id FROM route_status WHERE profile_id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
         let postId = existing?.wall_post_id || null;
         let currentPost = postId ? await env.DB.prepare("SELECT id,status FROM posts WHERE id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL").bind(postId,user.community_id,user.profile_id).first() : null;
-        const autoApprove = ["owner","moderator"].includes(user.role);
-        let postStatus;
+        const postStatus = "approved";
         if (currentPost) {
-          postStatus = currentPost.status === "approved" || autoApprove ? "approved" : "pending";
-          await env.DB.prepare("UPDATE posts SET body=?,created_at=?,status=?,moderated_by_profile_id=CASE WHEN ?='approved' THEN ? ELSE moderated_by_profile_id END,moderated_at=CASE WHEN ?='approved' THEN ? ELSE moderated_at END WHERE id=? AND profile_id=? AND community_id=?")
-            .bind(wallBody,timestamp,postStatus,postStatus,user.profile_id,postStatus,timestamp,postId,user.profile_id,user.community_id).run();
+          await env.DB.prepare("UPDATE posts SET body=?,created_at=?,status='approved',moderated_by_profile_id=NULL,moderated_at=NULL WHERE id=? AND profile_id=? AND community_id=?")
+            .bind(wallBody,timestamp,postId,user.profile_id,user.community_id).run();
         } else {
           postId = id();
-          postStatus = autoApprove ? "approved" : "pending";
-          await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,created_at,status,moderated_by_profile_id,moderated_at) VALUES(?,?,?,?,?,?,?,?)")
-            .bind(postId,user.community_id,user.profile_id,wallBody,timestamp,postStatus,autoApprove?user.profile_id:null,autoApprove?timestamp:null).run();
-          if (!autoApprove) { try { await notifyModerators(env,user.community_id,postId,user.nickname); } catch {} }
+          await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,created_at,status) VALUES(?,?,?,?,?,'approved')")
+            .bind(postId,user.community_id,user.profile_id,wallBody,timestamp).run();
         }
         await env.DB.prepare(
           `INSERT INTO route_status(profile_id,community_id,status,location_label,note,updated_at,expires_at,wall_post_id)
