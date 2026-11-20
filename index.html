@@ -152,7 +152,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="demorado">Demora</option><option value="otro">Corte, desvío u otra situación</option></select>
   <input id="padLocation" maxlength="160" placeholder="Ruta, kilómetro y localidad">
   <textarea id="padBody" maxlength="1200" placeholder="Describí lo ocurrido, sentido de circulación y referencias…"></textarea>
-  <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><label class="action" for="padAudio">🎙️ Adjuntar audio</label><input id="padAudio" type="file" accept="audio/*" hidden></div>
+  <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="action" type="button" id="padRecord">🎙️ Grabar audio</button><button class="action" type="button" id="padStop" disabled>⏹ Detener</button><button class="action" type="button" id="padDeleteAudio" hidden>✖ Borrar audio</button></div><audio id="padAudioPreview" controls hidden style="width:100%;margin-top:8px"></audio><p class="small" id="padAudioStatus" aria-live="polite">Podés grabar un audio directamente desde acá.</p>
   <p class="small" id="padFiles">Sin archivos adjuntos.</p>
   <button class="action primary" id="sendPad">Enviar parte para revisión</button><p class="small" id="padMsg" aria-live="polite"></p>
 </div>
@@ -1281,19 +1281,17 @@ $('statusChoices').querySelectorAll('button').forEach(button=>button.addEventLis
   $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
   $('statusMsg').textContent='Publicando tu estado en el muro…';
   try{
-    await api('/api/route/status',{method:'PUT',body:{
+    const created=await api('/api/route/status',{method:'PUT',body:{
       status:selectedStatus,
       location:$('routeLocation').value.trim(),
       note:''
     }});
-    const label=routeStatusLabels[selectedStatus]||selectedStatus;
-    const created=await api('/api/posts',{method:'POST',body:{body:routeStatusSentence[selectedStatus]||('Está '+label.replace(/^\S+\s/,''))}});
-    if(!created.id)throw new Error('El servidor no confirmó la publicación original.');
-    pendingRoutePostId=created.id;
+    if(!created.post_id)throw new Error('El servidor no confirmó la publicación de tu estado.');
+    pendingRoutePostId=created.post_id;
     $('sendRouteDescription').classList.remove('hidden');$('skipRouteDescription').classList.remove('hidden');
     $('sendRouteDescription').disabled=!($('routeNote').value.trim()||routeDescriptionPhotoFile);
     $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
-    $('statusMsg').textContent=(created.status==='pending'?'Aviso enviado a revisión. ':'Aviso publicado. ')+'Ahora podés agregar un detalle opcional para moderación.';
+    $('statusMsg').textContent=(created.post_status==='pending'?'Estado enviado a revisión. ':'Estado actualizado en el muro. ')+'No se crea un historial de cambios: se actualiza tu única publicación de estado.';
     await Promise.all([loadRoute(),loadFeed()]);
   }catch(error){$('statusMsg').textContent=error.message||String(error);$('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=false);}
 }));
@@ -1327,16 +1325,62 @@ async function loadRoute(){
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
 }
 
-let padPhotoFile=null, padAudioFile=null;
+let padPhotoFile=null, padAudioBlob=null, padAudioUrl=null, padRecorder=null, padAudioStream=null, padAudioReady=false;
 $('padPhoto').addEventListener('change',()=>{padPhotoFile=$('padPhoto').files?.[0]||null;syncPadFiles();});
-$('padAudio').addEventListener('change',()=>{padAudioFile=$('padAudio').files?.[0]||null;syncPadFiles();});
+function clearPadAudio(){
+ if(padRecorder&&padRecorder.state==='recording')padRecorder.stop();
+ if(padAudioStream){padAudioStream.getTracks().forEach(track=>track.stop());padAudioStream=null;}
+ if(padAudioUrl){URL.revokeObjectURL(padAudioUrl);padAudioUrl=null;}
+ padAudioBlob=null;padAudioReady=false;
+ $('padAudioPreview').pause();$('padAudioPreview').removeAttribute('src');$('padAudioPreview').hidden=true;
+ $('padDeleteAudio').hidden=true;$('padAudioStatus').textContent='Podés grabar un audio directamente desde acá.';syncPadFiles();
+}
 function syncPadFiles(){
- const parts=[]; if(padPhotoFile)parts.push('Foto: '+padPhotoFile.name); if(padAudioFile)parts.push('Audio: '+padAudioFile.name);
+ const parts=[];if(padPhotoFile)parts.push('Foto: '+padPhotoFile.name);if(padAudioBlob&&padAudioReady)parts.push('Audio grabado y listo');
  $('padFiles').textContent=parts.join(' · ')||'Sin archivos adjuntos.';
 }
+$('padRecord').addEventListener('click',async()=>{
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){$('padAudioStatus').textContent='Este teléfono o navegador no permite grabar audio desde la aplicación.';return;}
+ clearPadAudio();
+ try{
+  padAudioStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const candidates=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'];
+  const mime=candidates.find(type=>MediaRecorder.isTypeSupported(type))||'';
+  padRecorder=new MediaRecorder(padAudioStream,mime?{mimeType:mime}:{});
+  const chunks=[];
+  padRecorder.addEventListener('dataavailable',event=>{if(event.data&&event.data.size)chunks.push(event.data);});
+  padRecorder.addEventListener('error',()=>{$('padAudioStatus').textContent='No se pudo grabar. Revisá el permiso del micrófono e intentá otra vez.';clearPadAudio();});
+  padRecorder.addEventListener('stop',()=>{
+   if(padAudioStream){padAudioStream.getTracks().forEach(track=>track.stop());padAudioStream=null;}
+   const rawType=(padRecorder?.mimeType||mime||'audio/webm').split(';')[0].toLowerCase();
+   const blob=new Blob(chunks,{type:rawType});
+   if(blob.size<256){$('padAudioStatus').textContent='La grabación quedó vacía. Volvé a grabar y hablá unos segundos.';clearPadAudio();return;}
+   padAudioBlob=blob;padAudioUrl=URL.createObjectURL(blob);
+   const preview=$('padAudioPreview');preview.src=padAudioUrl;preview.hidden=false;
+   preview.onloadedmetadata=()=>{
+    if(!Number.isFinite(preview.duration)||preview.duration<=0.2){$('padAudioStatus').textContent='El audio no tiene una duración válida. Borrá la grabación y probá de nuevo.';clearPadAudio();return;}
+    padAudioReady=true;$('padDeleteAudio').hidden=false;
+    $('padAudioStatus').textContent='Audio listo · '+Math.round(preview.duration)+' segundos. Podés escucharlo o borrarlo antes de enviar.';
+    syncPadFiles();
+   };
+   preview.onerror=()=>{$('padAudioStatus').textContent='No se pudo reproducir esta grabación. Probá grabarla nuevamente.';clearPadAudio();};
+   $('padAudioStatus').textContent='Preparando la grabación para escucharla…';
+  });
+  padRecorder.start(250);
+  $('padRecord').disabled=true;$('padStop').disabled=false;
+  $('padAudioStatus').textContent='Grabando… Hablá ahora y después tocá Detener.';
+ }catch(error){
+  if(padAudioStream){padAudioStream.getTracks().forEach(track=>track.stop());padAudioStream=null;}
+  $('padAudioStatus').textContent=error.name==='NotAllowedError'?'Necesitamos permiso para usar el micrófono. Permitilo en el teléfono y volvé a intentar.':(error.message||'No se pudo iniciar la grabación.');
+ }finally{if(!padRecorder||padRecorder.state!=='recording')$('padRecord').disabled=false;}
+});
+$('padStop').addEventListener('click',()=>{
+ if(padRecorder&&padRecorder.state==='recording'){padRecorder.stop();$('padStop').disabled=true;$('padRecord').disabled=false;}
+});
+$('padDeleteAudio').addEventListener('click',clearPadAudio);
 $('sendPad').addEventListener('click',async()=>{
  const body=$('padBody').value.trim(), location=$('padLocation').value.trim(), kind=$('padKind').value;
- if(!body&&!location&&!padPhotoFile&&!padAudioFile){$('padMsg').textContent='Agregá una descripción, ubicación o archivo.';return;}
+ if(padRecorder&&padRecorder.state==='recording'){$('padMsg').textContent='Primero detené la grabación.';return;}if(!body&&!location&&!padPhotoFile&&!padAudioBlob){$('padMsg').textContent='Agregá una descripción, ubicación o archivo.';return;}if(padAudioBlob&&!padAudioReady){$('padMsg').textContent='Esperá a que el audio esté listo para reproducirse.';return;}
  const button=$('sendPad'); button.disabled=true; $('padMsg').textContent='Enviando parte al servidor…';
  try{
   let mediaId='';
@@ -1349,10 +1393,10 @@ $('sendPad').addEventListener('click',async()=>{
   }
   const form=new FormData(); form.append('kind',kind);form.append('body',body);form.append('location',location);
   if(mediaId)form.append('media_id',mediaId);
-  if(padAudioFile)form.append('audio',padAudioFile,padAudioFile.name);
+  if(padAudioBlob){const ext=padAudioBlob.type==='audio/ogg'?'ogg':padAudioBlob.type==='audio/mp4'?'m4a':'webm';form.append('audio',padAudioBlob,'grabacion.'+ext);}
   const result=await api('/api/activity',{method:'POST',body:form});
   if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
-  $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';$('padAudio').value='';padPhotoFile=null;padAudioFile=null;syncPadFiles();
+  $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';padPhotoFile=null;clearPadAudio();syncPadFiles();
   $('padMsg').textContent='Tu parte fue recibida y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
  }catch(error){$('padMsg').textContent=error.message||String(error);}
  finally{button.disabled=false;}
@@ -1374,6 +1418,11 @@ async function loadPadFeed(){
    const like=document.createElement('button');like.type='button';like.className='action';like.textContent=(item.liked_by_me?'❤️':'🤍')+' Me gusta · '+(item.likes||0);if(item.liked_by_me)like.style.borderColor='var(--cyan)';
    like.addEventListener('click',async()=>{like.disabled=true;try{await api('/api/activity/reactions',{method:'POST',body:{activity_id:item.id}});await loadPadFeed();}catch(error){alert(error.message||String(error));like.disabled=false;}});
    actions.append(like);
+   if(profile&&item.profile_id===profile.id){
+    const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='✖ Eliminar mi aviso';remove.style.color='#ff6b6b';remove.style.borderColor='#c94b4b';
+    remove.addEventListener('click',async()=>{if(!await confirmInApp('¿Eliminar este aviso y su publicación del muro para todos los compañeros?'))return;remove.disabled=true;try{await api('/api/activity/'+encodeURIComponent(item.id),{method:'DELETE'});await Promise.all([loadPadFeed(),loadFeed(),loadRoute()]);}catch(error){alert(error.message||String(error));remove.disabled=false;}});
+    actions.append(remove);
+   }
    const toggle=document.createElement('button');toggle.type='button';toggle.className='action pad-conversation-toggle';toggle.textContent='💬 Comentar / conversar';actions.append(toggle);card.append(actions);
    const thread=document.createElement('div');thread.className='card';thread.style.marginTop='10px';thread.hidden=true;
    const quick=document.createElement('div');quick.className='actions';quick.style.marginBottom='8px';
