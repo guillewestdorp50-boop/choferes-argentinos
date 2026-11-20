@@ -1366,7 +1366,21 @@ export default {
 
       return fail("Ruta no encontrada.", 404, cors);
     } catch (error) {
-      return json({ error: "Error interno del servidor.", detail: env.ENVIRONMENT === "development" ? String(error?.message || error) : undefined }, 500, cors);
+      const requestId = id();
+      const diagnostic = {
+        request_id: requestId,
+        method: request.method,
+        path,
+        error_name: String(error?.name || "Error"),
+        error_message: String(error?.message || error).slice(0, 500),
+        stack: String(error?.stack || "").slice(0, 1800)
+      };
+      console.error("api_request_failed", JSON.stringify(diagnostic));
+      return json({
+        error: "Error interno del servidor.",
+        request_id: requestId,
+        detail: env.ENVIRONMENT === "development" ? String(error?.message || error) : undefined
+      }, 500, cors);
     }
   }
 };
