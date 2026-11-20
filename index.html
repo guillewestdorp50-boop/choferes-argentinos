@@ -912,7 +912,11 @@ async function renderPostComments(post){
  const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Publicar comentario';send.style.marginTop='8px';
  const endpoint=post.source_activity_id?'/api/activity/comments':'/api/comments';
  const query=post.source_activity_id?'?activity_id='+encodeURIComponent(post.source_activity_id):'?post_id='+encodeURIComponent(post.id);
+ let refreshing=false;
  async function refresh(){
+  if(refreshing||!panel.isConnected)return;
+  refreshing=true;
+  try{
   const data=await api(endpoint+query);const comments=data.comments||[];list.replaceChildren();
   count.textContent=comments.length+' '+(comments.length===1?'comentario':'comentarios');
   if(!comments.length){const empty=document.createElement('div');empty.className='meta comment-empty';empty.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';list.append(empty);return;}
@@ -928,6 +932,7 @@ async function renderPostComments(post){
    }
    list.append(line);
   });
+  }finally{refreshing=false;}
  }
  send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){list.textContent=error.message||'No se pudieron cargar los comentarios.';}finally{send.disabled=false;}});
  panel.append(heading,list,composer,send);
@@ -936,6 +941,11 @@ async function renderPostComments(post){
  const refreshWhenActive=()=>{if(!document.hidden)refresh().catch(()=>{});};
  window.addEventListener('focus',refreshWhenActive);
  document.addEventListener('visibilitychange',refreshWhenActive);
+ // Consulta automática de comentarios, sin recargar el muro completo.
+ const commentsPoll=setInterval(()=>{
+  if(!panel.isConnected){clearInterval(commentsPoll);window.removeEventListener('focus',refreshWhenActive);document.removeEventListener('visibilitychange',refreshWhenActive);return;}
+  if(!document.hidden)refresh().catch(()=>{});
+ },5000);
  return panel;
 }
 async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. porque contenía: '+notice.reason+'.');}catch{}}
