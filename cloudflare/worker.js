@@ -850,7 +850,7 @@ export default {
         await env.DB.prepare(
           `UPDATE posts
            SET reaction_score=COALESCE(reaction_score,0)+4*(
-                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id
+                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id AND r.reaction='like'
                ),
                reactions_upgraded_at=?
            WHERE community_id=? AND reactions_upgraded_at IS NULL
@@ -1085,7 +1085,7 @@ export default {
         await env.DB.prepare(
           `UPDATE posts
            SET reaction_score=COALESCE(reaction_score,0)+4*(
-                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id
+                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id AND r.reaction='like'
                ),
                reactions_upgraded_at=?
            WHERE id=? AND reactions_upgraded_at IS NULL
@@ -1104,7 +1104,7 @@ export default {
         } else {
           await env.DB.batch([
             env.DB.prepare("INSERT INTO reactions(post_id,profile_id,reaction,created_at) VALUES(?,?,?,?)").bind(postId, user.profile_id, requestedReaction, now()),
-            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END WHERE id=?").bind(postId)
+            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END WHERE id=?").bind(requestedReaction, postId)
           ]);
         }
         return json({ reaction: requestedReaction, removed: false, changed: !!existing }, 200, cors);
