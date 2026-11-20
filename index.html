@@ -1035,7 +1035,7 @@ async function loadFeed(){
         });
         reactionBar.append(button);
       });
-      const totalReactions=reactionOptions.reduce((total,option)=>total+Number(post['reaction_'+option.key]||0),0);
+      const totalReactions=Math.max(0,Number(post.likes||0));
       const reactionTotal=document.createElement('span');reactionTotal.className='reaction-score';
       reactionTotal.textContent=totalReactions+' '+(totalReactions===1?'like':'likes');
       reactionBar.append(reactionTotal);
