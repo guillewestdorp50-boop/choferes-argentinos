@@ -1343,3 +1343,5 @@ export default {
 };
 
 // Production deployment also runs a read-only D1 video integrity audit.
+
+// Ensure the production audit workflow publishes its read-only result rows.
