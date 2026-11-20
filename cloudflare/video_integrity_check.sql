@@ -12,4 +12,6 @@ SELECT
   (SELECT COUNT(*) FROM posts p
     WHERE p.video_id IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM video_media vm WHERE vm.id=p.video_id)
-  ) AS posts_with_missing_video
+  ) AS posts_with_missing_video,
+  (SELECT COALESCE(SUM(byte_size), 0) FROM video_media) AS video_bytes_used,
+  1500000000 - (SELECT COALESCE(SUM(byte_size), 0) FROM video_media) AS video_bytes_remaining;
