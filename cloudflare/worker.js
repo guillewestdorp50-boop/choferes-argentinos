@@ -1,3 +1,4 @@
+// Production video integrity is checked read-only during each production deploy.
 // Production wall videos are stored as ordered binary chunks in D1.
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const now = () => new Date().toISOString();
