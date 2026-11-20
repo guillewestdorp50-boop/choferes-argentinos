@@ -461,8 +461,9 @@ async function api(path, options = {}){
     error.apiMethod = method;
     error.serverCode = data.code || data.error_code || null;
     error.serverDetails = data.details || data.message || null;
-    error.requestId = response.headers.get('cf-ray') || response.headers.get('x-request-id') || response.headers.get('x-correlation-id') || null;
+    error.requestId = data.request_id || response.headers.get('cf-ray') || response.headers.get('x-request-id') || response.headers.get('x-correlation-id') || null;
     error.responseBody = rawResponse.slice(0,1200);
+    if(error.requestId) error.message += ' (Informe: '+error.requestId+')';
     throw error;
   }
   return data;
