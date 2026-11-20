@@ -1100,7 +1100,15 @@ export default {
           return json({ reaction: null, removed: true }, 200, cors);
         }
         if (existing) {
-          await env.DB.prepare("UPDATE reactions SET reaction=? WHERE post_id=? AND profile_id=?").bind(requestedReaction, postId, user.profile_id).run();
+          // Changing reaction keeps the user's single base point. If the
+          // new reaction is a heart on an older post, add only the server's
+          // +4 bonus; any previously granted heart donation remains permanent.
+          await env.DB.batch([
+            env.DB.prepare("UPDATE reactions SET reaction=? WHERE post_id=? AND profile_id=?")
+              .bind(requestedReaction, postId, user.profile_id),
+            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 4 ELSE 0 END WHERE id=?")
+              .bind(requestedReaction, postId)
+          ]);
         } else {
           await env.DB.batch([
             env.DB.prepare("INSERT INTO reactions(post_id,profile_id,reaction,created_at) VALUES(?,?,?,?)").bind(postId, user.profile_id, requestedReaction, now()),
