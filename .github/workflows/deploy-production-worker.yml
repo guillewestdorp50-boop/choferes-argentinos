@@ -39,6 +39,25 @@ jobs:
           workingDirectory: cloudflare
           command: d1 migrations apply choferes-argentinos --remote
 
+      - name: Verify production video metadata and chunk integrity
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          workingDirectory: cloudflare
+          command: >-
+            d1 execute choferes-argentinos --remote --command
+            "SELECT
+              (SELECT COUNT(*) FROM video_media) AS videos,
+              (SELECT COUNT(*) FROM video_chunks) AS chunks,
+              (SELECT COUNT(*) FROM video_media vm WHERE
+                (SELECT COUNT(*) FROM video_chunks vc WHERE vc.video_id=vm.id)
+                != CAST((vm.byte_size + 524287) / 524288 AS INTEGER))
+                AS videos_with_incomplete_chunks,
+              (SELECT COUNT(*) FROM posts WHERE video_id IS NOT NULL)
+                AS posts_with_video;"
+            
       - name: Deploy production Worker
         uses: cloudflare/wrangler-action@v4
         with:
