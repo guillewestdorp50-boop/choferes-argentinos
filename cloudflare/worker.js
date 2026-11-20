@@ -931,7 +931,7 @@ export default {
                   (SELECT COUNT(*) FROM activity_reactions r WHERE r.activity_id=a.id) AS likes,
                   EXISTS(SELECT 1 FROM activity_reactions r WHERE r.activity_id=a.id AND r.profile_id=?) AS liked_by_me
            FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
-           WHERE a.community_id=? AND a.status='approved'
+           WHERE a.community_id=? AND a.status='approved' AND a.deleted_at IS NULL
            ORDER BY a.created_at DESC LIMIT 100`
         ).bind(user.profile_id,user.community_id).all();
         return json({ activities: result.results || [] }, 200, cors);
@@ -954,9 +954,11 @@ export default {
         let audioMime = null, audioBytes = null;
         if (audio && typeof audio.arrayBuffer === "function" && audio.size > 0) {
           const allowedAudio = ["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/aac"];
-          if (!allowedAudio.includes(audio.type)) return fail("Formato de audio no permitido.", 415, cors);
+          const normalizedAudioType = String(audio.type || "").split(";")[0].trim().toLowerCase();
+          if (!allowedAudio.includes(normalizedAudioType)) return fail("Formato de audio no permitido.", 415, cors);
+          if (audio.size < 256) return fail("La grabación está vacía o incompleta. Volvé a grabarla.", 400, cors);
           if (audio.size > 3 * 1024 * 1024) return fail("El audio supera 3 MB.", 413, cors);
-          audioMime = audio.type;
+          audioMime = normalizedAudioType;
           audioBytes = new Uint8Array(await audio.arrayBuffer());
         }
         const activityId = id();
@@ -972,7 +974,7 @@ export default {
           `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
                   pr.nickname
            FROM driver_activity a JOIN profiles pr ON pr.id=a.profile_id
-           WHERE a.community_id=? AND a.status='pending'
+           WHERE a.community_id=? AND a.status='pending' AND a.deleted_at IS NULL
            ORDER BY a.created_at ASC LIMIT 100`
         ).bind(user.community_id).all();
         return json({ activities: result.results || [] },200,cors);
@@ -1002,7 +1004,7 @@ export default {
 
       if (request.method === "POST" && path === "/api/activity/reactions") {
         const input=await bodyJson(request), activityId=cleanText(input?.activity_id,64);
-        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(activityId,user.community_id).first();
         if(!activity)return fail("Aviso no encontrado.",404,cors);
         const existing=await env.DB.prepare("SELECT activity_id FROM activity_reactions WHERE activity_id=? AND profile_id=?").bind(activityId,user.profile_id).first();
         if(existing)await env.DB.prepare("DELETE FROM activity_reactions WHERE activity_id=? AND profile_id=?").bind(activityId,user.profile_id).run();
@@ -1024,7 +1026,7 @@ export default {
 
       if (request.method === "GET" && path === "/api/activity/comments") {
         const activityId=cleanText(url.searchParams.get("activity_id"),64);
-        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(activityId,user.community_id).first();
         if(!activity)return fail("Aviso no encontrado.",404,cors);
         const result=await env.DB.prepare("SELECT c.id,c.profile_id,c.body,c.created_at,p.nickname FROM activity_comments c JOIN profiles p ON p.id=c.profile_id WHERE c.activity_id=? ORDER BY c.created_at ASC LIMIT 200").bind(activityId).all();
         return json({comments:result.results||[]},200,cors);
@@ -1032,16 +1034,29 @@ export default {
 
       if (request.method === "POST" && path === "/api/activity/comments") {
         const input=await bodyJson(request),activityId=cleanText(input?.activity_id,64),body=cleanText(input?.body,1000);
-        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved'").bind(activityId,user.community_id).first();
+        const activity=await env.DB.prepare("SELECT id FROM driver_activity WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(activityId,user.community_id).first();
         if(!activity||!body)return fail("Aviso o mensaje inválido.",400,cors);
         const commentId=id();
         await env.DB.prepare("INSERT INTO activity_comments(id,activity_id,profile_id,body,created_at) VALUES(?,?,?,?,?)").bind(commentId,activityId,user.profile_id,body,now()).run();
         return json({id:commentId},201,cors);
       }
 
+      const activityDeleteMatch = path.match(/^\/api\/activity\/([0-9a-f-]{36})$/i);
+      if (request.method === "DELETE" && activityDeleteMatch) {
+        const activity = await env.DB.prepare("SELECT id,profile_id FROM driver_activity WHERE id=? AND community_id=? AND deleted_at IS NULL").bind(activityDeleteMatch[1],user.community_id).first();
+        if (!activity) return fail("Aviso no encontrado.",404,cors);
+        if (activity.profile_id !== user.profile_id) return fail("Solo podés eliminar tus propios avisos.",403,cors);
+        const timestamp = now();
+        await env.DB.batch([
+          env.DB.prepare("UPDATE posts SET deleted_at=? WHERE source_activity_id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL").bind(timestamp,activity.id,user.community_id,user.profile_id),
+          env.DB.prepare("UPDATE driver_activity SET deleted_at=?,audio_data=NULL,audio_mime_type=NULL WHERE id=? AND profile_id=? AND community_id=? AND deleted_at IS NULL").bind(timestamp,activity.id,user.profile_id,user.community_id)
+        ]);
+        return json({ok:true,removed_for_everyone:true},200,cors);
+      }
+
       const activityAudioMatch = path.match(/^\/api\/activity\/([0-9a-f-]{36})\/audio$/i);
       if (request.method === "GET" && activityAudioMatch) {
-        const row = await env.DB.prepare("SELECT audio_mime_type,audio_data,status,profile_id FROM driver_activity WHERE id=? AND community_id=?").bind(activityAudioMatch[1],user.community_id).first();
+        const row = await env.DB.prepare("SELECT audio_mime_type,audio_data,status,profile_id FROM driver_activity WHERE id=? AND community_id=? AND deleted_at IS NULL").bind(activityAudioMatch[1],user.community_id).first();
         if (!row || !row.audio_data || (row.status !== "approved" && row.profile_id !== user.profile_id && !["owner","moderator"].includes(user.role))) return fail("Audio no disponible.",404,cors);
         return new Response(row.audio_data,{status:200,headers:{...cors,"content-type":row.audio_mime_type,"cache-control":"private, max-age=300","x-content-type-options":"nosniff"}});
       }
@@ -1061,8 +1076,8 @@ export default {
         const result = await env.DB.prepare(
           `SELECT s.profile_id,s.status,s.location_label,'' AS note,s.updated_at,s.expires_at,p.nickname,p.avatar_key,p.avatar_media_id
            FROM route_status s JOIN profiles p ON p.id=s.profile_id
-           WHERE s.community_id=? AND s.expires_at>? ORDER BY s.updated_at DESC LIMIT 100`
-        ).bind(user.community_id, now()).all();
+           WHERE s.community_id=? ORDER BY s.updated_at DESC LIMIT 100`
+        ).bind(user.community_id).all();
         return json({ statuses: result.results || [] }, 200, cors);
       }
 
@@ -1070,13 +1085,31 @@ export default {
         const input = await bodyJson(request);
         const status = cleanText(input?.status, 20);
         if (!["libre", "cargando", "cargado", "descargando", "demorado", "accidente", "deposito", "planta", "base", "casa", "descansando", "cafe", "ypf", "repostando"].includes(status)) return fail("Estado inválido.", 400, cors);
-        const timestamp = now(), expires = new Date(Date.now() + 86400000).toISOString();
+        const timestamp = now(), neverExpires = "9999-12-31T23:59:59.999Z";
+        const sentences = {libre:"Está libre",cargando:"Está cargando",cargado:"Está cargado",descargando:"Está descargando",demorado:"Está demorado",accidente:"Reportó un accidente",deposito:"Está en depósito",planta:"Está en planta",base:"Está en la base",casa:"Está en su casa",descansando:"Está en descanso",cafe:"Está tomando un café",ypf:"Está en YPF",repostando:"Está repostando"};
+        const wallBody = sentences[status] || ("Está "+status);
+        const existing = await env.DB.prepare("SELECT wall_post_id FROM route_status WHERE profile_id=? AND community_id=?").bind(user.profile_id,user.community_id).first();
+        let postId = existing?.wall_post_id || null;
+        let currentPost = postId ? await env.DB.prepare("SELECT id,status FROM posts WHERE id=? AND community_id=? AND profile_id=? AND deleted_at IS NULL").bind(postId,user.community_id,user.profile_id).first() : null;
+        const autoApprove = ["owner","moderator"].includes(user.role);
+        let postStatus;
+        if (currentPost) {
+          postStatus = currentPost.status === "approved" || autoApprove ? "approved" : "pending";
+          await env.DB.prepare("UPDATE posts SET body=?,created_at=?,status=?,moderated_by_profile_id=CASE WHEN ?='approved' THEN ? ELSE moderated_by_profile_id END,moderated_at=CASE WHEN ?='approved' THEN ? ELSE moderated_at END WHERE id=? AND profile_id=? AND community_id=?")
+            .bind(wallBody,timestamp,postStatus,postStatus,user.profile_id,postStatus,timestamp,postId,user.profile_id,user.community_id).run();
+        } else {
+          postId = id();
+          postStatus = autoApprove ? "approved" : "pending";
+          await env.DB.prepare("INSERT INTO posts(id,community_id,profile_id,body,created_at,status,moderated_by_profile_id,moderated_at) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(postId,user.community_id,user.profile_id,wallBody,timestamp,postStatus,autoApprove?user.profile_id:null,autoApprove?timestamp:null).run();
+          if (!autoApprove) { try { await notifyModerators(env,user.community_id,postId,user.nickname); } catch {} }
+        }
         await env.DB.prepare(
-          `INSERT INTO route_status(profile_id,community_id,status,location_label,note,updated_at,expires_at)
-           VALUES(?,?,?,?,?,?,?) ON CONFLICT(profile_id) DO UPDATE SET community_id=excluded.community_id,status=excluded.status,
-           location_label=excluded.location_label,note=excluded.note,updated_at=excluded.updated_at,expires_at=excluded.expires_at`
-        ).bind(user.profile_id, user.community_id, status, cleanText(input?.location, 100) || null, "", timestamp, expires).run();
-        return json({ ok: true, expires_at: expires }, 200, cors);
+          `INSERT INTO route_status(profile_id,community_id,status,location_label,note,updated_at,expires_at,wall_post_id)
+           VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile_id) DO UPDATE SET community_id=excluded.community_id,status=excluded.status,
+           location_label=excluded.location_label,note=excluded.note,updated_at=excluded.updated_at,expires_at=excluded.expires_at,wall_post_id=excluded.wall_post_id`
+        ).bind(user.profile_id,user.community_id,status,cleanText(input?.location,100)||null,"",timestamp,neverExpires,postId).run();
+        return json({ok:true,post_id:postId,post_status:postStatus,expires_at:null,updated_existing:!!currentPost},200,cors);
       }
 
       // Optional route-status descriptions are reviewed separately from the automatic wall post.
