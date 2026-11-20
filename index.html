@@ -33,6 +33,16 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 @keyframes selectedStatusDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.72)}}
 @media(prefers-reduced-motion:reduce){.status-grid button,.status-grid button.selected::after{animation:none}}
 .notice{border-left:4px solid var(--cyan)}.empty{padding:22px 12px;text-align:center;color:var(--muted)}
+.status-grid button[data-status="alerta"]{border-color:#c93c42;color:#ffb8ba;background:linear-gradient(145deg,#3a2024,#251b1e);font-weight:850;box-shadow:0 0 10px #d52e3b55}
+.alert-post{border:1px solid #b94349!important;border-left:5px solid #ff424b!important;background:linear-gradient(145deg,#302125,#1b2427 62%)!important;box-shadow:0 0 16px #e5394530}
+.alert-post .alert-ribbon{display:flex;align-items:center;gap:8px;color:#ff777d;font-weight:900;letter-spacing:.06em;margin:-2px 0 10px}
+.alert-post .alert-ribbon::before{content:"";width:8px;height:8px;border-radius:50%;background:#ff424b;box-shadow:0 0 9px #ff424b;animation:alertDot 1s ease-in-out infinite}
+@keyframes alertDot{50%{opacity:.35;transform:scale(.75)}}
+#alertPulse{position:fixed;inset:0;z-index:9998;pointer-events:none;border:9px solid transparent;opacity:0;box-shadow:inset 0 0 35px #ff172a00,0 0 0 #ff172a00}
+#alertPulse.active{animation:alertScreenPulse 3s ease-out forwards}
+@keyframes alertScreenPulse{0%,100%{opacity:0;border-color:#ff253000;box-shadow:inset 0 0 35px #ff172a00,0 0 0 #ff172a00}18%,55%{opacity:1;border-color:#ff2530d9;box-shadow:inset 0 0 42px #ff172a66,0 0 30px #ff172a55}36%,76%{opacity:.25;border-color:#ff253055;box-shadow:inset 0 0 16px #ff172a22,0 0 10px #ff172a22}}
+@media(prefers-reduced-motion:reduce){#alertPulse.active{animation:none;opacity:.8;border-color:#ff2530aa;box-shadow:inset 0 0 24px #ff172a44}}
+
 .profile-link{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:750;padding:0;text-align:left;cursor:pointer}
 .profile-link:active{color:var(--cyan)}
 .colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.viejo-row{border-color:#b58a3d;background:linear-gradient(110deg,#29251b,var(--panel) 58%)}.viejo-row .avatar{width:52px;height:52px;border:2px solid #d6ad4d}.viejo-badge{color:#f3d58c;border-color:#9d7838;background:#302716}.viejo-chat{display:flex;flex-direction:column;min-height:60vh}.viejo-messages{display:flex;flex-direction:column;gap:9px;overflow:auto;max-height:55vh;padding:8px 0}.viejo-bubble{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere}.viejo-bubble.user{align-self:flex-end;background:#214447;border:1px solid #397b7a}.viejo-bubble.assistant{align-self:flex-start}.viejo-compose{display:flex;gap:8px;align-items:flex-end}.viejo-compose textarea{flex:1;min-height:54px;max-height:130px;margin:0}.viejo-compose button{flex:none}.viejo-photo{max-width:180px;max-height:180px;border-radius:12px;object-fit:contain;margin-top:8px}.viejo-image{display:block;max-width:min(100%,360px);max-height:320px;border-radius:12px;margin:8px 0;object-fit:contain;background:#101a1d}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
@@ -67,6 +77,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
+<div id="alertPulse" aria-hidden="true"></div>
 <header>
 <svg class="logo" viewBox="0 0 100 100" aria-label="Monograma CA"><path d="M46 17C17 8 8 28 8 51s13 39 39 31" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round"/><path d="M48 82 68 18 94 82M57 56H82" fill="none" stroke="#172326" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M57 56H82" stroke="#58bfc2" stroke-width="7" stroke-linecap="round"/><path d="M69 56h-8" stroke="#e9e8df" stroke-width="2" stroke-dasharray="3 3"/></svg>
 <div><div class="brand">CHOFERES ARGENTINOS</div><div class="sub">COMUNIDAD EN RUTA</div></div>
@@ -136,7 +147,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 <div class="card">
 <h2 style="font-size:17px;margin:0 0 10px">Mi estado</h2>
 <div class="status-grid" id="statusChoices">
-<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button><button data-status="demorado">⏳ Demorado</button><button data-status="accidente">🚨 Accidente</button><button data-status="deposito">📦 En depósito</button><button data-status="planta">🏭 En planta</button><button data-status="base">🏢 En la base</button><button data-status="casa">🏠 En mi casa</button><button data-status="descansando">😴 Descansando</button><button data-status="cafe">☕ Tomando un café</button><button data-status="ypf">⛽ En la YPF</button><button data-status="repostando">🛢️ Repostando</button>
+<button data-status="libre">🟢 Libre</button><button data-status="cargando">🟡 Cargando</button><button data-status="cargado">🔵 Cargado</button><button data-status="descargando">🟠 Descargando</button><button data-status="demorado">⏳ Demorado</button><button data-status="accidente">🚨 Accidente</button><button data-status="deposito">📦 En depósito</button><button data-status="planta">🏭 En planta</button><button data-status="base">🏢 En la base</button><button data-status="casa">🏠 En mi casa</button><button data-status="descansando">😴 Descansando</button><button data-status="cafe">☕ Tomando un café</button><button data-status="ypf">⛽ En la YPF</button><button data-status="repostando">🛢️ Repostando</button><button data-status="alerta" type="button">🚨 ALERTA</button>
 </div>
 <input id="routeLocation" maxlength="100" placeholder="Localidad o ubicación (opcional)">
 <textarea id="routeNote" maxlength="500" placeholder="Detalle breve (opcional; se envía a moderación)"></textarea>
@@ -147,9 +158,9 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
 </div>
 <div class="card" id="padComposer">
   <h2 style="font-size:17px;margin:0 0 8px">PAD · Parte de alerta del conductor</h2>
-  <p class="small">Reportá accidentes, demoras, cortes o cualquier situación importante. Tu parte queda privado mientras se revisa y solo se comparte con la comunidad cuando moderación lo aprueba.</p>
+  <p class="small">Reportá accidentes, demoras, cortes o cualquier situación importante. Para una situación urgente que afecte a la comunidad, elegí ALERTA. Tu parte se comparte cuando moderación lo aprueba.</p>
   <label for="padKind">Tipo de situación</label>
-  <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="demorado">Demora</option><option value="otro">Corte, desvío u otra situación</option></select>
+  <select id="padKind"><option value="accidente">🚨 Accidente</option><option value="alerta">🔴 ALERTA · Situación importante</option><option value="demorado">Demora</option><option value="otro">Corte, desvío u otra situación</option></select>
   <input id="padLocation" maxlength="160" placeholder="Ruta, kilómetro y localidad">
   <textarea id="padBody" maxlength="1200" placeholder="Describí lo ocurrido, sentido de circulación y referencias…"></textarea>
   <div class="actions"><label class="action" for="padPhoto">📷 Adjuntar foto</label><input id="padPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="action" type="button" id="padRecord">🎙️ Grabar audio</button><button class="action" type="button" id="padStop" disabled>⏹ Detener</button><button class="action" type="button" id="padDeleteAudio" hidden>✖ Borrar audio</button></div><audio id="padAudioPreview" controls hidden style="width:100%;margin-top:8px"></audio><p class="small" id="padAudioStatus" aria-live="polite">Podés grabar un audio directamente desde acá.</p>
@@ -915,18 +926,39 @@ async function renderPostComments(post){
  return panel;
 }
 async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. porque contenía: '+notice.reason+'.');}catch{}}
+let knownAlertPostIds=null,alertPulseTimer=null;
+function observeNewAlerts(posts){
+ const current=new Set(posts.filter(post=>Number(post.is_alert)===1||post.is_alert===true).map(post=>post.id));
+ if(knownAlertPostIds===null){knownAlertPostIds=current;return;}
+ const hasNew=[...current].some(id=>!knownAlertPostIds.has(id));
+ knownAlertPostIds=current;
+ if(hasNew)triggerAlertPulse();
+}
+function triggerAlertPulse(){
+ if(document.hidden||!profile)return;
+ const pulse=$('alertPulse');if(!pulse)return;
+ pulse.classList.remove('active');void pulse.offsetWidth;pulse.classList.add('active');
+ if(alertPulseTimer)clearTimeout(alertPulseTimer);
+ alertPulseTimer=setTimeout(()=>pulse.classList.remove('active'),3100);
+}
+async function checkForNewAlerts(){
+ if(!profile||document.hidden)return;
+ try{const result=await api('/api/posts?limit=60');observeNewAlerts(result.posts||[]);}catch{}
+}
 async function loadFeed(){
   const box = $('feed');
   try{
     const result = await api('/api/posts?limit=60');
     const posts = result.posts || [];
+    observeNewAlerts(posts);
     if(!posts.length){ box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>'; return; }
     box.replaceChildren();
     posts.forEach(async post=>{
       const article = document.createElement('article');
-      article.className = 'card';
+      article.className = 'card'+(post.is_alert?' alert-post':'');
       const head = document.createElement('div');
       head.className = 'row';
+      if(post.is_alert){const ribbon=document.createElement('div');ribbon.className='alert-ribbon';ribbon.textContent='ALERTA DE RUTA';article.append(ribbon);}
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
       renderAvatar(avatar,post.avatar_media_id,post.avatar_key,post.nickname);
@@ -1271,6 +1303,13 @@ $('skipRouteDescription').addEventListener('click',()=>{
 $('statusChoices').querySelectorAll('button').forEach(button=>button.addEventListener('click',async()=>{
   if(pendingRoutePostId)resetRouteDescription();
   selectedStatus=button.dataset.status;
+  if(selectedStatus==='alerta'){
+    $('padKind').value='alerta';
+    $('padMsg').textContent='Completá la ALERTA con una descripción y, si tenés, una foto o un audio. Se enviará a moderación para compartirla con todos.';
+    $('padComposer').scrollIntoView({behavior:'smooth',block:'start'});
+    $('padLocation').focus({preventScroll:true});
+    return;
+  }
   $('statusChoices').querySelectorAll('button').forEach(item=>item.classList.toggle('selected',item===button));
   $('statusChoices').querySelectorAll('button').forEach(item=>item.disabled=true);
   $('statusMsg').textContent='Publicando tu estado en el muro…';
@@ -1394,7 +1433,7 @@ $('sendPad').addEventListener('click',async()=>{
   const result=await api('/api/activity',{method:'POST',body:form});
   if(result.status!=='pending')throw new Error('El servidor no confirmó el estado pendiente.');
   $('padBody').value='';$('padLocation').value='';$('padPhoto').value='';padPhotoFile=null;clearPadAudio();syncPadFiles();
-  $('padMsg').textContent='Tu parte fue recibida y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
+  $('padMsg').textContent=kind==='alerta'?'Tu ALERTA fue recibida. Se compartirá con toda la comunidad cuando moderación la apruebe.':'Tu parte fue recibida y quedó pendiente de revisión. Solo se publicará cuando moderación lo apruebe.';
  }catch(error){$('padMsg').textContent=error.message||String(error);}
  finally{button.disabled=false;}
 });
@@ -1404,10 +1443,11 @@ async function loadPadFeed(){
   if(!items.length){box.innerHTML='<div class="empty">Todavía no hay partes verificados.</div>';return;}
   box.replaceChildren();
   items.forEach(item=>{
-   const card=document.createElement('article');card.className='card notice';card.id='pad-alert-'+item.id;
+   const card=document.createElement('article');card.className='card notice'+(item.kind==='alerta'?' alert-post':'');card.id='pad-alert-'+item.id;
    const head=document.createElement('div');head.className='name';head.textContent=(item.kind||'AVISO').toUpperCase()+' · '+(item.location_label||'Ubicación no indicada');
    const meta=document.createElement('div');meta.className='meta';meta.textContent=(item.nickname||'Compañero')+' · '+time(item.created_at);
    const body=document.createElement('div');body.className='post';body.textContent=item.body||'';
+   if(item.kind==='alerta'){const ribbon=document.createElement('div');ribbon.className='alert-ribbon';ribbon.textContent='ALERTA DE RUTA';card.append(ribbon);}
    card.append(head,meta,body);
    if(item.media_id){const img=document.createElement('img');img.className='feed-photo';img.alt='Fotografía del parte verificado';loadMedia(item.media_id).then(url=>img.src=url).catch(err=>img.replaceWith(imageLoadError(err)));card.append(img);}
    if(item.audio_mime_type){const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';fetch(API_BASE+'/api/activity/'+encodeURIComponent(item.id)+'/audio',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Audio no disponible');return r.blob();}).then(blob=>audio.src=URL.createObjectURL(blob)).catch(()=>{});card.append(audio);}
@@ -2119,6 +2159,8 @@ setInterval(async()=>{
 },60000);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden || !profile) return;
+  knownAlertPostIds=null;
+  checkForNewAlerts();
   api('/api/me').then(result=>{if(result.profile)profile={...profile,...result.profile};}).catch(()=>{});
   if(currentTab==='muro') loadFeed();
   loadCommentNotices();
@@ -2129,6 +2171,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 setInterval(()=>{
   if(document.hidden || !profile) return;
+  checkForNewAlerts();
   if(currentTab==='muro') loadFeed();
   loadCommentNotices();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
