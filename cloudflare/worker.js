@@ -1341,3 +1341,5 @@ export default {
     }
   }
 };
+
+// Production deployment also runs a read-only D1 video integrity audit.
