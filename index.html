@@ -1018,10 +1018,12 @@ async function loadFeed(){
         {key:'sad',emoji:'😢',label:'Me entristece'},
         {key:'angry',emoji:'😡',label:'Me enoja'}
       ];
+      let totalReactions=0;
       reactionOptions.forEach(option=>{
         const button=document.createElement('button');
         button.type='button';button.className='action reaction-choice';
         const count=option.key==='like'?Math.max(0,Number(post.likes||0)-Number(post.reaction_thumbs_up||0)-Number(post.reaction_laugh||0)-Number(post.reaction_sad||0)-Number(post.reaction_angry||0)):Number(post['reaction_'+option.key]||0);
+        totalReactions+=count;
         button.textContent=option.emoji;
         button.title=option.label;
         button.setAttribute('aria-label',option.label+' · '+count);
@@ -1035,7 +1037,6 @@ async function loadFeed(){
         });
         reactionBar.append(button);
       });
-      const totalReactions=Math.max(0,Number(post.likes||0));
       const reactionTotal=document.createElement('span');reactionTotal.className='reaction-score';
       reactionTotal.textContent=totalReactions+' '+(totalReactions===1?'like':'likes');
       reactionBar.append(reactionTotal);
