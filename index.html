@@ -918,12 +918,8 @@ async function loadCommentNotices(){try{const result=await api('/api/comment-not
 async function loadFeed(){
   const box = $('feed');
   try{
-    const [result, routeResult] = await Promise.all([
-      api('/api/posts?limit=60'),
-      api('/api/route/status').catch(()=>({statuses:[]}))
-    ]);
+    const result = await api('/api/posts?limit=60');
     const posts = result.posts || [];
-    const routeStatusByProfile = new Map((routeResult.statuses || []).map(s=>[s.profile_id,s]));
     if(!posts.length){ box.innerHTML='<div class="empty">Todavía no hay publicaciones. ¡La primera puede ser tuya!</div>'; return; }
     box.replaceChildren();
     posts.forEach(async post=>{
@@ -936,9 +932,7 @@ async function loadFeed(){
       renderAvatar(avatar,post.avatar_media_id,post.avatar_key,post.nickname);
       const who = document.createElement('div');
       const badgeData=Array.isArray(post.badges)?post.badges:(()=>{try{return JSON.parse(post.badges||'[]')}catch{return []}})();
-      const liveStatus=routeStatusByProfile.get(post.profile_id);
-      const statusLabels={libre:'🟢 Libre',cargando:'🟡 Cargando',cargado:'🔵 Cargado',descargando:'🟠 Descargando',demorado:'⏳ Demorado',accidente:'🚨 Accidente',deposito:'📦 En depósito',planta:'🏭 En planta',base:'🏢 En la base',casa:'🏠 En mi casa',descansando:'😴 En descanso',cafe:'☕ Tomando un café',ypf:'⛽ En YPF',repostando:'🛢️ Repostando'};
-      who.innerHTML = '<div class="name">'+esc(post.nickname || 'Compañero')+'</div>'+(liveStatus?'<span class="route-status-glow">'+esc(statusLabels[liveStatus.status]||liveStatus.status)+'</span>':'')+'<div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
+      who.innerHTML = '<div class="name">'+esc(post.nickname || 'Compañero')+'</div><div class="meta">'+time(post.created_at)+'</div>'+(badgeData.length?'<div>'+badgeData.map(b=>'<span class="badge-chip">🏅 '+esc(badgeLabel(b.badge_key))+' · '+esc(b.level)+'</span>').join('')+'</div>':'');
       const viewProfile=document.createElement('button');
       viewProfile.type='button';viewProfile.className='action';viewProfile.textContent='Ver perfil';
       viewProfile.addEventListener('click',()=>openPublicProfile(post.profile_id));
