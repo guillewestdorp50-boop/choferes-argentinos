@@ -48,6 +48,14 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .colleague-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 13px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer}.colleague-row:active{border-color:var(--cyan)}.viejo-row{border-color:#b58a3d;background:linear-gradient(110deg,#29251b,var(--panel) 58%)}.viejo-row .avatar{width:52px;height:52px;border:2px solid #d6ad4d}.viejo-badge{color:#f3d58c;border-color:#9d7838;background:#302716}.viejo-chat{display:flex;flex-direction:column;min-height:60vh}.viejo-messages{display:flex;flex-direction:column;gap:9px;overflow:auto;max-height:55vh;padding:8px 0}.viejo-bubble{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere}.viejo-bubble.user{align-self:flex-end;background:#214447;border:1px solid #397b7a}.viejo-bubble.assistant{align-self:flex-start}.viejo-compose{display:flex;gap:8px;align-items:flex-end}.viejo-compose textarea{flex:1;min-height:54px;max-height:130px;margin:0}.viejo-compose button{flex:none}.viejo-photo{max-width:180px;max-height:180px;border-radius:12px;object-fit:contain;margin-top:8px}.viejo-image{display:block;max-width:min(100%,360px);max-height:320px;border-radius:12px;margin:8px 0;object-fit:contain;background:#101a1d}.colleague-identity{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}.colleague-row .route-status-glow{margin-left:0}.route-status-glow{display:inline-flex;align-items:center;margin-left:7px;padding:3px 9px;border:1px solid var(--cyan);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--cyan) 18%,var(--panel2));box-shadow:0 0 10px var(--cyan),inset 0 0 7px color-mix(in srgb,var(--cyan) 35%,transparent);font-size:11px;font-weight:800;animation:routeStatusPulse 1.8s ease-in-out infinite}@keyframes routeStatusPulse{0%,100%{filter:brightness(1);box-shadow:0 0 7px var(--cyan)}50%{filter:brightness(1.35);box-shadow:0 0 14px var(--cyan)}}
 .badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
 .badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+/* Conversaciones del muro: lectura cómoda en teléfonos. */
+.post-comments .comment-count,.post-comments .comment-time,.post-comments .comment-empty{font-size:14px;line-height:1.5}
+.post-comments .comment-list{font-size:16px;line-height:1.55}
+.post-comments .comment-line{padding:12px 0!important}
+.post-comments .comment-message{font-size:16px;line-height:1.55;overflow-wrap:anywhere}
+.post-comments .comment-author{font-size:16px;font-weight:800}
+.post-comments textarea{font-size:16px;line-height:1.5;min-height:96px}
+.post-comments .action{font-size:15px;padding:10px 16px}
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
 .badge-item .small{margin-top:4px}
 
@@ -894,12 +902,12 @@ $('awardBadge').addEventListener('click',async()=>{
 });
 
 async function renderPostComments(post){
- const panel=document.createElement('div');panel.className='card';panel.style.marginTop='10px';
+ const panel=document.createElement('div');panel.className='card post-comments';panel.style.marginTop='10px';
  const heading=document.createElement('div');heading.className='row';heading.style.alignItems='center';heading.style.justifyContent='space-between';
  const title=document.createElement('strong');title.textContent='💬 Conversación';
- const count=document.createElement('span');count.className='meta';count.textContent='Cargando comentarios…';
+ const count=document.createElement('span');count.className='meta comment-count';count.textContent='Cargando comentarios…';
  heading.append(title,count);
- const list=document.createElement('div');list.className='small';list.style.marginTop='8px';
+ const list=document.createElement('div');list.className='comment-list';list.style.marginTop='8px';
  const composer=document.createElement('textarea');composer.maxLength=1000;composer.placeholder='Escribí un comentario para continuar el hilo…';composer.rows=2;composer.style.width='100%';composer.style.marginTop='10px';
  const send=document.createElement('button');send.type='button';send.className='action primary';send.textContent='Publicar comentario';send.style.marginTop='8px';
  const endpoint=post.source_activity_id?'/api/activity/comments':'/api/comments';
@@ -907,12 +915,12 @@ async function renderPostComments(post){
  async function refresh(){
   const data=await api(endpoint+query);const comments=data.comments||[];list.replaceChildren();
   count.textContent=comments.length+' '+(comments.length===1?'comentario':'comentarios');
-  if(!comments.length){const empty=document.createElement('div');empty.className='meta';empty.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';list.append(empty);return;}
+  if(!comments.length){const empty=document.createElement('div');empty.className='meta comment-empty';empty.textContent='Todavía no hay comentarios. ¡Podés iniciar la conversación!';list.append(empty);return;}
   comments.forEach(c=>{
-   const line=document.createElement('div');line.style.padding='9px 0';line.style.borderBottom='1px solid var(--line)';
-   const who=document.createElement('strong');who.textContent=(c.nickname||'Compañero')+' · ';
-   const msg=document.createElement('span');msg.textContent=c.body;
-   const stamp=document.createElement('div');stamp.className='meta';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);
+   const line=document.createElement('div');line.className='comment-line';line.style.padding='9px 0';line.style.borderBottom='1px solid var(--line)';
+   const who=document.createElement('strong');who.className='comment-author';who.textContent=(c.nickname||'Compañero')+' · ';
+   const msg=document.createElement('span');msg.className='comment-message';msg.textContent=c.body;
+   const stamp=document.createElement('div');stamp.className='meta comment-time';stamp.textContent=time(c.created_at);line.append(who,msg,stamp);
    if(profile?.role==='owner'&&!post.source_activity_id){
     const remove=document.createElement('button');remove.type='button';remove.className='action';remove.textContent='Eliminar comentario';
     remove.addEventListener('click',async()=>{const reason=prompt('Motivo que recibirá en privado quien escribió el comentario:','Tu mensaje contenía expresiones agresivas o inapropiadas.');if(reason===null)return;remove.disabled=true;try{await api(endpoint+'/'+encodeURIComponent(c.id),{method:'DELETE',body:{reason}});await refresh();}catch(error){alert(error.message||String(error));remove.disabled=false;}});
@@ -924,6 +932,10 @@ async function renderPostComments(post){
  send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){list.textContent=error.message||'No se pudieron cargar los comentarios.';}finally{send.disabled=false;}});
  panel.append(heading,list,composer,send);
  try{await refresh();}catch(error){count.textContent='No disponible';list.textContent=error.message||'No se pudieron cargar los comentarios.';}
+ // Al volver a la app o recuperar la pestaña, actualizar la conversación del servidor.
+ const refreshWhenActive=()=>{if(!document.hidden)refresh().catch(()=>{});};
+ window.addEventListener('focus',refreshWhenActive);
+ document.addEventListener('visibilitychange',refreshWhenActive);
  return panel;
 }
 async function loadCommentNotices(){try{const result=await api('/api/comment-notices');for(const notice of (result.notices||[]))alert('Tu mensaje fue retirado. porque contenía: '+notice.reason+'.');}catch{}}
