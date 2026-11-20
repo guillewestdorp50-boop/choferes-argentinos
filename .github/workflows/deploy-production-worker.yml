@@ -46,7 +46,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
           workingDirectory: cloudflare
-          command: d1 execute choferes-argentinos --remote --file=video_integrity_check.sql
+          command: d1 execute choferes-argentinos --remote --json --file=video_integrity_check.sql
 
       - name: Deploy production Worker
         uses: cloudflare/wrangler-action@v4
