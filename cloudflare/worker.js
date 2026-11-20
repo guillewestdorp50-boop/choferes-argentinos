@@ -923,7 +923,7 @@ export default {
         return json({ok:true},200,cors);
       }
 
-      // Driver PAD: all activity reports are held for moderator approval.
+      // Driver PAD: all activity reports (including ALERTA) are held for moderator approval.
       if (request.method === "GET" && path === "/api/activity") {
         const result = await env.DB.prepare(
           `SELECT a.id,a.profile_id,a.kind,a.location_label,a.body,a.media_id,a.audio_mime_type,a.created_at,
