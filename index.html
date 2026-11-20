@@ -1129,7 +1129,7 @@ $('postVideo').addEventListener('change',async()=>{
   try{
     await new Promise((resolve,reject)=>{probe.onloadedmetadata=resolve;probe.onerror=()=>reject(new Error('No se pudo leer el video seleccionado.'));});
     if(!Number.isFinite(probe.duration)||probe.duration>60)throw new Error('El video no puede durar más de 60 segundos.');
-    if(Math.max(probe.videoWidth,probe.videoHeight)>1920||Math.min(probe.videoWidth,probe.videoHeight)>1080)throw new Error('El video debe tener una resolución máxima de 1080p.');
+    if(Math.max(probe.videoWidth,probe.videoHeight)>1920||Math.min(probe.videoWidth,probe.videoHeight)>1080)throw new Error('Se aceptan videos de cualquier resolución menor. El máximo es 1080p (Full HD).');
     selectedVideo=file;selectedVideoUrl=previewUrl;$('videoPreviewElement').src=selectedVideoUrl;$('videoPreview').classList.remove('hidden');
     $('videoName').textContent=Math.ceil(probe.duration)+' s · '+Math.round(file.size/1024/1024*10)/10+' MB';$('photoHint').textContent='Video listo para publicar';
   }catch(error){URL.revokeObjectURL(previewUrl);$('photoHint').textContent=error.message||'No se pudo preparar el video.';$('postVideo').value='';}
