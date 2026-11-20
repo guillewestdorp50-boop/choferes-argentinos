@@ -1162,7 +1162,7 @@ export default {
         if (!file || typeof file.arrayBuffer !== "function") return fail("Elegí un video MP4.",400,cors);
         if (file.type !== "video/mp4") return fail("Por ahora se admite únicamente video MP4.",415,cors);
         if (file.size <= 0 || file.size > 60 * 1024 * 1024) return fail("El video debe pesar como máximo 60 MB.",413,cors);
-        const bytes = new Uint8Array(await file.arrayBuffer()), info = mp4Info(bytes);
+        const bytes = new Uint8Array(await file.arrayBuffer()), info = await mp4Info(bytes);
         if (!info) return fail("No se pudo leer la información del video MP4.",415,cors);
         if (info.duration > 60) return fail("El video no puede durar más de 60 segundos.",413,cors);
         if (Math.max(info.width,info.height) > 1920 || Math.min(info.width,info.height) > 1080) return fail("El video debe tener una resolución máxima de 1080p.",413,cors);
