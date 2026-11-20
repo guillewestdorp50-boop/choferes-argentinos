@@ -945,6 +945,7 @@ async function checkForNewAlerts(){
  if(!profile||document.hidden)return;
  try{const result=await api('/api/posts?limit=60');observeNewAlerts(result.posts||[]);}catch{}
 }
+setInterval(checkForNewAlerts,12000);
 async function loadFeed(){
   const box = $('feed');
   try{
@@ -2171,7 +2172,6 @@ document.addEventListener('visibilitychange',()=>{
 });
 setInterval(()=>{
   if(document.hidden || !profile) return;
-  checkForNewAlerts();
   if(currentTab==='muro') loadFeed();
   loadCommentNotices();
   if(currentTab==='ruta'){ loadRoute(); loadPadFeed(); }
