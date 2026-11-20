@@ -157,7 +157,7 @@ button,a,nav,.action{-webkit-tap-highlight-color:transparent}
   <button class="action primary" id="sendPad">Enviar parte para revisión</button><p class="small" id="padMsg" aria-live="polite"></p>
 </div>
 <h2 class="section-title">PAD · Avisos verificados</h2><div id="padFeed"><div class="empty">Cargando avisos verificados…</div></div>
-<h2 class="section-title">Estados de compañeros</h2><div id="routeFeed"><div class="empty">Cargando estados…</div></div>
+<h2 class="section-title" hidden>Estados de compañeros</h2><div id="routeFeed" hidden><div class="empty">Cargando estados…</div></div>
 <p class="small">Todos los reportes nuevos se envían por el PAD y requieren aprobación antes de publicarse.</p>
 </section>
 
@@ -1325,7 +1325,7 @@ async function loadRoute(){
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los estados: '+esc(error.message || String(error))+'</div>'; }
 }
 
-let padPhotoFile=null, padAudioBlob=null, padAudioUrl=null, padRecorder=null, padAudioStream=null, padAudioReady=false;
+let padPhotoFile=null, padAudioBlob=null, padAudioUrl=null, padRecorder=null, padAudioStream=null, padAudioReady=false, padRecordingStartedAt=0, padRecordedSeconds=0;
 $('padPhoto').addEventListener('change',()=>{padPhotoFile=$('padPhoto').files?.[0]||null;syncPadFiles();});
 function clearPadAudio(){
  if(padRecorder&&padRecorder.state==='recording')padRecorder.stop();
@@ -1352,20 +1352,23 @@ $('padRecord').addEventListener('click',async()=>{
   padRecorder.addEventListener('error',()=>{$('padAudioStatus').textContent='No se pudo grabar. Revisá el permiso del micrófono e intentá otra vez.';clearPadAudio();});
   padRecorder.addEventListener('stop',()=>{
    if(padAudioStream){padAudioStream.getTracks().forEach(track=>track.stop());padAudioStream=null;}
+   padRecordedSeconds=Math.max(0,(Date.now()-padRecordingStartedAt)/1000);
    const rawType=(padRecorder?.mimeType||mime||'audio/webm').split(';')[0].toLowerCase();
    const blob=new Blob(chunks,{type:rawType});
    if(blob.size<256){$('padAudioStatus').textContent='La grabación quedó vacía. Volvé a grabar y hablá unos segundos.';clearPadAudio();return;}
    padAudioBlob=blob;padAudioUrl=URL.createObjectURL(blob);
    const preview=$('padAudioPreview');preview.src=padAudioUrl;preview.hidden=false;
    preview.onloadedmetadata=()=>{
-    if(!Number.isFinite(preview.duration)||preview.duration<=0.2){$('padAudioStatus').textContent='El audio no tiene una duración válida. Borrá la grabación y probá de nuevo.';clearPadAudio();return;}
+    const duration=Number.isFinite(preview.duration)?preview.duration:padRecordedSeconds;
+    if(padRecordedSeconds<=0.2||(Number.isFinite(preview.duration)&&preview.duration<=0.2)){$('padAudioStatus').textContent='El audio no tiene una duración válida. Borrá la grabación y probá de nuevo.';clearPadAudio();return;}
     padAudioReady=true;$('padDeleteAudio').hidden=false;
-    $('padAudioStatus').textContent='Audio listo · '+Math.round(preview.duration)+' segundos. Podés escucharlo o borrarlo antes de enviar.';
+    $('padAudioStatus').textContent='Audio listo · '+Math.max(1,Math.round(duration))+' segundos. Podés escucharlo o borrarlo antes de enviar.';
     syncPadFiles();
    };
    preview.onerror=()=>{$('padAudioStatus').textContent='No se pudo reproducir esta grabación. Probá grabarla nuevamente.';clearPadAudio();};
    $('padAudioStatus').textContent='Preparando la grabación para escucharla…';
   });
+  padRecordingStartedAt=Date.now();padRecordedSeconds=0;
   padRecorder.start(250);
   $('padRecord').disabled=true;$('padStop').disabled=false;
   $('padAudioStatus').textContent='Grabando… Hablá ahora y después tocá Detener.';
