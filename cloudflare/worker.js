@@ -847,6 +847,15 @@ export default {
       if (request.method === "GET" && path === "/api/posts") {
         const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 40)));
         const targetProfileId = cleanText(url.searchParams.get("profile_id") || "", 64) || null;
+        await env.DB.prepare(
+          `UPDATE posts
+           SET reaction_score=COALESCE(reaction_score,0)+4*(
+                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id
+               ),
+               reactions_upgraded_at=?
+           WHERE community_id=? AND reactions_upgraded_at IS NULL
+             AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes')`
+        ).bind(now(), user.community_id).run();
         const result = await env.DB.prepare(
           `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.source_activity_id,p.created_at,p.is_alert,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
@@ -1073,6 +1082,15 @@ export default {
         if (!allowedReactions.includes(requestedReaction)) return fail("Reacción no válida.", 400, cors);
         const post = await env.DB.prepare("SELECT id,created_at,moderated_at FROM posts WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(postId, user.community_id).first();
         if (!post) return fail("Publicación no encontrada.", 404, cors);
+        await env.DB.prepare(
+          `UPDATE posts
+           SET reaction_score=COALESCE(reaction_score,0)+4*(
+                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id
+               ),
+               reactions_upgraded_at=?
+           WHERE id=? AND reactions_upgraded_at IS NULL
+             AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes')`
+        ).bind(now(), postId).run();
         const existing = await env.DB.prepare("SELECT reaction FROM reactions WHERE post_id=? AND profile_id=? LIMIT 1").bind(postId, user.profile_id).first();
         if (existing?.reaction === requestedReaction) {
           await env.DB.batch([
