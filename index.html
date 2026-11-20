@@ -49,11 +49,11 @@ textarea{min-height:88px;resize:vertical}.status-grid{display:grid;grid-template
 .badge-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin:5px 5px 0 0;font-size:11px;color:var(--cyan);background:#152529}
 .badge-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 /* Conversaciones del muro: lectura cómoda en teléfonos. */
-.post-comments .comment-count,.post-comments .comment-time,.post-comments .comment-empty{font-size:14px;line-height:1.5}
+.post-comments .comment-count,.post-comments .comment-time,.post-comments .comment-empty{font-size:15px;line-height:1.5}
 .post-comments .comment-list{font-size:16px;line-height:1.55}
 .post-comments .comment-line{padding:12px 0!important}
-.post-comments .comment-message{font-size:18px;line-height:1.5;overflow-wrap:anywhere}
-.post-comments .comment-author{font-size:17px;font-weight:800}
+.post-comments .comment-message{font-size:19px;line-height:1.5;overflow-wrap:anywhere}
+.post-comments .comment-author{font-size:18px;font-weight:800}
 .post-comments textarea{font-size:16px;line-height:1.5;min-height:96px}
 .post-comments .action{font-size:15px;padding:10px 16px}
 .badge-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:140px;flex:1}
@@ -883,7 +883,7 @@ async function renderPublicWall(posts){
       photo.className='feed-photo';photo.decoding='async';loadMedia(post.media_id).then(url=>{if(url)photo.src=url;else photo.replaceWith(imageLoadError(new Error('DIAG-IMG-02: la API no devolvió una dirección de imagen.')));}).catch(error=>photo.replaceWith(imageLoadError(error)));
       article.append(photo);
     }
-    article.append(await renderPostComments(post));
+    article.append(renderPostComments(post));
     wall.append(article);
   });
 }
@@ -901,7 +901,7 @@ $('awardBadge').addEventListener('click',async()=>{
   finally{$('awardBadge').disabled=false;}
 });
 
-async function renderPostComments(post){
+function renderPostComments(post){
  const panel=document.createElement('div');panel.className='card post-comments';panel.style.marginTop='10px';
  const heading=document.createElement('div');heading.className='row';heading.style.alignItems='center';heading.style.justifyContent='space-between';
  const title=document.createElement('strong');title.textContent='💬 Conversación';
@@ -914,7 +914,7 @@ async function renderPostComments(post){
  const query=post.source_activity_id?'?activity_id='+encodeURIComponent(post.source_activity_id):'?post_id='+encodeURIComponent(post.id);
  let refreshing=false;
  async function refresh(){
-  if(refreshing||!panel.isConnected)return;
+  if(refreshing)return;
   refreshing=true;
   try{
   const data=await api(endpoint+query);const comments=data.comments||[];list.replaceChildren();
@@ -936,7 +936,8 @@ async function renderPostComments(post){
  }
  send.addEventListener('click',async()=>{const body=composer.value.trim();if(!body){composer.focus();return;}send.disabled=true;try{await api(endpoint,{method:'POST',body:post.source_activity_id?{activity_id:post.source_activity_id,body}:{post_id:post.id,body}});composer.value='';await refresh();}catch(error){list.textContent=error.message||'No se pudieron cargar los comentarios.';}finally{send.disabled=false;}});
  panel.append(heading,list,composer,send);
- try{await refresh();}catch(error){count.textContent='No disponible';list.textContent=error.message||'No se pudieron cargar los comentarios.';}
+ // Mostrar el hilo sin bloquear la publicación: la consulta se completa en segundo plano.
+ refresh().catch(error=>{count.textContent='No disponible';list.textContent=error.message||'No se pudieron cargar los comentarios.';});
  // Al volver a la app o recuperar la pestaña, actualizar la conversación del servidor.
  const refreshWhenActive=()=>{if(!document.hidden)refresh().catch(()=>{});};
  window.addEventListener('focus',refreshWhenActive);
