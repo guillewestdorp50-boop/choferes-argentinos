@@ -850,9 +850,13 @@ export default {
         const result = await env.DB.prepare(
           `SELECT p.id,p.profile_id,p.body,p.media_id,p.video_id,p.source_activity_id,p.created_at,p.is_alert,pr.nickname,pr.avatar_key,pr.avatar_media_id,
              COALESCE((SELECT json_group_array(json_object('badge_key',ba.badge_key,'level',ba.level)) FROM badge_awards ba WHERE ba.profile_id=p.profile_id), '[]') AS badges,
-             (SELECT COUNT(*) * CASE WHEN datetime(COALESCE(p.moderated_at,p.created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END
-              FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS likes,
-             EXISTS(SELECT 1 FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? AND r.reaction='like') AS liked_by_me
+             COALESCE(p.reaction_score,0) AS likes,
+             (SELECT reaction FROM reactions r WHERE r.post_id=p.id AND r.profile_id=? LIMIT 1) AS my_reaction,
+             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='like') AS reaction_like,
+             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='thumbs_up') AS reaction_thumbs_up,
+             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='laugh') AS reaction_laugh,
+             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='sad') AS reaction_sad,
+             (SELECT COUNT(*) FROM reactions r WHERE r.post_id=p.id AND r.reaction='angry') AS reaction_angry
            FROM posts p JOIN profiles pr ON pr.id=p.profile_id
            WHERE p.community_id=? AND p.status='approved' AND p.deleted_at IS NULL AND (? IS NULL OR p.profile_id=?)
            ORDER BY p.created_at DESC LIMIT ?`
@@ -1064,12 +1068,28 @@ export default {
       if (request.method === "POST" && path === "/api/reactions") {
         const input = await bodyJson(request);
         const postId = cleanText(input?.post_id, 64);
-        const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND community_id=? AND status='approved'").bind(postId, user.community_id).first();
+        const requestedReaction = cleanText(input?.reaction || "like", 24);
+        const allowedReactions = ["like", "thumbs_up", "laugh", "sad", "angry"];
+        if (!allowedReactions.includes(requestedReaction)) return fail("Reacción no válida.", 400, cors);
+        const post = await env.DB.prepare("SELECT id,created_at,moderated_at FROM posts WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(postId, user.community_id).first();
         if (!post) return fail("Publicación no encontrada.", 404, cors);
-        const existing = await env.DB.prepare("SELECT post_id FROM reactions WHERE post_id=? AND profile_id=? AND reaction='like'").bind(postId, user.profile_id).first();
-        if (existing) await env.DB.prepare("DELETE FROM reactions WHERE post_id=? AND profile_id=? AND reaction='like'").bind(postId, user.profile_id).run();
-        else await env.DB.prepare("INSERT INTO reactions(post_id,profile_id,reaction,created_at) VALUES(?,?,'like',?)").bind(postId, user.profile_id, now()).run();
-        return json({ liked: !existing }, 200, cors);
+        const existing = await env.DB.prepare("SELECT reaction FROM reactions WHERE post_id=? AND profile_id=? LIMIT 1").bind(postId, user.profile_id).first();
+        if (existing?.reaction === requestedReaction) {
+          await env.DB.batch([
+            env.DB.prepare("DELETE FROM reactions WHERE post_id=? AND profile_id=?").bind(postId, user.profile_id),
+            env.DB.prepare("UPDATE posts SET reaction_score=MAX(0,COALESCE(reaction_score,0)-1) WHERE id=?").bind(postId)
+          ]);
+          return json({ reaction: null, removed: true }, 200, cors);
+        }
+        if (existing) {
+          await env.DB.prepare("UPDATE reactions SET reaction=? WHERE post_id=? AND profile_id=?").bind(requestedReaction, postId, user.profile_id).run();
+        } else {
+          await env.DB.batch([
+            env.DB.prepare("INSERT INTO reactions(post_id,profile_id,reaction,created_at) VALUES(?,?,?,?)").bind(postId, user.profile_id, requestedReaction, now()),
+            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END WHERE id=?").bind(postId)
+          ]);
+        }
+        return json({ reaction: requestedReaction, removed: false, changed: !!existing }, 200, cors);
       }
 
       if (request.method === "GET" && path === "/api/route/status") {
