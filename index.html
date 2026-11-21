@@ -2158,7 +2158,7 @@ async function loadFriends(){
   }catch(error){ box.innerHTML='<div class="empty">No se pudieron cargar los compañeros: '+esc(error.message || String(error))+'</div>'; }
 }
 $('avatarPickerToggle').addEventListener('click',()=>{const panel=$('avatarPickerPanel'),open=panel.classList.toggle('hidden')===false;$('avatarPickerToggle').setAttribute('aria-expanded',String(open));});
-$('avatarPickerPanel').addEventListener('click',event=>{const choice=event.target.closest('[data-avatar-key]');if(!choice)return;$('editAvatar').value=choice.dataset.avatarKey;refreshAvatarPicker();$('avatarPickerPanel').classList.add('hidden');$('avatarPickerToggle').setAttribute('aria-expanded','false');});
+$('avatarPickerPanel').addEventListener('click',event=>{const choice=event.target.closest('[data-avatar-key]');if(!choice)return;$('editAvatar').value=choice.dataset.avatarKey;selectedProfilePhoto=null;selectedProfilePhotoUrl='';removeProfilePhotoRequested=true;$('profilePhotoInput').value='';refreshAvatarPicker();$('avatarPickerPanel').classList.add('hidden');$('avatarPickerToggle').setAttribute('aria-expanded','false');});
 $('saveNick').addEventListener('click',async()=>{
   const nickname=$('editNick').value.trim();
   if(nickname.length<2){ $('profileMsg').textContent='El apodo debe tener al menos 2 caracteres'; return; }
