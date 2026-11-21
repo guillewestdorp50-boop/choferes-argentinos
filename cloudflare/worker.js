@@ -750,7 +750,7 @@ export default {
         const nickname = cleanText(input?.nickname, 32);
         const bio = cleanText(input?.bio, 160);
         const avatarKey = cleanText(input?.avatar_key || user.avatar_key || "truck", 24);
-        const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus",...Array.from({length:16},(_,i)=>`driver_${String(i+1).padStart(2,"0")}`),"admin_crown","admin_shield","admin_star","admin_wheel","admin_eagle"];
+        const allowedAvatars = ["truck","truck2","tractor","wheel","road","gear","flag","fuel","wrench","construction","pickup","bus",...Array.from({length:32},(_,i)=>`driver_${String(i+1).padStart(2,"0")}`),"admin_crown","admin_shield","admin_star","admin_wheel","admin_eagle"];
         const avatarMediaId = Object.prototype.hasOwnProperty.call(input || {}, "avatar_media_id")
           ? (input.avatar_media_id ? cleanText(input.avatar_media_id, 64) : null)
           : (user.avatar_media_id || null);
