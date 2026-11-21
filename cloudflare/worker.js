@@ -1082,10 +1082,14 @@ export default {
         if (!allowedReactions.includes(requestedReaction)) return fail("Reacción no válida.", 400, cors);
         const post = await env.DB.prepare("SELECT id,created_at,moderated_at FROM posts WHERE id=? AND community_id=? AND status='approved' AND deleted_at IS NULL").bind(postId, user.community_id).first();
         if (!post) return fail("Publicación no encontrada.", 404, cors);
+        // Solo la cuenta propietaria conserva la bonificación especial de ❤️.
+        // Los corazones de los demás miembros siempre aportan un único like.
         await env.DB.prepare(
           `UPDATE posts
            SET reaction_score=COALESCE(reaction_score,0)+4*(
-                 SELECT COUNT(*) FROM reactions r WHERE r.post_id=posts.id AND r.reaction='like'
+                 SELECT COUNT(*) FROM reactions r
+                 JOIN profiles rp ON rp.id=r.profile_id
+                 WHERE r.post_id=posts.id AND r.reaction='like' AND rp.role='owner'
                ),
                reactions_upgraded_at=?
            WHERE id=? AND reactions_upgraded_at IS NULL
@@ -1106,13 +1110,13 @@ export default {
           await env.DB.batch([
             env.DB.prepare("UPDATE reactions SET reaction=? WHERE post_id=? AND profile_id=?")
               .bind(requestedReaction, postId, user.profile_id),
-            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 4 ELSE 0 END WHERE id=?")
-              .bind(requestedReaction, postId)
+            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?=1 AND ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 4 ELSE 0 END WHERE id=?")
+              .bind(user.role === "owner" ? 1 : 0, requestedReaction, postId)
           ]);
         } else {
           await env.DB.batch([
             env.DB.prepare("INSERT INTO reactions(post_id,profile_id,reaction,created_at) VALUES(?,?,?,?)").bind(postId, user.profile_id, requestedReaction, now()),
-            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END WHERE id=?").bind(requestedReaction, postId)
+            env.DB.prepare("UPDATE posts SET reaction_score=COALESCE(reaction_score,0)+CASE WHEN ?=1 AND ?='like' AND datetime(COALESCE(moderated_at,created_at)) <= datetime('now','-5 minutes') THEN 5 ELSE 1 END WHERE id=?").bind(user.role === "owner" ? 1 : 0, requestedReaction, postId)
           ]);
         }
         return json({ reaction: requestedReaction, removed: false, changed: !!existing }, 200, cors);
