@@ -481,7 +481,7 @@ function applyPostColor(color){
   const field=$('postText'),start=field.selectionStart,end=field.selectionEnd;
   if(start===end){$('postColorHint').textContent='Primero seleccioná una palabra o frase y después elegí el color.';return;}
   const selected=field.value.slice(start,end);
-  field.setRangeText('[color='+color+']'+selected+'[/color]',start,end,'select');
+  field.setRangeText('[color='+color+']'+selected+'[/color]',start,end,'end');
   field.focus();
   $('postColorHint').textContent='Color aplicado. Así se verá en el muro.';
   syncPublishButton();
